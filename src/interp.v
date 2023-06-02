@@ -8,6 +8,7 @@
 *)
 
 From iris.proofmode Require Export base tactics classes.
+From iris.base_logic.lib Require Export invariants.
 From language Require Export eff_lang.
 
 (** * Semantic Types. *)
