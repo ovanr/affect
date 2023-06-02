@@ -16,8 +16,8 @@ us to reason about programs written Hazel.
 Installing `coq-hazel` as a local package:
 
 1. `git clone https://gitlab.inria.fr/cambium/hazel.git`
-2. cd hazel
-3. opam install .
+2. `cd hazel`
+3. `opam install .`
 
 ## Building `affine-tes`
 
