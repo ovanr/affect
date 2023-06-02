@@ -1,3 +1,30 @@
--Q src/language               language
+-Q hazel/theories/lib               lib
+-Q hazel/theories/language          language
+-Q hazel/theories/program_logic     program_logic
+-Q hazel/theories/program_logic_ext program_logic_ext
 
 -arg -w -arg -convert_concl_no_check
+
+# Hazel library
+
+hazel/theories/lib/lib.v
+hazel/theories/language/syntax.v
+hazel/theories/language/notation.v
+hazel/theories/language/semantics.v
+hazel/theories/language/neutral_contexts.v
+hazel/theories/language/properties.v
+hazel/theories/language/iris_language.v
+hazel/theories/language/eff_lang.v
+hazel/theories/program_logic/protocols.v
+hazel/theories/program_logic/weakest_precondition.v
+hazel/theories/program_logic/basic_reasoning_rules.v
+hazel/theories/program_logic/state_reasoning.v
+hazel/theories/program_logic/shallow_handler_reasoning.v
+hazel/theories/program_logic/tactics.v
+hazel/theories/program_logic/deep_handler_reasoning.v
+hazel/theories/program_logic/reasoning_rules.v
+hazel/theories/program_logic/adequacy.v
+
+# Local files
+
+src/interp.v

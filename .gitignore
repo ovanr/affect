@@ -1,0 +1,15 @@
+*~
+*#
+*.cache
+*.vo
+*.vok
+*.vos
+*.vio
+*.v.d
+.*.aux
+*.glob
+_opam
+.coqdeps.d
+build-dep
+.coq-native/
+_build
