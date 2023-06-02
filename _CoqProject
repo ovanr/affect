@@ -1,0 +1,3 @@
+-Q src/language               language
+
+-arg -w -arg -convert_concl_no_check
