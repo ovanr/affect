@@ -1,6 +1,6 @@
-src/affine_tes/hazel_ext.vo src/affine_tes/hazel_ext.glob src/affine_tes/hazel_ext.v.beautified src/affine_tes/hazel_ext.required_vo: src/affine_tes/hazel_ext.v 
-src/affine_tes/hazel_ext.vio: src/affine_tes/hazel_ext.v 
-src/affine_tes/hazel_ext.vos src/affine_tes/hazel_ext.vok src/affine_tes/hazel_ext.required_vos: src/affine_tes/hazel_ext.v 
-src/affine_tes/interp.vo src/affine_tes/interp.glob src/affine_tes/interp.v.beautified src/affine_tes/interp.required_vo: src/affine_tes/interp.v src/affine_tes/hazel_ext.vo
-src/affine_tes/interp.vio: src/affine_tes/interp.v src/affine_tes/hazel_ext.vio
-src/affine_tes/interp.vos src/affine_tes/interp.vok src/affine_tes/interp.required_vos: src/affine_tes/interp.v src/affine_tes/hazel_ext.vos
+src/logic/subst_map.vo src/logic/subst_map.glob src/logic/subst_map.v.beautified src/logic/subst_map.required_vo: src/logic/subst_map.v 
+src/logic/subst_map.vio: src/logic/subst_map.v 
+src/logic/subst_map.vos src/logic/subst_map.vok src/logic/subst_map.required_vos: src/logic/subst_map.v 
+src/logic/interp.vo src/logic/interp.glob src/logic/interp.v.beautified src/logic/interp.required_vo: src/logic/interp.v src/logic/subst_map.vo
+src/logic/interp.vio: src/logic/interp.v src/logic/subst_map.vio
+src/logic/interp.vos src/logic/interp.vok src/logic/interp.required_vos: src/logic/interp.v src/logic/subst_map.vos

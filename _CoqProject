@@ -1,6 +1,6 @@
--Q src/affine_tes          affine_tes
+-Q src/logic          logic
 
 -arg -w -arg -convert_concl_no_check
 
-src/affine_tes/hazel_ext.v
-src/affine_tes/interp.v
+src/logic/subst_map.v
+src/logic/interp.v
