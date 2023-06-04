@@ -1,6 +1,8 @@
+-Q src/lang           lang
 -Q src/logic          logic
 
 -arg -w -arg -convert_concl_no_check
 
-src/logic/subst_map.v
+src/lang/subst_map.v
+src/lang/hazel.v
 src/logic/interp.v
