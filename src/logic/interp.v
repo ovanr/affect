@@ -86,9 +86,9 @@ Notation "⟨⟩" := sem_row_null : sem_row_scope.
 Notation "A ⇒ B" := (sem_row_eff A B) 
   (at level 100, B at level 200) : sem_row_scope.
 
-Notation "A '-{' R '}->' B" := (sem_ty_arr A%T R%R B%T)
+Notation "A '-{' R '}-∘' B" := (sem_ty_arr A%T R%R B%T)
   (at level 100, R, B at level 200) : sem_ty_scope.
-Notation "A → B" := (sem_ty_arr A%T sem_row_null B%T)
+Notation "A ⊸ B" := (sem_ty_arr A%T sem_row_null B%T)
   (at level 99, B at level 200) : sem_ty_scope.
 
 
@@ -189,7 +189,7 @@ Qed.
 Lemma sem_typed_fun `{!heapGS Σ} Γ x e τ ρ κ: 
   ~In x (ctx_dom Σ Γ) →
   (x,τ) :: Γ ⊨ e : ρ : κ →
-  Γ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-> κ).
+  Γ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-∘ κ).
 Proof.
   iIntros (HIn He vs) "HΓ //=".
   ewp_pure_steps. iIntros (w) "Hτw". ewp_pure_steps. 
@@ -201,7 +201,7 @@ Proof.
 Qed.
 
 Lemma sem_typed_app `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
-  Γ₁ ⊨ e₁ : ρ : (τ -{ ρ }-> κ) →
+  Γ₁ ⊨ e₁ : ρ : (τ -{ ρ }-∘ κ) →
   Γ₂ ⊨ e₂ : ρ : τ →
   Γ₁ ++ Γ₂ ⊨ (e₁ e₂) : ρ : κ.
 Proof.
@@ -310,8 +310,8 @@ Qed.
 Lemma sem_typed_shallow_try `{!heapGS Σ} Γ₁ Γ₂ e h r ι κ τ τ': 
   let ρ := (ι ⇒ κ)%R in
   Γ₁ ⊨ e : ρ : τ' →
-  Γ₂ ⊨ h : ⟨⟩ : (ι → (κ -{ ρ }-> τ') -{ ρ }-> τ) →
-  Γ₂ ⊨ r : ⟨⟩ : (τ' -{ ρ }-> τ) →
+  Γ₂ ⊨ h : ⟨⟩ : (ι ⊸ (κ -{ ρ }-∘ τ') -{ ρ }-∘ τ) →
+  Γ₂ ⊨ r : ⟨⟩ : (τ' -{ ρ }-∘ τ) →
   Γ₁ ++ Γ₂ ⊨ (TryWith e h r) : (ι ⇒ κ) : τ.
 Proof.
   iIntros (ρ He Hh Hr vs) "HΓ₁₂ //=".
@@ -346,8 +346,8 @@ Qed.
 Lemma sem_typed_deep_try `{!heapGS Σ} Γ₁ Γ₂ e (h : val) r ρ' ι κ τ τ': 
   let ρ := (ι ⇒ κ)%R in
   Γ₁ ⊨ e : ρ : τ →
-  ⊨ (of_val h) : ⟨⟩ : (ι → (κ -{ ρ' }-> τ') -{ ρ' }-> τ') →
-  Γ₂ ⊨ r : ⟨⟩ : (τ -{ ρ' }-> τ') →
+  ⊨ (of_val h) : ⟨⟩ : (ι ⊸ (κ -{ ρ' }-∘ τ') -{ ρ' }-∘ τ') →
+  Γ₂ ⊨ r : ⟨⟩ : (τ -{ ρ' }-∘ τ') →
   Γ₁ ++ Γ₂ ⊨ (deep-try: e with effect h | return r end) : ρ' : τ'.
 Proof.
   iIntros (ρ He Hh Hr vs) "HΓ₁₂ //=".
