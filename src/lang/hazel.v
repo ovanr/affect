@@ -1,11 +1,15 @@
+(* hazel.v *)
+
+(* This file imports the Hazel language from coq-hazel
+   and additionally defines some extensions to it such as
+   the let-pair construct and its eliminator.
+*)
 
 (* Hazel language *)
-From language Require Import eff_lang.
-From program_logic Require Import protocols weakest_precondition tactics.
+From language Require Export eff_lang.
 
 (* Local imports *)
-From lang Require Import subst_map.
-
+From lang Require Export subst_map.
 
 Definition pair_elim :=
   (λ: "x", λ: "f", "f" (Fst "x") (Snd "x"))%V.

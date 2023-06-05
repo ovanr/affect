@@ -14,25 +14,32 @@ From iris.program_logic Require Import weakestpre.
 From iris Require Import bi.
 From stdpp Require Import base stringmap fin_map_dom fin_maps.
 
-(* Hazel language *)
-From program_logic Require Import protocols weakest_precondition tactics.
+(* Hazel Reasoning *)
+From program_logic Require Import protocols 
+                                  weakest_precondition 
+                                  tactics 
+                                  shallow_handler_reasoning 
+                                  deep_handler_reasoning 
+                                  state_reasoning.
 
 (* Local imports *)
-From lang Require Import hazel subst_map.
+From lang Require Import hazel.
 
 (** * Semantic Types. *)
 
-Definition sem_ty Σ := val → iProp Σ.
+Definition sem_ty Σ := val → (iPropO Σ).
 
 Declare Scope sem_ty_scope.
 Bind Scope sem_ty_scope with sem_ty.
-Delimit Scope sem_ty_scope with sem_ty.
+Delimit Scope sem_ty_scope with T.
 
 (** * Semantic Row. *)
 
 Definition sem_row Σ := iEff Σ.
 
+Declare Scope sem_row_scope.
 Bind Scope ieff_scope with sem_row.
+Delimit Scope sem_row_scope with R.
 
 Section sem_type_interp.
 
@@ -55,8 +62,13 @@ Section sem_type_interp.
     (>> (a : val) >> ! a {{ A a }};
      << (b : val) << ? b {{ B b }} @OS).
 
+  Lemma upcl_sem_row_eff {Σ} A B v Φ :
+  iEff_car (upcl OS (sem_row_eff (Σ:=Σ) A B)) v Φ ⊣⊢
+    (∃ a, ⌜ v = a ⌝ ∗ A a ∗ (∀ b, B b -∗ Φ b))%I.
+  Proof. by rewrite /sem_row_eff (upcl_tele' [tele _] [tele _]). Qed.
+
   (* Arrow type. *)
-  Definition sem_ty_arr `{!irisGS eff_lang Σ}
+  Definition sem_ty_arr `{!heapGS Σ}
     (A : sem_ty Σ)
     (R : sem_row Σ)
     (B : sem_ty Σ) :=
@@ -69,12 +81,15 @@ Notation "()" := sem_ty_unit : sem_ty_scope.
 Notation "'𝔹'" := (sem_ty_bool) : sem_ty_scope.
 Notation "'ℤ'" := (sem_ty_int) : sem_ty_scope.
 Infix "*" := sem_ty_prod : sem_ty_scope.
-Notation "A '-{' R '}->' B" := (sem_ty_arr A R B)
-  (at level 100, R, B at level 200) : sem_ty_scope.
 
-Notation "⟨⟩" := sem_row_null : ieff_scope.
+Notation "⟨⟩" := sem_row_null : sem_row_scope.
 Notation "A ⇒ B" := (sem_row_eff A B) 
-  (at level 100, B at level 200) : ieff_scope.
+  (at level 100, B at level 200) : sem_row_scope.
+
+Notation "A '-{' R '}->' B" := (sem_ty_arr A%T R%R B%T)
+  (at level 100, R, B at level 200) : sem_ty_scope.
+Notation "A → B" := (sem_ty_arr A%T sem_row_null B%T)
+  (at level 99, B at level 200) : sem_ty_scope.
 
 
 Notation ctx Σ := (list (string * (sem_ty Σ))).
@@ -118,7 +133,7 @@ Qed.
 
 
 (* Semantic typing judgment. *)
-Definition sem_typed `{!irisGS eff_lang Σ}
+Definition sem_typed `{!heapGS Σ}
   (Γ  : ctx Σ)
   (e  : expr)
   (ρ  : sem_row Σ)
@@ -126,40 +141,55 @@ Definition sem_typed `{!irisGS eff_lang Σ}
     ∀ (vs : gmap string val),
         env_sem_typed Σ Γ vs ⊢ EWP (subst_map vs e) <| ρ |> {{ α }}.
 
-Notation "Γ ⊨ e : ρ : α" := (sem_typed Γ e ρ α)
+Notation "Γ ⊨ e : ρ : α" := (sem_typed Γ e%E ρ%R α%T)
   (at level 74, e, ρ, α at next level) : bi_scope.
 
-Notation "⊨ e : ρ : α" := (sem_typed [] e ρ α)
+Notation "⊨ e : ρ : α" := (sem_typed [] e%E ρ%R α%T)
   (at level 74, e, ρ, α at next level) : bi_scope.
 
 Open Scope bi_scope.
+Open Scope ieff_scope.
 
 (* Semantic typing rules. *)
 
 (* Base rules *)
 
-Lemma sem_typed_unit `{!irisGS eff_lang Σ} Γ ρ : 
+Lemma sem_typed_unit `{!heapGS Σ} Γ ρ : 
   Γ ⊨ #() : ρ : ().
 Proof.
   iIntros (vs) "HΓ //=". by iApply ewp_value.
 Qed.
 
-Lemma sem_typed_bool `{!irisGS eff_lang Σ} Γ ρ (b : bool) : 
+Lemma sem_typed_bool `{!heapGS Σ} Γ ρ (b : bool) : 
   Γ ⊨ #b : ρ : 𝔹.
 Proof.
   iIntros (vs) "HΓ //=". iApply ewp_value. by iExists b.
 Qed.
 
-Lemma sem_typed_int `{!irisGS eff_lang Σ} Γ ρ (i : Z) : 
+Lemma sem_typed_int `{!heapGS Σ} Γ ρ (i : Z) : 
   Γ ⊨ #i : ρ : ℤ.
 Proof.
   iIntros (vs) "HΓ //=". iApply ewp_value. by iExists i.
 Qed.
 
-Lemma sem_typed_fun `{!irisGS eff_lang Σ} Γ x e τ ρ κ: 
+(* Monotonicity rule *)
+
+Lemma sem_typed_mono `{!heapGS Σ} Γ e τ ρ: 
+  Γ ⊨ e: ⟨⟩ : τ →
+  Γ ⊨ e: ρ : τ.
+Proof.
+  iIntros (He vs) "HΓ //=".
+  iApply ewp_os_prot_mono.
+  { iApply iEff_le_bottom. }
+  by iApply He.
+Qed.
+
+(* λ-calculus rules *)
+
+Lemma sem_typed_fun `{!heapGS Σ} Γ x e τ ρ κ: 
   ~In x (ctx_dom Σ Γ) →
   (x,τ) :: Γ ⊨ e : ρ : κ →
-  Γ ⊨ (λ: x, e)%E : ⟨⟩ : (τ -{ ρ }-> κ).
+  Γ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-> κ).
 Proof.
   iIntros (HIn He vs) "HΓ //=".
   ewp_pure_steps. iIntros (w) "Hτw". ewp_pure_steps. 
@@ -170,10 +200,10 @@ Proof.
   - by iApply env_sem_typed_insert.
 Qed.
 
-Lemma sem_typed_app `{!irisGS eff_lang Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
+Lemma sem_typed_app `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
   Γ₁ ⊨ e₁ : ρ : (τ -{ ρ }-> κ) →
   Γ₂ ⊨ e₂ : ρ : τ →
-  Γ₁ ++ Γ₂ ⊨ (e₁ e₂)%E : ρ : κ.
+  Γ₁ ++ Γ₂ ⊨ (e₁ e₂) : ρ : κ.
 Proof.
   iIntros (He₁ He₂ vs) "HΓ₁₂ //=".
   rewrite env_sem_typed_app.
@@ -188,10 +218,10 @@ Proof.
   iIntros (w) "Hτκw //=". iModIntro; by iApply "Hτκw". 
 Qed.
 
-Lemma sem_typed_pair `{!irisGS eff_lang Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
+Lemma sem_typed_pair `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
   Γ₁ ⊨ e₁ : ρ : τ →
   Γ₂ ⊨ e₂ : ρ : κ →
-  Γ₁ ++ Γ₂ ⊨ (e₁,e₂)%E : ρ : τ * κ.
+  Γ₁ ++ Γ₂ ⊨ (e₁,e₂) : ρ : τ * κ.
 Proof.
   iIntros (He₁ He₂ vs) "HΓ₁₂ //=".
   rewrite env_sem_typed_app.
@@ -207,13 +237,13 @@ Proof.
   iExists w, v. iFrame. by iPureIntro.
 Qed.
 
-Lemma sem_typed_pair_elim `{!irisGS eff_lang Σ} Γ₁ Γ₂ x₁ x₂ e₁ e₂ τ ρ κ ι: 
+Lemma sem_typed_pair_elim `{!heapGS Σ} Γ₁ Γ₂ x₁ x₂ e₁ e₂ τ ρ κ ι: 
   ~In x₁ (ctx_dom Σ Γ₂) ->
   ~In x₂ (ctx_dom Σ Γ₂) ->
   x₁ ≠ x₂ ->
   Γ₁ ⊨ e₁ : ρ : (τ * κ) →
   (x₁, τ) :: (x₂, κ) :: Γ₂ ⊨ e₂ : ρ : ι →
-  Γ₁ ++ Γ₂ ⊨ (let: (x₁, x₂) := e₁ in e₂)%E : ρ : ι.
+  Γ₁ ++ Γ₂ ⊨ (let: (x₁, x₂) := e₁ in e₂) : ρ : ι.
 Proof.
   iIntros (HIn₁ HIn₂ Hnex₁₂ He₁ He₂ vs) "HΓ₁₂ //=".
   rewrite env_sem_typed_app.
@@ -221,8 +251,7 @@ Proof.
   ewp_pure_steps.
   set ex1x2 := (λ: x₁ x₂, subst_map (binder_delete x₂ 
                                     (binder_delete x₁ vs)) e₂)%V. 
-  iApply (ewp_bind ([AppLCtx ex1x2])); first done.
-  iApply (ewp_bind ([AppRCtx pair_elim])); first done.
+  iApply (ewp_bind ([AppLCtx ex1x2; AppRCtx pair_elim])); first done.
   iApply (ewp_mono with "[HΓ₁]").
   { by iApply He₁. }
   iIntros (v) "Hτκv". iModIntro. simpl in *. 
@@ -243,16 +272,17 @@ Proof.
   by repeat (iApply env_sem_typed_insert; first done).
 Qed.
 
-Lemma sem_typed_if `{!irisGS eff_lang Σ} Γ₁ Γ₂ e₁ e₂ e₃ ρ τ: 
+Lemma sem_typed_if `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ e₃ ρ τ: 
   Γ₁ ⊨ e₁ : ρ : 𝔹 →
   Γ₂ ⊨ e₂ : ρ : τ →
   Γ₂ ⊨ e₃ : ρ : τ →
-  Γ₁ ++ Γ₂ ⊨ (if: e₁ then e₂ else e₃)%E : ρ : τ.
+  Γ₁ ++ Γ₂ ⊨ (if: e₁ then e₂ else e₃) : ρ : τ.
 Proof.
   iIntros (He₁ He₂ He₃ vs) "HΓ₁₂ //=".
   rewrite env_sem_typed_app.
   iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
-  iApply (ewp_bind ([IfCtx (subst_map vs e₂) (subst_map vs e₃)])); first done.
+  iApply (ewp_bind [IfCtx (subst_map vs e₂) (subst_map vs e₃)])
+    ;first done.
   iApply (ewp_mono with "[HΓ₁]").
   { by iApply He₁. }
   iIntros (v) "(%b & ->)". iModIntro. simpl.
@@ -261,3 +291,97 @@ Proof.
   - by iApply He₃.
 Qed.
 
+(* Effect handling rules *)
+
+Lemma sem_typed_do `{!heapGS Σ} Γ e ι κ: 
+  Γ ⊨ e : (ι ⇒ κ) : ι →
+  Γ ⊨ (do: e) : (ι ⇒ κ) : κ.
+Proof.
+  iIntros (He vs) "HΓ //=". 
+  iApply (ewp_bind [DoCtx OS]); first done.
+  iApply (ewp_mono with "[HΓ]").
+  { by iApply He. }
+  iIntros (v) "Hι". iModIntro. simpl.
+  iApply ewp_do_os. rewrite upcl_sem_row_eff.
+  iExists v. eauto with iFrame.
+Qed.
+
+
+Lemma sem_typed_shallow_try `{!heapGS Σ} Γ₁ Γ₂ e h r ι κ τ τ': 
+  let ρ := (ι ⇒ κ)%R in
+  Γ₁ ⊨ e : ρ : τ' →
+  Γ₂ ⊨ h : ⟨⟩ : (ι → ((κ -{ ρ }-> τ') -{ ρ }-> τ)) →
+  Γ₂ ⊨ r : ⟨⟩ : (τ' -{ ρ }-> τ) →
+  Γ₁ ++ Γ₂ ⊨ (TryWith e h r) : (ι ⇒ κ) : τ.
+Proof.
+  iIntros (ρ He Hh Hr vs) "HΓ₁₂ //=".
+  rewrite !env_sem_typed_app.
+  iDestruct "HΓ₁₂" as "(HΓ₁ & HΓ₂)". ewp_pure_steps.
+  iApply (ewp_try_with with "[HΓ₁] [HΓ₂]").
+  { by iApply He. }
+  iSplit; [|iSplit; iIntros (v k)];
+  last (iIntros "HFalse"; by rewrite upcl_bottom).
+  - iIntros (v) "Hv //=".
+    iApply (ewp_bind [AppLCtx v]); first done.
+    iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|]. 
+    iApply (ewp_mono with "[HΓ₂]"); [by iApply Hr|].
+    iIntros (w) "Hw". iModIntro. simpl.
+    by iApply "Hw".
+  - rewrite upcl_sem_row_eff.
+    iIntros "(%a & -> & Ha & Hκb)".
+    iApply (ewp_bind [AppLCtx k; AppLCtx a]); first done.
+    iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|]. 
+    iApply (ewp_mono with "[HΓ₂]").
+    { by iApply Hh. }
+    iIntros (h') "Hh'". iModIntro. simpl. 
+    iApply (ewp_bind [AppLCtx k]); first done. 
+    iApply (ewp_mono with "[Hh' Ha]").
+    { iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|].
+      by iApply "Hh'". }
+    iIntros (ha) "Hha". iModIntro. simpl.
+    iApply "Hha". iIntros (w) "Hw".
+    by iApply "Hκb".
+Qed.
+
+Lemma sem_typed_deep_try `{!heapGS Σ} Γ₁ Γ₂ e (h : val) r ρ' ι κ τ τ': 
+  let ρ := (ι ⇒ κ)%R in
+  Γ₁ ⊨ e : ρ : τ →
+  ⊨ (of_val h) : ⟨⟩ : (ι → ((κ -{ ρ' }-> τ') -{ ρ' }-> τ')) →
+  Γ₂ ⊨ r : ⟨⟩ : (τ -{ ρ' }-> τ') →
+  Γ₁ ++ Γ₂ ⊨ (deep-try: e with effect h | return r end) : ρ' : τ'.
+Proof.
+  iIntros (ρ He Hh Hr vs) "HΓ₁₂ //=".
+  rewrite env_sem_typed_app.
+  iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]". ewp_pure_steps.
+  set rctx := AppRCtx (deep_try_with (λ: <>, subst_map vs e)%E (subst_map vs h))%E.
+  iApply (ewp_bind [rctx]); first done.
+  iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|].
+  iApply (ewp_mono with "[HΓ₂]").
+  { by iApply Hr. }
+  iIntros (r') "Hr'". iModIntro. simpl.
+  ewp_pure_steps.
+  iApply (ewp_deep_try_with with "[HΓ₁]").
+  { by iApply He. }
+  iLöb as "IH".
+  rewrite !deep_handler_unfold.
+  iSplit; [|iSplit; iIntros (v k)];
+  last (iIntros "HFalse"; by rewrite upcl_bottom).
+  - iIntros (v) "Hv //=".
+    by iApply "Hr'".
+  - rewrite upcl_sem_row_eff.
+    iIntros "(%a & -> & Ha & Hκb)".
+    iApply (ewp_bind [AppLCtx k; AppLCtx a]); first done. 
+    iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|]. 
+    simpl. iApply ewp_mono.
+    { iApply Hh. iApply (env_sem_typed_empty _ empty). }
+    iIntros (h') "Hh'". iModIntro. simpl.
+    iApply (ewp_bind [AppLCtx k]); first done. simpl.
+    iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|]. 
+    iApply (ewp_mono with "[Hh' Ha]").
+    { by iApply "Hh'". }
+    iIntros (h'a) "Hh'a". iModIntro. simpl.
+    iApply "Hh'a". iIntros (w) "Hw".
+    iApply ("Hκb" with "Hw"). iNext.
+    rewrite !deep_handler_unfold. 
+    iApply ("IH" with "Hr'").
+  Qed.
