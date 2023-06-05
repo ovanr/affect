@@ -343,6 +343,53 @@ Proof.
     by iApply "Hκb".
 Qed.
 
+(* 
+∙ Why does the handler branch of a deep-try handler need to be a value?
+  Because even though it is typed inside an empty context, we might produce
+  a non-persistent resource (a continuation) while evaluting the closed expression.
+  A counter-example where the handler is an expression and it eventually 
+  leads to a continuation being called twice (so an unsafe expression) follows:
+
+   deep-try (do #();; do #()) with
+     effect (
+       shallow-try do #() with 
+         effect (λ: _ k', λ v k, k' #();; k #())
+         return (λ: _, λ v k, #())
+       end
+     )
+     return (λ v, v) 
+   end
+  ⇝
+   deep-try (do #();; do #()) with
+     effect (
+       shallow-try eff #() ∙ with 
+         effect (λ: () k', λ v k, k' #();; k #())
+         return (λ: _, λ v k, #())
+       end
+     )
+     return (λ v, v) 
+   end
+  ⇝ 
+   deep-try (do #();; do #()) with
+     effect (
+         λ v k, (cont l ∙) #() ;; k #()
+     )
+     return id 
+   end / l ↦ #false
+  ⇝ 
+   deep-try (eff #() (∙ ;; do #())) with
+     effect (
+         λ v k, (cont l ∙) #() ;; k #()
+     )
+     return (λ v, v) 
+   end / l ↦ #false
+  ⇝ 
+   (cont l ∙) #() ;; 
+   deep-try (#() ;; do #()) with
+      effect (λ v k, (cont l ∙) #() ;; k #())
+      return (λ v, v) 
+   end / l ↦ #false
+ *)
 Lemma sem_typed_deep_try `{!heapGS Σ} Γ₁ Γ₂ e (h : val) r ρ' ι κ τ τ': 
   let ρ := (ι ⇒ κ)%R in
   Γ₁ ⊨ e : ρ : τ →
