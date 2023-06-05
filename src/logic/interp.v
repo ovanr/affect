@@ -172,9 +172,9 @@ Proof.
   iIntros (vs) "HΓ //=". iApply ewp_value. by iExists i.
 Qed.
 
-(* Monotonicity rule *)
+(* Subsumption rule *)
 
-Lemma sem_typed_mono `{!heapGS Σ} Γ e τ ρ: 
+Lemma sem_typed_sub `{!heapGS Σ} Γ e τ ρ: 
   Γ ⊨ e: ⟨⟩ : τ →
   Γ ⊨ e: ρ : τ.
 Proof.
@@ -346,7 +346,7 @@ Qed.
 (* 
 ∙ Why does the handler branch of a deep-try handler need to be a value?
   Because even though it is typed inside an empty context, we might produce
-  a non-persistent resource (a continuation) while evaluting the closed expression.
+   a non-persistent resource (a continuation) while evaluating the closed expression.
   A counter-example where the handler is an expression and it eventually 
   leads to a continuation being called twice (so an unsafe expression) follows:
 
