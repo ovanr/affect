@@ -310,7 +310,7 @@ Qed.
 Lemma sem_typed_shallow_try `{!heapGS Σ} Γ₁ Γ₂ e h r ι κ τ τ': 
   let ρ := (ι ⇒ κ)%R in
   Γ₁ ⊨ e : ρ : τ' →
-  Γ₂ ⊨ h : ⟨⟩ : (ι → ((κ -{ ρ }-> τ') -{ ρ }-> τ)) →
+  Γ₂ ⊨ h : ⟨⟩ : (ι → (κ -{ ρ }-> τ') -{ ρ }-> τ) →
   Γ₂ ⊨ r : ⟨⟩ : (τ' -{ ρ }-> τ) →
   Γ₁ ++ Γ₂ ⊨ (TryWith e h r) : (ι ⇒ κ) : τ.
 Proof.
@@ -346,7 +346,7 @@ Qed.
 Lemma sem_typed_deep_try `{!heapGS Σ} Γ₁ Γ₂ e (h : val) r ρ' ι κ τ τ': 
   let ρ := (ι ⇒ κ)%R in
   Γ₁ ⊨ e : ρ : τ →
-  ⊨ (of_val h) : ⟨⟩ : (ι → ((κ -{ ρ' }-> τ') -{ ρ' }-> τ')) →
+  ⊨ (of_val h) : ⟨⟩ : (ι → (κ -{ ρ' }-> τ') -{ ρ' }-> τ') →
   Γ₂ ⊨ r : ⟨⟩ : (τ -{ ρ' }-> τ') →
   Γ₁ ++ Γ₂ ⊨ (deep-try: e with effect h | return r end) : ρ' : τ'.
 Proof.
