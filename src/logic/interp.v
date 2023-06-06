@@ -41,40 +41,34 @@ Declare Scope sem_row_scope.
 Bind Scope ieff_scope with sem_row.
 Delimit Scope sem_row_scope with R.
 
-Section sem_type_interp.
+(* Base types. *)
+Definition sem_ty_unit {Σ} : sem_ty Σ := (λ v, ⌜ v = #() ⌝)%I.
+Definition sem_ty_bool {Σ} : sem_ty Σ := (λ v, ∃ b : bool, ⌜ v = #b ⌝)%I.
+Definition sem_ty_int {Σ} : sem_ty Σ := (λ v, ∃ n : Z, ⌜ v = #n ⌝)%I.
 
-  (* Base types. *)
-  Definition sem_ty_unit {Σ} : sem_ty Σ := (λ v, ⌜ v = #() ⌝)%I.
+(* Product type. *)
+Definition sem_ty_prod {Σ} (A1 A2 : sem_ty Σ) : sem_ty Σ := 
+  (λ v, ∃ v1 v2, ⌜v = (v1, v2)%V⌝ ∗ A1 v1 ∗ A2 v2)%I.
 
-  Definition sem_ty_bool {Σ} : sem_ty Σ := (λ v, ∃ b : bool, ⌜ v = #b ⌝)%I.
+(* Empty Effect Row. *)
+Definition sem_row_null {Σ} : (sem_row Σ) := iEff_bottom.
 
-  Definition sem_ty_int {Σ} : sem_ty Σ := (λ v, ∃ n : Z, ⌜ v = #n ⌝)%I.
+(* Effect Row. *)
+Definition sem_row_eff {Σ} (A B : sem_ty Σ) : (sem_row Σ) :=
+  (>> (a : val) >> ! a {{ A a }};
+   << (b : val) << ? b {{ B b }} @OS).
 
-  (* Product type. *)
-  Definition sem_ty_prod {Σ} (A1 A2 : sem_ty Σ) : sem_ty Σ := 
-    (λ v, ∃ v1 v2, ⌜v = (v1, v2)%V⌝ ∗ A1 v1 ∗ A2 v2)%I.
-
-  (* Empty Effect Row. *)
-  Definition sem_row_null {Σ} : (sem_row Σ) := iEff_bottom.
-
-  (* Effect Row. *)
-  Definition sem_row_eff {Σ} (A B : sem_ty Σ) : (sem_row Σ) :=
-    (>> (a : val) >> ! a {{ A a }};
-     << (b : val) << ? b {{ B b }} @OS).
-
-  Lemma upcl_sem_row_eff {Σ} A B v Φ :
+Lemma upcl_sem_row_eff {Σ} A B v Φ :
   iEff_car (upcl OS (sem_row_eff (Σ:=Σ) A B)) v Φ ⊣⊢
     (∃ a, ⌜ v = a ⌝ ∗ A a ∗ (∀ b, B b -∗ Φ b))%I.
-  Proof. by rewrite /sem_row_eff (upcl_tele' [tele _] [tele _]). Qed.
+Proof. by rewrite /sem_row_eff (upcl_tele' [tele _] [tele _]). Qed.
 
-  (* Arrow type. *)
-  Definition sem_ty_arr `{!heapGS Σ}
-    (A : sem_ty Σ)
-    (R : sem_row Σ)
-    (B : sem_ty Σ) :=
-    (λ (v : val), ∀ (w : val), A w -∗ EWP (v w) <| R |> {{ B }})%I.
-
-End sem_type_interp.
+(* Arrow type. *)
+Definition sem_ty_arr `{!heapGS Σ}
+  (A : sem_ty Σ)
+  (R : sem_row Σ)
+  (B : sem_ty Σ) :=
+  (λ (v : val), ∀ (w : val), A w -∗ EWP (v w) <| R |> {{ B }})%I.
 
 (* Notations. *)
 Notation "()" := sem_ty_unit : sem_ty_scope.
@@ -92,25 +86,26 @@ Notation "A ⊸ B" := (sem_ty_arr A%T sem_row_null B%T)
   (at level 99, B at level 200) : sem_ty_scope.
 
 
+(** The Type Context *)
 Notation ctx Σ := (list (string * (sem_ty Σ))).
 
 (** The domain of the context. *)
 Definition ctx_dom Σ : ctx Σ -> list string := map fst.
 
-Fixpoint env_sem_typed Σ (Γ : ctx Σ)
-                          (vs : gmap string val) : iProp Σ :=
+Fixpoint ctx_sem_typed Σ (Γ : ctx Σ)
+                         (vs : gmap string val) : iProp Σ :=
   match Γ with
     | [] => True
     | (x,A) :: Γ' => (∃ v, ⌜ vs !! x = Some v ⌝ ∗ A v) ∗ 
-                          env_sem_typed Σ Γ' vs
+                     ctx_sem_typed Σ Γ' vs
   end.
 
-Lemma env_sem_typed_empty Σ vs : ⊢ env_sem_typed Σ [] vs.
+Lemma ctx_sem_typed_empty Σ vs : ⊢ ctx_sem_typed Σ [] vs.
 Proof. done. Qed.
 
-Lemma env_sem_typed_insert Σ Γ vs x v :
+Lemma ctx_sem_typed_insert Σ Γ vs x v :
   ~In x (ctx_dom Σ Γ) →
-  env_sem_typed Σ Γ vs ⊢ env_sem_typed Σ Γ (binder_insert x v vs).
+  ctx_sem_typed Σ Γ vs ⊢ ctx_sem_typed Σ Γ (binder_insert x v vs).
 Proof.
   iIntros (HIn) "Henv".
   iInduction Γ as [|[y A] Γ'] "IH"; first done. simpl in *.
@@ -122,9 +117,9 @@ Proof.
   - iApply "IH"; last done. iPureIntro. tauto.
 Qed.
 
-Lemma env_sem_typed_app Σ Γ₁ Γ₂ vs :
-  env_sem_typed Σ (Γ₁ ++ Γ₂) vs ⊢ 
-  (env_sem_typed Σ Γ₁ vs ∗ env_sem_typed Σ Γ₂ vs)%I.
+Lemma ctx_sem_typed_app Σ Γ₁ Γ₂ vs :
+  ctx_sem_typed Σ (Γ₁ ++ Γ₂) vs ⊢ 
+  ctx_sem_typed Σ Γ₁ vs ∗ ctx_sem_typed Σ Γ₂ vs.
 Proof. 
   iIntros "HΓ₁₂". iInduction Γ₁ as [|[y A] Γ₁'] "IH"; first (by iFrame).
   simpl in *. 
@@ -139,7 +134,7 @@ Definition sem_typed `{!heapGS Σ}
   (ρ  : sem_row Σ)
   (α  : sem_ty Σ) : Prop :=
     ∀ (vs : gmap string val),
-        env_sem_typed Σ Γ vs ⊢ EWP (subst_map vs e) <| ρ |> {{ α }}.
+        ctx_sem_typed Σ Γ vs ⊢ EWP (subst_map vs e) <| ρ |> {{ α }}.
 
 Notation "Γ ⊨ e : ρ : α" := (sem_typed Γ e%E ρ%R α%T)
   (at level 74, e, ρ, α at next level) : bi_scope.
@@ -197,7 +192,7 @@ Proof.
   iApply He. simpl in *. iSplitL "Hτw".
   - iExists w. iFrame. iPureIntro.
     by rewrite lookup_insert.
-  - by iApply env_sem_typed_insert.
+  - by iApply ctx_sem_typed_insert.
 Qed.
 
 Lemma sem_typed_app `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
@@ -206,7 +201,7 @@ Lemma sem_typed_app `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ:
   Γ₁ ++ Γ₂ ⊨ (e₁ e₂) : ρ : κ.
 Proof.
   iIntros (He₁ He₂ vs) "HΓ₁₂ //=".
-  rewrite env_sem_typed_app.
+  rewrite ctx_sem_typed_app.
   iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
   iApply (ewp_bind ([AppRCtx (subst_map vs e₁)])); first done.
   iApply (ewp_mono with "[HΓ₂]").
@@ -224,7 +219,7 @@ Lemma sem_typed_pair `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ:
   Γ₁ ++ Γ₂ ⊨ (e₁,e₂) : ρ : τ * κ.
 Proof.
   iIntros (He₁ He₂ vs) "HΓ₁₂ //=".
-  rewrite env_sem_typed_app.
+  rewrite ctx_sem_typed_app.
   iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
   iApply (ewp_bind ([PairRCtx (subst_map vs e₁)])); first done.
   iApply (ewp_mono with "[HΓ₂]").
@@ -246,7 +241,7 @@ Lemma sem_typed_pair_elim `{!heapGS Σ} Γ₁ Γ₂ x₁ x₂ e₁ e₂ τ ρ κ
   Γ₁ ++ Γ₂ ⊨ (let: (x₁, x₂) := e₁ in e₂) : ρ : ι.
 Proof.
   iIntros (HIn₁ HIn₂ Hnex₁₂ He₁ He₂ vs) "HΓ₁₂ //=".
-  rewrite env_sem_typed_app.
+  rewrite ctx_sem_typed_app.
   iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
   ewp_pure_steps.
   set ex1x2 := (λ: x₁ x₂, subst_map (binder_delete x₂ 
@@ -269,7 +264,7 @@ Proof.
   iSplitL "Hκ".
   { iExists v₂. iFrame. iPureIntro. 
     by rewrite lookup_insert. }
-  by repeat (iApply env_sem_typed_insert; first done).
+  by repeat (iApply ctx_sem_typed_insert; first done).
 Qed.
 
 Lemma sem_typed_if `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ e₃ ρ τ: 
@@ -279,7 +274,7 @@ Lemma sem_typed_if `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ e₃ ρ τ:
   Γ₁ ++ Γ₂ ⊨ (if: e₁ then e₂ else e₃) : ρ : τ.
 Proof.
   iIntros (He₁ He₂ He₃ vs) "HΓ₁₂ //=".
-  rewrite env_sem_typed_app.
+  rewrite ctx_sem_typed_app.
   iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
   iApply (ewp_bind [IfCtx (subst_map vs e₂) (subst_map vs e₃)])
     ;first done.
@@ -315,7 +310,7 @@ Lemma sem_typed_shallow_try `{!heapGS Σ} Γ₁ Γ₂ e h r ι κ τ τ':
   Γ₁ ++ Γ₂ ⊨ (TryWith e h r) : (ι ⇒ κ) : τ.
 Proof.
   iIntros (ρ He Hh Hr vs) "HΓ₁₂ //=".
-  rewrite !env_sem_typed_app.
+  rewrite !ctx_sem_typed_app.
   iDestruct "HΓ₁₂" as "(HΓ₁ & HΓ₂)". ewp_pure_steps.
   iApply (ewp_try_with with "[HΓ₁] [HΓ₂]").
   { by iApply He. }
@@ -398,7 +393,7 @@ Lemma sem_typed_deep_try `{!heapGS Σ} Γ₁ Γ₂ e (h : val) r ρ' ι κ τ τ
   Γ₁ ++ Γ₂ ⊨ (deep-try: e with effect h | return r end) : ρ' : τ'.
 Proof.
   iIntros (ρ He Hh Hr vs) "HΓ₁₂ //=".
-  rewrite env_sem_typed_app.
+  rewrite ctx_sem_typed_app.
   iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]". ewp_pure_steps.
   set rctx := AppRCtx (deep_try_with (λ: <>, subst_map vs e)%E (subst_map vs h))%E.
   iApply (ewp_bind [rctx]); first done.
@@ -420,7 +415,7 @@ Proof.
     iApply (ewp_bind [AppLCtx k; AppLCtx a]); first done. 
     iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|]. 
     simpl. iApply ewp_mono.
-    { iApply Hh. iApply (env_sem_typed_empty _ empty). }
+    { iApply Hh. iApply (ctx_sem_typed_empty _ empty). }
     iIntros (h') "Hh'". iModIntro. simpl.
     iApply (ewp_bind [AppLCtx k]); first done. simpl.
     iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|]. 
