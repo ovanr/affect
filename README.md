@@ -1,6 +1,6 @@
 # Affine TES
 
-Description of the language can be found at [formalisation.pdf][def]
+Description of the language can be found at [paper formalisation][def]
 
 # Installation
 
@@ -9,7 +9,7 @@ Description of the language can be found at [formalisation.pdf][def]
 This project depends on `coq-hazel`, 
 a language with effects and effect handlers,
 together with its embedding in `iris` that allows 
-us to reason about programs written Hazel.
+us to reason about programs written in Hazel.
 
 
 ### Installing `coq-hazel`
