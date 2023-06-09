@@ -23,11 +23,11 @@ From program_logic Require Import protocols
                                   state_reasoning.
 
 (* Local imports *)
-From lang Require Import hazel.
+From affine_tes.lang Require Import hazel.
 
 (** * Semantic Types. *)
 
-Definition sem_ty Σ := val → (iPropO Σ).
+Definition sem_ty Σ := val → (iProp Σ).
 
 Declare Scope sem_ty_scope.
 Bind Scope sem_ty_scope with sem_ty.
@@ -86,7 +86,32 @@ Notation "A ⊸ B" := (sem_ty_arr A%T sem_row_null B%T)
   (at level 99, B at level 200) : sem_ty_scope.
 
 
-(** The Type Context *)
+(** The Type Context
+
+The type context is represented as a list.
+Due to the requirement that a type context Γ is ctx_sem_typed,
+we can utilize the seperation logic's disjointness to argue about
+variables occuring twice in the context.
+
+Thus if we have a `ctx_sem_typed Γ vs` assumption and
+the same variable occurs twice in Γ we get that:
+
+∙ They cannot be of the same non-persistent type (e.g. ref nat):
+  So if we have `ctx_typed (l : ref nat; l : ref nat) vs`,  
+  since the variables l are the same, we would have
+  that l, v ∈ vs, and that ⟦ ref nat ⟧ v ∗ ⟦ ref nat ⟧ v
+  But that means we would need to provide that l ↦ w ∗ l ↦ w
+  which would be impossible.
+
+∙ If they have the same type which is a persistent type (e.g. nat):
+  Then it is fine, in fact it must be allowed to allow for Copy types
+
+∙ If they don't have the same type:
+  Then `vs` would still have only 1 value for the variable `l` so
+  it would be impossible to provide ctx_typed proof.
+
+*) 
+
 Notation ctx Σ := (list (string * (sem_ty Σ))).
 
 (** The domain of the context. *)
@@ -103,18 +128,19 @@ Fixpoint ctx_sem_typed Σ (Γ : ctx Σ)
 Lemma ctx_sem_typed_empty Σ vs : ⊢ ctx_sem_typed Σ [] vs.
 Proof. done. Qed.
 
-Lemma ctx_sem_typed_insert Σ Γ vs x v :
-  ~In x (ctx_dom Σ Γ) →
+Lemma ctx_sem_typed_insert Σ Γ vs (x : string) v :
+  x ∉ (ctx_dom Σ Γ) →
   ctx_sem_typed Σ Γ vs ⊢ ctx_sem_typed Σ Γ (binder_insert x v vs).
 Proof.
-  iIntros (HIn) "Henv".
+  iIntros (Helem) "Henv".
   iInduction Γ as [|[y A] Γ'] "IH"; first done. simpl in *.
   iDestruct "Henv" as "((%w & %Hvs & HAw) & HΓ')". iSplitL "HAw".
   - iExists w. iFrame. iPureIntro.
     destruct (decide (y = x)) as [->|]. 
-    { destruct HIn. auto. }
+    { destruct Helem. by apply elem_of_list_here. }
     by rewrite lookup_insert_ne.
-  - iApply "IH"; last done. iPureIntro. tauto.
+  - iApply "IH"; last done. iPureIntro. 
+    destruct (not_elem_of_cons (ctx_dom Σ Γ') x y) as [[ ] _]; done.
 Qed.
 
 Lemma ctx_sem_typed_app Σ Γ₁ Γ₂ vs :
@@ -127,8 +153,12 @@ Proof.
 Qed.
 
 
+Section semantic_typing_rules.
+
+Context `{!heapGS Σ}.
+
 (* Semantic typing judgment. *)
-Definition sem_typed `{!heapGS Σ}
+Definition sem_typed 
   (Γ  : ctx Σ)
   (e  : expr)
   (ρ  : sem_row Σ)
@@ -149,19 +179,19 @@ Open Scope ieff_scope.
 
 (* Base rules *)
 
-Lemma sem_typed_unit `{!heapGS Σ} Γ ρ : 
+Lemma sem_typed_unit Γ ρ : 
   Γ ⊨ #() : ρ : ().
 Proof.
   iIntros (vs) "HΓ //=". by iApply ewp_value.
 Qed.
 
-Lemma sem_typed_bool `{!heapGS Σ} Γ ρ (b : bool) : 
+Lemma sem_typed_bool Γ ρ (b : bool) : 
   Γ ⊨ #b : ρ : 𝔹.
 Proof.
   iIntros (vs) "HΓ //=". iApply ewp_value. by iExists b.
 Qed.
 
-Lemma sem_typed_int `{!heapGS Σ} Γ ρ (i : Z) : 
+Lemma sem_typed_int Γ ρ (i : Z) : 
   Γ ⊨ #i : ρ : ℤ.
 Proof.
   iIntros (vs) "HΓ //=". iApply ewp_value. by iExists i.
@@ -169,7 +199,7 @@ Qed.
 
 (* Subsumption rule *)
 
-Lemma sem_typed_sub `{!heapGS Σ} Γ e τ ρ: 
+Lemma sem_typed_sub Γ e τ ρ: 
   Γ ⊨ e: ⟨⟩ : τ →
   Γ ⊨ e: ρ : τ.
 Proof.
@@ -181,12 +211,12 @@ Qed.
 
 (* λ-calculus rules *)
 
-Lemma sem_typed_fun `{!heapGS Σ} Γ x e τ ρ κ: 
-  ~In x (ctx_dom Σ Γ) →
+Lemma sem_typed_fun Γ x e τ ρ κ: 
+  x ∉ (ctx_dom Σ Γ) →
   (x,τ) :: Γ ⊨ e : ρ : κ →
   Γ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-∘ κ).
 Proof.
-  iIntros (HIn He vs) "HΓ //=".
+  iIntros (Helem He vs) "HΓ //=".
   ewp_pure_steps. iIntros (w) "Hτw". ewp_pure_steps. 
   rewrite <- subst_map_insert.
   iApply He. simpl in *. iSplitL "Hτw".
@@ -195,7 +225,7 @@ Proof.
   - by iApply ctx_sem_typed_insert.
 Qed.
 
-Lemma sem_typed_app `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
+Lemma sem_typed_app Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
   Γ₁ ⊨ e₁ : ρ : (τ -{ ρ }-∘ κ) →
   Γ₂ ⊨ e₂ : ρ : τ →
   Γ₁ ++ Γ₂ ⊨ (e₁ e₂) : ρ : κ.
@@ -213,7 +243,7 @@ Proof.
   iIntros (w) "Hτκw //=". iModIntro; by iApply "Hτκw". 
 Qed.
 
-Lemma sem_typed_pair `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
+Lemma sem_typed_pair Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
   Γ₁ ⊨ e₁ : ρ : τ →
   Γ₂ ⊨ e₂ : ρ : κ →
   Γ₁ ++ Γ₂ ⊨ (e₁,e₂) : ρ : τ * κ.
@@ -232,15 +262,15 @@ Proof.
   iExists w, v. iFrame. by iPureIntro.
 Qed.
 
-Lemma sem_typed_pair_elim `{!heapGS Σ} Γ₁ Γ₂ x₁ x₂ e₁ e₂ τ ρ κ ι: 
-  ~In x₁ (ctx_dom Σ Γ₂) ->
-  ~In x₂ (ctx_dom Σ Γ₂) ->
+Lemma sem_typed_pair_elim Γ₁ Γ₂ x₁ x₂ e₁ e₂ τ ρ κ ι: 
+  x₁ ∉ (ctx_dom Σ Γ₂) ->
+  x₂ ∉ (ctx_dom Σ Γ₂) ->
   x₁ ≠ x₂ ->
   Γ₁ ⊨ e₁ : ρ : (τ * κ) →
   (x₁, τ) :: (x₂, κ) :: Γ₂ ⊨ e₂ : ρ : ι →
   Γ₁ ++ Γ₂ ⊨ (let: (x₁, x₂) := e₁ in e₂) : ρ : ι.
 Proof.
-  iIntros (HIn₁ HIn₂ Hnex₁₂ He₁ He₂ vs) "HΓ₁₂ //=".
+  iIntros (Helem₁ Helem₂ Hnex₁₂ He₁ He₂ vs) "HΓ₁₂ //=".
   rewrite ctx_sem_typed_app.
   iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
   ewp_pure_steps.
@@ -267,7 +297,7 @@ Proof.
   by repeat (iApply ctx_sem_typed_insert; first done).
 Qed.
 
-Lemma sem_typed_if `{!heapGS Σ} Γ₁ Γ₂ e₁ e₂ e₃ ρ τ: 
+Lemma sem_typed_if Γ₁ Γ₂ e₁ e₂ e₃ ρ τ: 
   Γ₁ ⊨ e₁ : ρ : 𝔹 →
   Γ₂ ⊨ e₂ : ρ : τ →
   Γ₂ ⊨ e₃ : ρ : τ →
@@ -288,7 +318,7 @@ Qed.
 
 (* Effect handling rules *)
 
-Lemma sem_typed_do `{!heapGS Σ} Γ e ι κ: 
+Lemma sem_typed_do Γ e ι κ: 
   Γ ⊨ e : (ι ⇒ κ) : ι →
   Γ ⊨ (do: e) : (ι ⇒ κ) : κ.
 Proof.
@@ -302,7 +332,7 @@ Proof.
 Qed.
 
 
-Lemma sem_typed_shallow_try `{!heapGS Σ} Γ₁ Γ₂ e h r ι κ τ τ': 
+Lemma sem_typed_shallow_try Γ₁ Γ₂ e h r ι κ τ τ': 
   let ρ := (ι ⇒ κ)%R in
   Γ₁ ⊨ e : ρ : τ' →
   Γ₂ ⊨ h : ⟨⟩ : (ι ⊸ (κ -{ ρ }-∘ τ') -{ ρ }-∘ τ) →
@@ -385,7 +415,7 @@ Qed.
       return (λ v, v) 
    end / l ↦ #false
  *)
-Lemma sem_typed_deep_try `{!heapGS Σ} Γ₁ Γ₂ e (h : val) r ρ' ι κ τ τ': 
+Lemma sem_typed_deep_try Γ₁ Γ₂ e (h : val) r ρ' ι κ τ τ': 
   let ρ := (ι ⇒ κ)%R in
   Γ₁ ⊨ e : ρ : τ →
   ⊨ (of_val h) : ⟨⟩ : (ι ⊸ (κ -{ ρ' }-∘ τ') -{ ρ' }-∘ τ') →
@@ -427,3 +457,5 @@ Proof.
     rewrite !deep_handler_unfold. 
     iApply ("IH" with "Hr'").
   Qed.
+
+End semantic_typing_rules.

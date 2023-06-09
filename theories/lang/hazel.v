@@ -9,7 +9,7 @@
 From language Require Export eff_lang.
 
 (* Local imports *)
-From lang Require Export subst_map.
+From affine_tes.lang Require Export subst_map.
 
 Definition pair_elim :=
   (λ: "x", λ: "f", "f" (Fst "x") (Snd "x"))%V.
