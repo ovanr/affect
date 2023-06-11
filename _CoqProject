@@ -5,3 +5,4 @@
 theories/lang/subst_map.v
 theories/lang/hazel.v
 theories/logic/interp.v
+theories/logic/iEff.v
