@@ -89,3 +89,17 @@ Qed.
 Lemma subst_map_singleton x v e :
   subst_map {[x:=v]} e = subst x v e.
 Proof. by rewrite subst_map_insert delete_empty subst_map_empty. Qed.
+
+
+Lemma subst_subst_ne x₁ x₂ v w e :
+  x₁ ≠ x₂ →
+  subst x₁ v (subst x₂ w e) = subst x₂ w (subst x₁ v e).
+Proof. 
+  intros ?. induction e; simpl;
+  repeat match goal with
+    | [ Heq : _ = _ |- _ ] => rewrite Heq
+  end; try done.
+  - by repeat case_decide; simpl; repeat case_decide; try naive_solver.
+  - by repeat case_decide; simpl; repeat case_decide; try rewrite IHe;
+    try naive_solver.
+Qed.
