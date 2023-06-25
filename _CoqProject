@@ -4,5 +4,9 @@
 
 theories/lang/subst_map.v
 theories/lang/hazel.v
-theories/logic/interp.v
 theories/logic/iEff.v
+theories/logic/sem_types.v
+theories/logic/sem_typed.v
+theories/logic/sem_sub_typing.v
+theories/logic/sem_operators.v
+theories/logic/compatibility.v
