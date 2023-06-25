@@ -91,13 +91,18 @@ Section environment.
 End environment.
 
 (* Semantic typing judgment. *)
+
+(* The semantic typing judgement is defined to be persistent
+ * because we want the persistent resources it uses to only be 
+ * from the environment Γ.
+ *)
 Definition sem_typed `{!heapGS Σ}
   (Γ  : env Σ)
   (e  : expr)
   (ρ  : sem_row Σ)
   (α  : sem_ty Σ) : iProp Σ :=
     □ (∀ (vs : gmap string val),
-          env_sem_typed Γ vs -∗ EWP (subst_map vs e) <| ρ |> {{ α }}).
+        env_sem_typed Γ vs -∗ EWP (subst_map vs e) <| ρ |> {{ α }}).
 
 Notation "Γ ⊨ e : ρ : α" := (sem_typed Γ e%E ρ%R α%T)
   (at level 74, e, ρ, α at next level) : bi_scope.
@@ -105,9 +110,12 @@ Notation "Γ ⊨ e : ρ : α" := (sem_typed Γ e%E ρ%R α%T)
 Notation "⊨ e : ρ : α" := (sem_typed [] e%E ρ%R α%T)
   (at level 74, e, ρ, α at next level) : bi_scope.
 
+(* The value semantic typing judgement is also defined
+ * to be persistent, so only persistent values hold for it.
+ *) 
 Definition sem_val_typed `{!heapGS Σ} 
   (v : val) 
-  (A : sem_ty Σ) : iProp Σ := (A v).
+  (A : sem_ty Σ) : iProp Σ := □ (A v).
 
 Notation "⊨ᵥ v : A" := (sem_val_typed v A)
   (at level 20, v, A at next level) : bi_scope.

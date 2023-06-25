@@ -49,6 +49,25 @@ Definition sem_ty_ref `{!heapGS Σ} (τ : sem_ty Σ): sem_ty Σ :=
 Definition sem_ty_prod {Σ} (τ κ : sem_ty Σ) : sem_ty Σ := 
   (λ v, ∃ v₁ v₂, ⌜v = (v₁, v₂)%V⌝ ∗ τ v₁ ∗ κ v₂)%I.
 
+(* Linear Arrow type. *)
+Definition sem_ty_larr `{irisGS eff_lang Σ} 
+  (τ : sem_ty Σ)
+  (ρ : sem_row Σ)
+  (κ : sem_ty Σ) : sem_ty Σ :=
+  (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ κ }})%I.
+
+(* Unrestricted Arrow type. *)
+Definition sem_ty_uarr `{irisGS eff_lang Σ} 
+  (τ : sem_ty Σ)
+  (ρ : sem_row Σ)
+  (κ : sem_ty Σ) : sem_ty Σ :=
+  (λ (v : val), ∀ (w : val), □ (τ w -∗ EWP (v w) <| ρ |> {{ κ }}))%I.
+
+
+(* Polymorphic type. *)
+Definition sem_ty_forall `{irisGS eff_lang Σ} 
+  (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∀ τ, C τ v)%I.
+
 Fixpoint is_of_list_type {Σ} (l : val) (τ : sem_ty Σ ) (xs : list val) : (iProp Σ) :=
   match xs with
     | [] => ⌜ l = NILV ⌝
@@ -78,21 +97,6 @@ Lemma sem_row_eff_eq {Σ} τ κ v Φ :
     (∃ a, ⌜ a = v ⌝ ∗ τ a ∗ (∀ b, κ b -∗ Φ b))%I.
 Proof. by rewrite /sem_row_eff (iEff_tele_eq' [tele _] [tele _]). Qed.
 
-(* Linear Arrow type. *)
-Definition sem_ty_larr `{irisGS eff_lang Σ} 
-  (τ : sem_ty Σ)
-  (ρ : sem_row Σ)
-  (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ κ }})%I.
-
-(* Unrestricted Arrow type. *)
-Definition sem_ty_uarr `{irisGS eff_lang Σ} 
-  (τ : sem_ty Σ)
-  (ρ : sem_row Σ)
-  (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), ∀ (w : val), □ (τ w -∗ EWP (v w) <| ρ |> {{ κ }} ))%I.
-
-
 (* Notations. *)
 Notation "()" := sem_ty_unit : sem_ty_scope.
 Notation "'𝔹'" := (sem_ty_bool) : sem_ty_scope.
@@ -102,6 +106,10 @@ Notation "τ '×' κ" := (sem_ty_prod τ%T κ%T)
 
 Notation "'Ref' τ" := (sem_ty_ref τ%T) 
   (at level 50) : sem_ty_scope.
+
+Notation "∀ A1 .. An , C" :=
+  (sem_ty_forall (λ A1, .. (sem_ty_forall (λ An, C%T)) ..)) : sem_ty_scope.
+
 
 Notation "'List' τ" := (sem_ty_list τ%T) 
   (at level 50) : sem_ty_scope.

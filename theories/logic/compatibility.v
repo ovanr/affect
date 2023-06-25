@@ -240,6 +240,26 @@ Section compatibility.
     - by iApply "He₃".
   Qed.
   
+  (* Polymorphic functions *)
+  Lemma sem_typed_TLam_intro Γ v C : 
+    (∀ α, ⊨ᵥ v : C α) -∗
+    Γ ⊨ (of_val v) : ⟨⟩ : (∀ α, C α)%T.
+  Proof.
+    iIntros "#Hv !# %vs HΓ //=".
+    iApply ewp_value. iIntros "%α".
+    iApply "Hv".
+  Qed.
+
+  Lemma sem_typed_TLam_elim Γ e ρ τ C : 
+    Γ ⊨ e : ρ : (∀ α, C α) -∗
+    Γ ⊨ e : ρ : C τ. 
+  Proof.
+    iIntros "#Hv !# %vs HΓ //=".
+    iApply (ewp_mono with "[Hv HΓ]").
+    { by iApply  "Hv". }
+    iIntros "%v HC !> //=".
+  Qed.
+
   Lemma sem_typed_nil Γ τ: 
     ⊢ Γ ⊨ NIL : ⟨⟩ : List τ.
   Proof.

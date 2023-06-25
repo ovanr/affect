@@ -37,7 +37,6 @@ Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
   (e1, x, xs, e2, e1 at level 200,
    format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
 
-
 Global Instance load_atomic (l : loc) :
   Atomic StronglyAtomic (Load $ Val $ LitV $ LitLoc l).
 Proof.
