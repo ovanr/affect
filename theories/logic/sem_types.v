@@ -77,15 +77,15 @@ Definition sem_ty_exists `{irisGS eff_lang Σ}
   (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∃ τ, C τ v)%I.
 
 (** Recursive types *)
-Definition sem_ty_rec_pre `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ)
+Definition sem_ty_rec_pre {Σ} (C : sem_ty Σ → sem_ty Σ)
   (rec : sem_ty Σ) : sem_ty Σ := (λ v, ▷ (∃ rec', rec ≡ rec' ∧ C rec' v))%I.
-Global Instance sem_ty_rec_pre_contractive `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ) :
+Global Instance sem_ty_rec_pre_contractive {Σ} (C : sem_ty Σ → sem_ty Σ) :
   Contractive (sem_ty_rec_pre C).
 Proof. solve_contractive. Qed.
-Definition sem_ty_rec `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ :=
+Definition sem_ty_rec {Σ} (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ :=
   fixpoint (sem_ty_rec_pre C).
 
-Lemma sem_ty_unfold `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ) `{!NonExpansive C} v :
+Lemma sem_ty_rec_unfold {Σ} (C : sem_ty Σ → sem_ty Σ) `{!NonExpansive C} v :
   (sem_ty_rec C)%T v ⊣⊢ ▷ C (sem_ty_rec C)%T v.
 Proof.
   rewrite {1}/sem_ty_rec. 
