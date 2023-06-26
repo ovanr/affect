@@ -6,6 +6,7 @@
 *)
 
 From iris.proofmode Require Import base tactics.
+From iris.algebra Require Import ofe.
 From iris.base_logic.lib Require Import iprop invariants.
 
 (* Hazel Reasoning *)
@@ -19,7 +20,9 @@ From affine_tes.logic Require Import iEff.
 
 (** * Semantic Types. *)
 
-Definition sem_ty Σ := val → (iProp Σ).
+(* We equip sem_ty with the OFE structure val -d> iPropI
+ * which is the OFE of non-dependently-typed functions over a discrete domain *)
+Definition sem_ty Σ := val -d> (iPropO Σ).
 
 Declare Scope sem_ty_scope.
 Bind Scope sem_ty_scope with sem_ty.
@@ -27,7 +30,7 @@ Delimit Scope sem_ty_scope with T.
 
 (** * Semantic Row. *)
 
-Definition sem_row Σ := iEff Σ.
+Notation sem_row Σ := (iEff Σ).
 
 Declare Scope sem_row_scope.
 Bind Scope ieff_scope with sem_row.
@@ -66,7 +69,28 @@ Definition sem_ty_uarr `{irisGS eff_lang Σ}
 
 (* Polymorphic type. *)
 Definition sem_ty_forall `{irisGS eff_lang Σ} 
-  (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∀ τ, C τ v)%I.
+  (ρ : sem_row Σ) (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := 
+    (λ v, ∀ τ, EWP (v <_>) <| ρ |> {{ C τ }})%I.
+
+(* Existential type. *)
+Definition sem_ty_exists `{irisGS eff_lang Σ} 
+  (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∃ τ, C τ v)%I.
+
+(** * Recursive types *)
+Definition sem_ty_rec_pre `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ)
+  (rec : sem_ty Σ) : sem_ty Σ := (λ v, ▷ (∃ rec', rec ≡ rec' ∧ C rec' v))%I.
+Global Instance sem_ty_rec_pre_contractive `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ) :
+  Contractive (sem_ty_rec_pre C).
+Proof. solve_contractive. Qed.
+Definition sem_ty_rec `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ :=
+  fixpoint (sem_ty_rec_pre C).
+
+Lemma sem_ty_unfold `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ) `{!NonExpansive C} v :
+  (sem_ty_rec C)%T v ⊣⊢ ▷ C (sem_ty_rec C)%T v.
+Proof.
+  rewrite {1}/sem_ty_rec. 
+  Fail rewrite (fixpoint_unfold (sem_ty_rec_pre C)). 
+Admitted.
 
 Fixpoint is_of_list_type {Σ} (l : val) (τ : sem_ty Σ ) (xs : list val) : (iProp Σ) :=
   match xs with
@@ -107,9 +131,11 @@ Notation "τ '×' κ" := (sem_ty_prod τ%T κ%T)
 Notation "'Ref' τ" := (sem_ty_ref τ%T) 
   (at level 50) : sem_ty_scope.
 
-Notation "∀ A1 .. An , C" :=
-  (sem_ty_forall (λ A1, .. (sem_ty_forall (λ An, C%T)) ..)) : sem_ty_scope.
+Notation "'∀:' A , ρ , C " := (sem_ty_forall ρ (λ A, C%T)) 
+  (at level 180) : sem_ty_scope.
 
+Notation "'∃:' A , C " := (sem_ty_exists (λ A, C%T)) 
+  (at level 180) : sem_ty_scope.
 
 Notation "'List' τ" := (sem_ty_list τ%T) 
   (at level 50) : sem_ty_scope.

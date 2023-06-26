@@ -240,24 +240,56 @@ Section compatibility.
     - by iApply "He₃".
   Qed.
   
-  (* Polymorphic functions *)
-  Lemma sem_typed_TLam_intro Γ v C : 
-    (∀ α, ⊨ᵥ v : C α) -∗
-    Γ ⊨ (of_val v) : ⟨⟩ : (∀ α, C α)%T.
+  (* Type abstraction and application *)
+  Lemma sem_typed_TLam Γ ρ e C : 
+    (∀ A, Γ ⊨ e : ρ : C A) -∗
+    Γ ⊨ (Λ: e) : ⟨⟩ : (∀: A , ρ , C A)%T.
   Proof.
     iIntros "#Hv !# %vs HΓ //=".
-    iApply ewp_value. iIntros "%α".
-    iApply "Hv".
+    ewp_pure_steps. iIntros "%A". ewp_pure_steps.
+    by iApply "Hv".
   Qed.
 
-  Lemma sem_typed_TLam_elim Γ e ρ τ C : 
-    Γ ⊨ e : ρ : (∀ α, C α) -∗
-    Γ ⊨ e : ρ : C τ. 
+  Lemma sem_typed_TApp Γ e ρ τ C : 
+    Γ ⊨ e : ρ : (∀: α , ρ , C α) -∗
+    Γ ⊨ e <_> : ρ : C τ. 
   Proof.
     iIntros "#Hv !# %vs HΓ //=".
-    iApply (ewp_mono with "[Hv HΓ]").
-    { by iApply  "Hv". }
-    iIntros "%v HC !> //=".
+    iApply (ewp_bind [AppLCtx _]); first done.
+    iApply (ewp_mono with "[HΓ]").
+    { by iApply "Hv". }
+    iIntros "%w Hw !> //=".
+  Qed.
+
+  (* Existential type packing and unpacking *)
+  Lemma sem_typed_pack Γ ρ e C τ :
+    Γ ⊨ e : ρ : C τ -∗
+    Γ ⊨ (pack: e) : ρ : (∃: α, C α)%T. 
+  Proof.
+    iIntros "#He %vs !# HΓ //=".
+    iApply (ewp_bind [AppRCtx _]); first done.
+    iApply (ewp_mono with "[HΓ]"); [by iApply "He"|].
+    iIntros (v) "Hτv !> //=".
+    unfold exist_pack. ewp_pure_steps.
+    by iExists τ. 
+  Qed.
+
+  Lemma sem_typed_unpack Γ₁ Γ₂ x ρ e₁ e₂ κ C :
+    x ∉ env_dom Γ₂ →
+    Γ₁ ⊨ e₁ : ρ : (∃: α, C α) -∗
+    (∀ τ, (x, C τ) :: Γ₂ ⊨ e₂ : ρ : κ) -∗
+    Γ₁ ++ Γ₂ ⊨ (unpack: x := e₁ in e₂) : ρ : κ.
+  Proof.
+    iIntros (Hnotin) "#He₁ #He₂ %vs !# HΓ₁₂ //=".
+    rewrite env_sem_typed_app.
+    iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
+    iApply (ewp_bind [AppRCtx _]); first done.
+    iApply (ewp_mono with "[HΓ₁]"); [by iApply "He₁"|].
+    iIntros (w) "(%τ & Hτw) !> //=". unfold exist_unpack.
+    ewp_pure_steps. rewrite -subst_map_insert.
+    iApply "He₂". simpl. iSplitL "Hτw".
+    { iExists w. iFrame. iPureIntro. by rewrite lookup_insert. }
+    by iApply env_sem_typed_insert.
   Qed.
 
   Lemma sem_typed_nil Γ τ: 
