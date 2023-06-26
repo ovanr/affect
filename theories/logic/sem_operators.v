@@ -2,6 +2,8 @@
 From affine_tes.lang Require Import hazel.
 From affine_tes.logic Require Import sem_types.
 
+Open Scope sem_ty_scope.
+
 Inductive typed_un_op {Σ} : un_op → sem_ty Σ → sem_ty Σ → Prop :=  
   | typed_un_op_neg : typed_un_op NegOp 𝔹 𝔹
   | typed_un_op_minus : typed_un_op MinusUnOp ℤ ℤ

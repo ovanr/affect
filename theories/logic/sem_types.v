@@ -76,7 +76,7 @@ Definition sem_ty_forall `{irisGS eff_lang Σ}
 Definition sem_ty_exists `{irisGS eff_lang Σ} 
   (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∃ τ, C τ v)%I.
 
-(** * Recursive types *)
+(** Recursive types *)
 Definition sem_ty_rec_pre `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ)
   (rec : sem_ty Σ) : sem_ty Σ := (λ v, ▷ (∃ rec', rec ≡ rec' ∧ C rec' v))%I.
 Global Instance sem_ty_rec_pre_contractive `{!heapGS Σ} (C : sem_ty Σ → sem_ty Σ) :
@@ -153,4 +153,3 @@ Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr τ%T ρ%R κ%T)
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
 Notation "τ → κ" := (sem_ty_uarr τ%T sem_row_bot κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
-

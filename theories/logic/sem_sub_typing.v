@@ -20,7 +20,7 @@ From affine_tes.logic Require Import sem_typed.
 
 
 (* Copyable types *)
-Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) := ∀ v, Persistent (τ v).
+Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) := ∀ v, Persistent (τ%T v).
 
 (* Copyable environment *)
 Definition copy_env `{!heapGS Σ} Γ :=
@@ -201,6 +201,8 @@ Section copyable_types.
 
   (* Copyable types *)
   
+  Open Scope sem_ty_scope.
+
   Lemma copy_ty_unit : copy_ty ().
   Proof. solve_persistent. Qed.
   
