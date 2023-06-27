@@ -292,11 +292,39 @@ Section compatibility.
     by iApply env_sem_typed_insert.
   Qed.
 
+  (* Recursive type rules *)
+  Lemma sem_typed_fold Γ e ρ C `{NonExpansive C}:
+    Γ ⊨ e : ρ : (C (μ: α, C α)) -∗
+    Γ ⊨ (fold: e) : ρ : (μ: α, C α).
+  Proof.
+    iIntros "#He %vs !# HΓ //=".
+    iApply (ewp_bind [AppRCtx _]); first done. 
+    iApply (ewp_mono with "[HΓ]"); [by iApply "He"|].
+    iIntros "%w HC !> //=". 
+    unfold rec_fold. ewp_pure_steps.
+    by iApply sem_ty_rec_unfold. 
+  Qed.
+
+  Lemma sem_typed_unfold Γ e ρ C `{NonExpansive C}:
+    Γ ⊨ e : ρ : (μ: α, C α) -∗
+    Γ ⊨ (unfold: e) : ρ : (C (μ: α, C α)).
+  Proof.
+    iIntros "#He %vs !# HΓ //=".
+    iApply (ewp_bind [AppRCtx _]); first done. 
+    iApply (ewp_mono with "[HΓ]"); [by iApply "He"|].
+    iIntros "%w Hμ !> //=". 
+    rewrite sem_ty_rec_unfold. 
+    unfold rec_unfold. by ewp_pure_steps.
+  Qed.
+
+  (* List type rules *)
   Lemma sem_typed_nil Γ τ: 
     ⊢ Γ ⊨ NIL : ⟨⟩ : List τ.
   Proof.
     iIntros "!# %vs HΓ //=". 
-    ewp_pure_steps. by iExists [].
+    ewp_pure_steps. unfold sem_ty_list.
+    rewrite sem_ty_rec_unfold. iNext. unfold ListF.
+    iExists (#()). by iLeft.
   Qed.
   
   Lemma sem_typed_cons Γ₁ Γ₂ e₁ e₂ ρ τ: 
@@ -314,8 +342,10 @@ Section compatibility.
     iApply (ewp_bind [InjRCtx; PairLCtx _]); first done.
     iApply (ewp_mono with "[HΓ₁]"); [by iApply "He₁"|].
     iIntros (x) "Hx !> //=". ewp_pure_steps.
-    iDestruct "Hl" as "(%xs & Hxs)".
-    iExists (x :: xs). simpl. iExists l. by iFrame.
+    unfold sem_ty_list. rewrite !sem_ty_rec_unfold.
+    iNext. iExists (x,l)%V. iRight. iSplit; first done.
+    iExists x, l. iFrame; iSplit; first done.
+    by rewrite sem_ty_rec_unfold. 
   Qed.
   
   Lemma sem_typed_list_match Γ₁ Γ₂ x xs e₁ e₂ e₃ ρ τ κ :
@@ -332,31 +362,29 @@ Section compatibility.
   Proof.
     iIntros (Hx Hxs Hneq) "#He₁ #He₂ #He₃ !# %vs HΓ₁₂ //=".
     rewrite env_sem_typed_app.
-    iDestruct "HΓ₁₂" as "(HΓ₁ & HΓ₂)".
+    iDestruct "HΓ₁₂" as "(HΓ₁ & HΓ₂)". 
     iApply (ewp_bind [CaseCtx _ _]); first done.
-    iApply (ewp_mono with "[HΓ₁]"); [by iApply "He₁"|].
-    iIntros (v₁) "(%l & Hl) !> //=". destruct l.
-    - iDestruct "Hl" as "->". ewp_pure_steps.
-      iApply ("He₂" with "[$HΓ₂]").
-    - simpl. iDestruct "Hl" as "(%tl & -> & Hτ & Htl)". 
-      ewp_pure_steps. rewrite lookup_delete. simpl.
-      rewrite decide_False; [|by intros [_ []]].
-      rewrite decide_True; last done. ewp_pure_steps.
-      rewrite decide_True; [|split; congruence].
-      rewrite delete_commute -subst_map_insert delete_commute.
-      rewrite insert_delete_insert. rewrite subst_map_insert.
-      rewrite subst_subst_ne; [|congruence]. rewrite delete_commute.
-      rewrite -subst_map_insert -delete_insert_ne; try congruence.
-      rewrite -subst_map_insert. iApply "He₃". simpl.
-      iSplitL "Hτ".
-      { iExists v. iFrame. by rewrite lookup_insert. }
-      iSplitL "Htl".
-      + iExists tl. unfold sem_ty_list. iSplitR.
-        { rewrite lookup_insert_ne; [|congruence].  
-          by rewrite lookup_insert. }
-        by iExists l.
-      + iApply env_sem_typed_insert; first done.
-        by iApply env_sem_typed_insert; first done.
+    iApply (ewp_mono with "[HΓ₁]"); [by iApply sem_typed_unfold|simpl].
+    unfold sem_ty_list. iIntros (v₁) "Hl !>". ewp_pure_steps.
+    iDestruct "Hl" as "(%v' & [(-> & Hunit)|(-> & (%w₁ & %w₂ & -> & Hτ & Hμ))])"; ewp_pure_steps.
+    { iApply ("He₂" with "[$HΓ₂]"). }
+    rewrite lookup_delete. simpl.
+    rewrite decide_False; [|by intros [_ []]].
+    rewrite decide_True; last done. ewp_pure_steps.
+    rewrite decide_True; [|split; congruence].
+    rewrite delete_commute -subst_map_insert delete_commute.
+    rewrite insert_delete_insert. rewrite subst_map_insert.
+    rewrite subst_subst_ne; [|congruence]. rewrite delete_commute.
+    rewrite -subst_map_insert -delete_insert_ne; try congruence.
+    rewrite -subst_map_insert. iApply "He₃". simpl.
+    iSplitL "Hτ".
+    { iExists w₁. iFrame. by rewrite lookup_insert. }
+    iSplitL "Hμ".
+    + iExists w₂. unfold sem_ty_list. iSplitR; [|done].
+      rewrite lookup_insert_ne; [|congruence].  
+      by rewrite lookup_insert. 
+    + iApply env_sem_typed_insert; first done.
+      by iApply env_sem_typed_insert; first done.
   Qed.
 
 

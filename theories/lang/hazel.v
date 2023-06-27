@@ -23,20 +23,6 @@ Notation "'let:' '(' x1 ',' x2 ')' := e1 'in' e2" := (ELetPair x1%binder x2%bind
   (at level 200, x1, x2 at level 1, e1, e2 at level 200,
    format "'[' 'let:'  '(' x1 ',' x2 ')'  :=  '[' e1 ']'  'in'  '/' e2 ']'") : expr_scope.
 
-(** Notations for lists. *)
-Notation NIL := (InjL #()) (only parsing).
-Notation NILV := (InjLV #()) (only parsing).
-Notation CONS x xs := (InjR (Pair x xs)) (only parsing).
-Notation CONSV x xs := (InjRV (PairV x xs)) (only parsing).
-
-Notation ListMatch e1 e2 x e3 := 
-  (Case e1 (Lam BAnon e2) (Lam (BNamed x) (App (App e3 (Fst (Var x))) (Snd (Var x))))) (only parsing).
-
-Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
-  (ListMatch e1 e2 x%binder (Lam x%binder (Lam xs%binder e3)))
-  (e1, x, xs, e2, e1 at level 200,
-   format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
-
 (* Notations for type abstraction and application *) 
 Notation "Λ: e" := (λ: <>, e)%E (at level 200, only parsing) : expr_scope.
 Notation "Λ: e" := (λ: <>, e)%V (at level 200, only parsing) : val_scope.
@@ -79,6 +65,20 @@ Notation "'fold:' e" := (rec_fold e%E)
 Notation "'unfold:' e" := (rec_unfold e%E)
   (at level 200, e at level 200,
    format "'[' 'unfold:'  e ']'") : expr_scope.
+
+(** Notations for lists. *)
+Notation NIL := (InjL #()) (only parsing).
+Notation NILV := (InjLV #()) (only parsing).
+Notation CONS x xs := (InjR (Pair x xs)) (only parsing).
+Notation CONSV x xs := (InjRV (PairV x xs)) (only parsing).
+
+Notation ListMatch e1 e2 x e3 := 
+  (Case (unfold: e1)%E (Lam BAnon e2) (Lam (BNamed x) (App (App e3 (Fst (Var x))) (Snd (Var x))))) (only parsing).
+
+Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
+  (ListMatch e1 e2 x%binder (Lam x%binder (Lam xs%binder e3)))
+  (e1, x, xs, e2, e1 at level 200,
+   format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
 
 
 Global Instance load_atomic (l : loc) :

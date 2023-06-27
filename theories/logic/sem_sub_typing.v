@@ -132,18 +132,51 @@ Section sub_typing.
     by iApply Hκ₁₂.
   Qed.
   
+  Lemma ty_le_sum (τ₁ τ₂ κ₁ κ₂ : sem_ty Σ) :
+    τ₁ ≤T τ₂ →
+    κ₁ ≤T κ₂ →
+    (τ₁ + κ₁) ≤T (τ₂ + κ₂).
+  Proof.
+    iIntros (Hτ₁₂ Hκ₁₂ v) "(%v' & [(-> & Hτ₁)|(-> & Hκ₁)])"; iExists v'. 
+    - iLeft. iSplit; first done. by iApply Hτ₁₂.
+    - iRight. iSplit; first done. by iApply Hκ₁₂. 
+  Qed.
+
+  Lemma ty_le_forall ρ₁ ρ₂ (τ₁ τ₂ : sem_ty Σ → sem_row Σ → sem_ty Σ) :
+    ρ₁ ≤R ρ₂ →
+    (∀ α, τ₁ α ρ₁ ≤T τ₂ α ρ₂) →
+    (∀: α, ρ₁, τ₁ α ρ₁) ≤T (∀: α, ρ₂, τ₂ α ρ₂).
+  Proof.
+    iIntros (Hρ₁₂ Hτ₁₂ v) "Hτ₁ %τ". unfold sem_ty_forall.
+    iApply ewp_os_prot_mono; [iApply Hρ₁₂|].
+    iApply (ewp_mono with "[Hτ₁]").
+    { iApply "Hτ₁". }
+    iIntros (w) "Hw !>". by iApply Hτ₁₂.
+  Qed.
+
+  Lemma ty_le_exists (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
+    (∀ α, τ₁ α ≤T τ₂ α) →
+    (∃: α, τ₁ α) ≤T (∃: α, τ₂ α).
+  Proof.
+    iIntros (Hτ₁₂ v) "(%α & Hα) //=".
+    iExists α. by iApply Hτ₁₂.
+  Qed.
+
   Lemma ty_le_list (τ₁ τ₂ : sem_ty Σ) :
     τ₁ ≤T τ₂ →
     List τ₁ ≤T List τ₂.
   Proof.
-    iIntros (Hτ₁₂ v) "(%xs & Hxs)". iExists xs.
-    iInduction xs as [|x xxs] "IH" forall (v); simpl.
-    { by iDestruct "Hxs" as "->". }
-    iDestruct "Hxs" as "(%tl & -> & Hτ₁ & Hxxs)".
-    iExists tl. iSplitR; first done.
-    iSplitL "Hτ₁"; [by iApply Hτ₁₂|]. 
-    by iApply "IH".
+    iIntros (Hτ₁₂ v) "HLτ₁". unfold sem_ty_list.
+    iLöb as "IH" forall (v).
+    iApply sem_ty_rec_unfold.
+    rewrite sem_ty_rec_unfold. iNext.
+    iDestruct "HLτ₁" as "(%v' & [(-> & Hunit)|(-> & (%w₁ & %w₂ & -> & Hτ₁ & Hμ))])".
+    { iExists v'; iLeft. by iFrame. }
+    iExists (w₁, w₂)%V. iRight. iSplit; first done.
+    iExists w₁, w₂; iSplit; first done.
+    iSplitL "Hτ₁"; [by iApply Hτ₁₂|by iApply "IH"].
   Qed.
+
   
   Lemma env_le_refl Γ : Γ ≤E Γ.
   Proof. done. Qed.
@@ -221,12 +254,26 @@ Section copyable_types.
   Lemma copy_ty_prod τ κ : copy_ty τ → copy_ty κ → copy_ty (τ × κ).
   Proof. by solve_persistent. Qed.
   
-  Lemma copy_ty_list τ : copy_ty τ → copy_ty (List τ).
-  Proof.
-    iIntros (Hcpy v). unfold sem_ty_list.
-    apply bi.exist_persistent. intros xs.
-    revert v. induction xs; by solve_persistent. 
-  Qed.
+  Lemma copy_ty_sum τ κ : copy_ty τ → copy_ty κ → copy_ty (τ + κ).
+  Proof. by solve_persistent. Qed.
+
+  (* Lemma copy_ty_list τ : copy_ty τ → copy_ty (List τ). *)
+  (* Proof. *)
+  (*   iIntros (Hcpy v). unfold sem_ty_list. *) 
+  (*   unfold Persistent. iIntros "Hμ". *) 
+  (*   iLöb as "IH" forall (v). *)
+  (*   assert (NonExpansive (λ α, () + (τ × α))). *)
+  (*   { intros ????; by repeat f_equiv. } *)
+  (*   rewrite sem_ty_rec_unfold. *) 
+  (*   iApply bi.later_persistently_1. iNext. *)
+  (*   pose proof copy_ty_sum. unfold copy_ty, Persistent in H0. *)
+  (*   iApply H0. *)
+  (*   Search "pers" "later". *)
+  (*   apply bi.later_persistent. *) 
+
+  (*   apply bi.exist_persistent. intros xs. *)
+  (*   revert v. induction xs; by solve_persistent. *) 
+  (* Qed. *)
   
   Lemma copy_env_nil : copy_env [].
   Proof. solve_persistent. Qed.
