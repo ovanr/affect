@@ -95,20 +95,29 @@ Section compatibility.
     - by iApply env_sem_typed_insert.
   Qed.
   
-  Lemma sem_typed_ufun Γ x e τ ρ κ: 
+  Lemma sem_typed_ufun Γ f x e τ ρ κ: 
     x ∉ (env_dom Γ) →
+    f ∉ (env_dom Γ) →
+    x ≠ f →
     copy_env Γ →
-    (x,τ) :: Γ ⊨ e : ρ : κ -∗
-    Γ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-> κ).
+    (x,τ) :: (f, τ -{ ρ }-> κ) :: Γ ⊨ e : ρ : κ -∗
+    Γ ⊨ (rec: f x := e) : ⟨⟩ : (τ -{ ρ }-> κ).
   Proof.
-    iIntros (Helem HcpyΓ) "#He !# %vs HΓ //=".
+    iIntros (Helemx Helemf Hneq HcpyΓ) "#He !# %vs HΓ //=".
     ewp_pure_steps. rewrite HcpyΓ. iDestruct "HΓ" as "#HΓ".
+    iLöb as "IH".
     iIntros (w) "!# Hw". ewp_pure_steps. 
-    rewrite <- subst_map_insert.
-    iApply "He". simpl in *. iSplitL "Hw".
+    rewrite subst_subst_ne; last done.
+    rewrite -subst_map_insert.
+    rewrite -delete_insert_ne; last done. 
+    rewrite -subst_map_insert.
+    iApply "He". simpl in *. iSplitL "Hw"; last iSplitR "HΓ".
     - iExists w. iFrame. iPureIntro.
+      rewrite lookup_insert_ne; last done.
       by rewrite lookup_insert.
-    - by iApply env_sem_typed_insert.
+    - iExists _. iSplit; [by rewrite lookup_insert|]. 
+      iApply "IH".
+    - by do 2 (iApply env_sem_typed_insert; first done).
   Qed.
   
   Lemma sem_typed_app Γ₁ Γ₂ e₁ e₂ τ ρ κ: 
