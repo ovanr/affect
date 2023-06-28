@@ -1,7 +1,5 @@
 # Affine TES
 
-Description of the language can be found at [paper formalisation][def]
-
 # Installation
 
 ## Hazel language
@@ -23,7 +21,3 @@ Installing `coq-hazel` as a local package:
 ## Building `affine-tes`
 
 1. `make build-dep`
-
-
-
-[def]: https://gitlab.science.ru.nl/ovrooij/affine-tes/-/blob/main/formalisation.pdf
