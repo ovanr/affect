@@ -176,7 +176,6 @@ Section sub_typing.
     iExists w₁, w₂; iSplit; first done.
     iSplitL "Hτ₁"; [by iApply Hτ₁₂|by iApply "IH"].
   Qed.
-
   
   Lemma env_le_refl Γ : Γ ≤E Γ.
   Proof. done. Qed.
@@ -226,6 +225,7 @@ Section copyable_types.
             apply bi.exist_persistent ||
             apply bi.pure_persistent ||
             apply plainly_persistent ||
+            apply bi.later_persistent ||
             apply bi.persistently_persistent ||
             apply bi.intuitionistically_persistent ||
             apply inv_persistent). 
@@ -257,24 +257,33 @@ Section copyable_types.
   Lemma copy_ty_sum τ κ : copy_ty τ → copy_ty κ → copy_ty (τ + κ).
   Proof. by solve_persistent. Qed.
 
-  (* Lemma copy_ty_list τ : copy_ty τ → copy_ty (List τ). *)
-  (* Proof. *)
-  (*   iIntros (Hcpy v). unfold sem_ty_list. *) 
-  (*   unfold Persistent. iIntros "Hμ". *) 
-  (*   iLöb as "IH" forall (v). *)
-  (*   assert (NonExpansive (λ α, () + (τ × α))). *)
-  (*   { intros ????; by repeat f_equiv. } *)
-  (*   rewrite sem_ty_rec_unfold. *) 
-  (*   iApply bi.later_persistently_1. iNext. *)
-  (*   pose proof copy_ty_sum. unfold copy_ty, Persistent in H0. *)
-  (*   iApply H0. *)
-  (*   Search "pers" "later". *)
-  (*   apply bi.later_persistent. *) 
+  Lemma copy_ty_exists τ : (∀ α, copy_ty (τ α)) → copy_ty (∃: α, τ α).
+  Proof. solve_persistent. apply H. Qed.
 
-  (*   apply bi.exist_persistent. intros xs. *)
-  (*   revert v. induction xs; by solve_persistent. *) 
-  (* Qed. *)
-  
+  Lemma copy_ty_rec τ `{NonExpansive τ}: (∀ α, copy_ty (τ α)) → copy_ty (μ: α, τ α).
+  Proof. iIntros (H v). rewrite sem_ty_rec_unfold.
+         solve_persistent. apply H. 
+  Qed.
+
+  Lemma copy_ty_list τ : copy_ty τ → copy_ty (List τ).
+  Proof.
+    iIntros (Hcpyτ). unfold sem_ty_list. unfold copy_ty.
+    iIntros (v). unfold Persistent. iIntros "Hμ".
+    iLöb as "IH" forall (v).
+    rewrite sem_ty_rec_unfold. rewrite -bi.later_persistently_1.
+    iNext. unfold ListF.
+    rewrite bi.persistently_exist. 
+    iDestruct "Hμ" as "(%w & [(-> & #Hunit)|(-> & (%w₁ & %w₂ & -> & Hτ & Hμ))])".
+    { iExists w; rewrite bi.persistently_or;
+      iLeft. iIntros "!# {$Hunit} //=". }
+    iExists (w₁, w₂)%V. rewrite bi.persistently_or.
+    iRight. unfold copy_ty in Hcpyτ. rewrite Hcpyτ.
+    iDestruct "Hτ" as "#Hτ".
+    iDestruct ("IH" with "Hμ") as "#Hμ₂".
+    iIntros "!#". iSplit; first done.
+    iExists w₁, w₂; iSplit; first done. by iSplit.
+  Qed.
+
   Lemma copy_env_nil : copy_env [].
   Proof. solve_persistent. Qed.
   

@@ -100,9 +100,15 @@ Definition sem_typed `{!heapGS Σ}
   (Γ  : env Σ)
   (e  : expr)
   (ρ  : sem_row Σ)
-  (α  : sem_ty Σ) : iProp Σ :=
-    □ (∀ (vs : gmap string val),
-        env_sem_typed Γ vs -∗ EWP (subst_map vs e) <| ρ |> {{ α }}).
+  (τ  : sem_ty Σ) : iProp Σ :=
+    tc_opaque( □ (∀ (vs : gmap string val),
+                    env_sem_typed Γ vs -∗ EWP (subst_map vs e) <| ρ |> {{ τ }}))%I.
+
+Global Instance sem_typed_persistent `{!heapGS Σ} (Γ : env Σ) e ρ τ :
+  Persistent (sem_typed Γ e ρ τ).
+Proof.
+  unfold sem_typed, tc_opaque. apply _.
+Qed.
 
 Notation "Γ ⊨ e : ρ : α" := (sem_typed Γ e%E ρ%R α%T)
   (at level 74, e, ρ, α at next level) : bi_scope.
