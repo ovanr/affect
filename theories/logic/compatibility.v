@@ -3,7 +3,7 @@
 
 (* 
   The compatibility lemmas are what one gets when the syntactic typing judgment
-  is replaced witha a semantic typing judgment.
+  is replaced with a semantic typing judgment.
 *)
 
 From iris.proofmode Require Import base tactics.
@@ -77,7 +77,7 @@ Section compatibility.
     { by iApply "He". }
     iIntros (v) "Hτ'". iModIntro.
     by iApply Hτle.
-  Qed.
+  Qed. 
   
   (* λ-calculus rules *)
   
@@ -529,7 +529,7 @@ Section compatibility.
   Lemma sem_typed_deep_try Γ₁ Γ₂ Γ₃ e h r ρ' ι κ τ τ': 
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ -∗
-    Γ₂ ⊨ h : ⟨⟩ : (ι → (κ -{ ρ' }-∘ τ') -{ ρ' }-> τ') -∗
+    Γ₂ ⊨ h : ⟨⟩ : (ι → (κ -{ ρ' }-∘ τ') -{ ρ' }-∘ τ') -∗
     Γ₃ ⊨ r : ⟨⟩ : (τ -{ ρ' }-∘ τ') -∗
     Γ₁ ++ Γ₂ ++ Γ₃ ⊨ (deep-try: e with effect h | return r end) : ρ' : τ'.
   Proof.
