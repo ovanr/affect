@@ -7,7 +7,7 @@
 
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe.
-From iris.base_logic.lib Require Import iprop invariants.
+From iris.base_logic.lib Require Import iprop.
 From iris.base_logic Require Import upred.
 
 (* Hazel Reasoning *)
@@ -41,13 +41,11 @@ Delimit Scope sem_row_scope with R.
 Definition sem_ty_unit {Σ} : sem_ty Σ := (λ v, ⌜ v = #() ⌝)%I.
 Definition sem_ty_bool {Σ} : sem_ty Σ := (λ v, ∃ b : bool, ⌜ v = #b ⌝)%I.
 Definition sem_ty_int {Σ} : sem_ty Σ := (λ v, ∃ n : Z, ⌜ v = #n ⌝)%I.
+Definition sem_ty_moved {Σ} : sem_ty Σ := (λ v, True)%I.
 
 (* Reference Type *)
-Definition tyN := nroot .@ "ty".
-
 Definition sem_ty_ref `{!heapGS Σ} (τ : sem_ty Σ): sem_ty Σ := 
-  (λ v, ∃ l : loc, ⌜ v = #l ⌝ ∗ □ (∀ w, (τ w) -∗ □ (τ w)) ∗
-                   inv (tyN .@ l) (∃ w, l ↦ w ∗ (τ w)))%I.
+  (λ v, ∃ l : loc, ⌜ v = #l ⌝ ∗ (∃ w, l ↦ w ∗ τ w))%I.
 
 (* Product type. *)
 Definition sem_ty_prod {Σ} (τ κ : sem_ty Σ) : sem_ty Σ := 
@@ -169,6 +167,7 @@ Proof. by rewrite /sem_row_eff (iEff_tele_eq' [tele _] [tele _]). Qed.
 Notation "()" := sem_ty_unit : sem_ty_scope.
 Notation "'𝔹'" := (sem_ty_bool) : sem_ty_scope.
 Notation "'ℤ'" := (sem_ty_int) : sem_ty_scope.
+Notation "'Moved'" := (sem_ty_moved) : sem_ty_scope.
 Notation "τ '×' κ" := (sem_ty_prod τ%T κ%T)
   (at level 120, κ at level 200) : sem_ty_scope.
 Infix "+" := (sem_ty_sum) : sem_ty_scope.

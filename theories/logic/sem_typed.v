@@ -79,13 +79,34 @@ Section environment.
       destruct (not_elem_of_cons (env_dom Γ') x y) as [[ ] _]; done.
   Qed.
   
+  Lemma env_sem_typed_delete Γ vs (x : string) v :
+    x ∉ (env_dom Γ) →
+    env_sem_typed Γ (binder_insert x v vs) ⊢ env_sem_typed Γ vs.
+  Proof.
+    iIntros (Helem) "Henv".
+    iInduction Γ as [|[y A] Γ'] "IH"; first done. simpl in *.
+    iDestruct "Henv" as "((%w & %Hvs & HAw) & HΓ')". iSplitL "HAw".
+    - iExists w. iFrame. iPureIntro.
+      destruct (decide (y = x)) as [->|]. 
+      { destruct Helem. by apply elem_of_list_here. }
+      by rewrite lookup_insert_ne in Hvs.
+    - iApply "IH"; last done. iPureIntro. 
+      destruct (not_elem_of_cons (env_dom Γ') x y) as [[ ] _]; done.
+  Qed.
+
   Lemma env_sem_typed_app Γ₁ Γ₂ vs :
-    env_sem_typed (Γ₁ ++ Γ₂) vs ⊢ 
+    env_sem_typed (Γ₁ ++ Γ₂) vs ⊣⊢ 
     env_sem_typed Γ₁ vs ∗ env_sem_typed Γ₂ vs.
   Proof. 
-    iIntros "HΓ₁₂". iInduction Γ₁ as [|[y A] Γ₁'] "IH"; first (by iFrame).
-    simpl in *. 
-    iDestruct "HΓ₁₂" as "($ & HΓ₁'₂)". by iApply "IH".
+    iSplit.
+    - iIntros "HΓ₁₂". iInduction Γ₁ as [|[y A] Γ₁'] "IH"; first (by iFrame).
+      simpl in *. 
+      iDestruct "HΓ₁₂" as "($ & HΓ₁'₂)". by iApply "IH".
+    - iIntros "[HΓ₁ HΓ₂]". 
+      iInduction Γ₁ as [|[y A] Γ₁'] "IH"; first (by iFrame). simpl. 
+      iDestruct ("HΓ₁") as "[HA HΓ₁']".
+      iFrame.
+      iApply ("IH" with "HΓ₁' HΓ₂").
   Qed.
 
 End environment.
@@ -97,23 +118,24 @@ End environment.
  * from the environment Γ.
  *)
 Definition sem_typed `{!heapGS Σ}
-  (Γ  : env Σ)
+  (Γ₁  : env Σ)
   (e  : expr)
   (ρ  : sem_row Σ)
-  (τ  : sem_ty Σ) : iProp Σ :=
+  (τ  : sem_ty Σ) 
+  (Γ₂  : env Σ) : iProp Σ :=
     tc_opaque( □ (∀ (vs : gmap string val),
-                    env_sem_typed Γ vs -∗ EWP (subst_map vs e) <| ρ |> {{ τ }}))%I.
+                    env_sem_typed Γ₁ vs -∗ EWP (subst_map vs e) <| ρ |> {{ v, τ v ∗ env_sem_typed Γ₂ vs }}))%I.
 
-Global Instance sem_typed_persistent `{!heapGS Σ} (Γ : env Σ) e ρ τ :
-  Persistent (sem_typed Γ e ρ τ).
+Global Instance sem_typed_persistent `{!heapGS Σ} (Γ Γ' : env Σ) e ρ τ :
+  Persistent (sem_typed Γ e ρ τ Γ').
 Proof.
   unfold sem_typed, tc_opaque. apply _.
 Qed.
 
-Notation "Γ ⊨ e : ρ : α" := (sem_typed Γ e%E ρ%R α%T)
+Notation "Γ₁ ⊨ e : ρ : α ⊨ Γ₂" := (sem_typed Γ₁ e%E ρ%R α%T Γ₂)
   (at level 74, e, ρ, α at next level) : bi_scope.
 
-Notation "⊨ e : ρ : α" := (sem_typed [] e%E ρ%R α%T)
+Notation "⊨ e : ρ : α" := (sem_typed [] e%E ρ%R α%T [])
   (at level 74, e, ρ, α at next level) : bi_scope.
 
 (* The value semantic typing judgement is also defined
@@ -125,4 +147,3 @@ Definition sem_val_typed `{!heapGS Σ}
 
 Notation "⊨ᵥ v : A" := (sem_val_typed v A)
   (at level 20, v, A at next level) : bi_scope.
-

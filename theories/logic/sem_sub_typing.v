@@ -20,7 +20,8 @@ From affine_tes.logic Require Import sem_typed.
 
 
 (* Copyable types *)
-Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) := ∀ v, Persistent (τ%T v).
+Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) := 
+  ∀ v, Persistent (τ%T v).
 
 (* Copyable environment *)
 Definition copy_env `{!heapGS Σ} Γ :=
@@ -121,6 +122,15 @@ Section sub_typing.
     iIntros (u) "Hu". iModIntro. by iApply Hκ₁₂.
   Qed.
   
+  Lemma ty_le_ref (τ₁ τ₂ : sem_ty Σ) :
+    τ₁ ≤T τ₂ →
+    (Ref τ₁) ≤T (Ref τ₂).
+  Proof.
+    iIntros (Hτ₁₂ v) "(%l & -> & (%w & Hl & Hτw))".
+    iExists l. iSplit; first done.
+    iExists w. iFrame. by iApply Hτ₁₂.
+  Qed.
+
   Lemma ty_le_prod (τ₁ τ₂ κ₁ κ₂ : sem_ty Σ) :
     τ₁ ≤T τ₂ →
     κ₁ ≤T κ₂ →
@@ -245,9 +255,6 @@ Section copyable_types.
   Lemma copy_ty_nat : copy_ty ℤ.
   Proof. solve_persistent. Qed.
   
-  Lemma copy_ty_ref τ : copy_ty (Ref τ).
-  Proof. solve_persistent. Qed.
-  
   Lemma copy_ty_uarr τ ρ κ : copy_ty (τ -{ ρ }-> κ).
   Proof. solve_persistent. Qed.
   
@@ -260,7 +267,8 @@ Section copyable_types.
   Lemma copy_ty_exists τ : (∀ α, copy_ty (τ α)) → copy_ty (∃: α, τ α).
   Proof. solve_persistent. apply H. Qed.
 
-  Lemma copy_ty_rec τ `{NonExpansive τ}: (∀ α, copy_ty (τ α)) → copy_ty (μ: α, τ α).
+  Lemma copy_ty_rec τ `{NonExpansive τ}: 
+    (∀ α, copy_ty (τ α)) → copy_ty (μ: α, τ α).
   Proof. iIntros (H v). rewrite sem_ty_rec_unfold.
          solve_persistent. apply H. 
   Qed.
