@@ -479,7 +479,7 @@ Section compatibility.
     iExists v. eauto with iFrame.
   Qed.
   
-  
+
   (* Limitation: 
      In the typing rule for the effect branch, the continuation
      has the additional information that when called it returns
@@ -491,33 +491,31 @@ Section compatibility.
    *)
   Lemma sem_typed_shallow_try Γ₁ Γ₂ Γ₃ Γ' w k x e h r ι κ τ τ': 
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ →
-    w ∉ env_dom Γ' → w ∉ env_dom Γ' → k ∉ env_dom Γ' → k ∉ env_dom Γ' → 
-    w ∉ env_dom Γ₃ → w ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → w ≠ k →
+    w ∉ env_dom Γ' → k ∉ env_dom Γ' →
+    w ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → w ≠ k →
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ' ⊨ Γ₂ -∗
     (w, ι) :: (k, κ -{ ρ }-∘ τ') :: Γ' ⊨ h w k : ρ : τ ⊨ Γ₃ -∗
     (x, τ') :: Γ₂ ++ Γ' ⊨ r x : ρ : τ ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (TryWith e (λ: w k, h w k) (λ: x, r x)) : (ι ⇒ κ) : τ ⊨ Γ₃.
   Proof.
-    iIntros (????????????) "%ρ #He #Hh #Hr !# %vs HΓ₁' //=".
-    rewrite env_sem_typed_app.
-    iDestruct "HΓ₁'" as "[HΓ₁ HΓ']".
+    iIntros (????????) "%ρ #He #Hh #Hr !# %vs HΓ₁' //=".
+    rewrite env_sem_typed_app. iDestruct "HΓ₁'" as "[HΓ₁ HΓ']".
     ewp_pure_steps.
-    iApply (ewp_try_with with "[HΓ₁]").
-    { by iApply "He". }
+    iApply (ewp_try_with with "[HΓ₁]"); [by iApply "He"|].
     iSplit; [|iSplit; iIntros (v c)];
     last (iIntros "?"; by rewrite upcl_bottom).
     - iIntros (v) "[Hv HΓ₂] //=". ewp_pure_steps.
       rewrite -subst_map_insert.
-      iApply (ewp_mono with "[HΓ₂ HΓ' Hv]"). 
+      iApply (ewp_mono with "[HΓ₂ HΓ' Hv]").
       + iApply "Hr". simpl. iSplitL "Hv".
         { iExists v. iIntros "{$Hv} !%". apply lookup_insert. }
-        rewrite env_sem_typed_app. iFrame. 
+        rewrite env_sem_typed_app. iFrame.
         iSplitL "HΓ₂"; by iApply env_sem_typed_insert.
       + iIntros (u) "[Hw HΓ₃] !> //=".
         iFrame. by iApply (env_sem_typed_delete _ _ x v).
     - rewrite upcl_sem_row_eff.
-      iIntros "(%a & -> & Ha & Hκb) //=". ewp_pure_steps. 
+      iIntros "(%a & -> & Ha & Hκb) //=". ewp_pure_steps.
       rewrite decide_True; [|split; first done; by injection].
       rewrite subst_subst_ne; last done.
       rewrite -subst_map_insert -delete_insert_ne; last done.
@@ -525,12 +523,12 @@ Section compatibility.
       iApply (ewp_mono with "[HΓ' Hκb Ha]").
       + iApply "Hh". simpl. iSplitL "Ha".
         { iExists a. iIntros "{$Ha} !%". apply lookup_insert. }
-        iSplitL "Hκb". 
-        { iExists c. iSplitR; [iPureIntro; rewrite lookup_insert_ne; last done; apply lookup_insert|].
-          iIntros (b) "Hb".  iApply (ewp_mono with "[Hb Hκb]"); [by iApply "Hκb"|].
-          iIntros (?) "[? _] !> //=". }
-        iApply env_sem_typed_insert; first done.
-        by iApply env_sem_typed_insert; first done.
+        iSplitL "Hκb".
+        2: { do 2 (iApply env_sem_typed_insert; try done). }
+        iExists c. iSplitR.
+        { iPureIntro; rewrite lookup_insert_ne; last done; apply lookup_insert. }
+        iIntros (b) "Hb". iApply (ewp_mono with "[Hb Hκb]"); [by iApply "Hκb"|].
+        iIntros (?) "[? _] !> //=".
       + iIntros (u) "[Hu HΓ₃] !> {$Hu}".
         iApply (env_sem_typed_delete _ _ k c); first done.
         by iApply (env_sem_typed_delete _ _ w a).
@@ -573,17 +571,16 @@ Section compatibility.
       rewrite -subst_map_insert -delete_insert_ne; last done.
       rewrite -subst_map_insert.
       iApply (ewp_mono with "[Ha HΓ' Hκb]").
-      + iApply "Hh". simpl.
-        iSplitL "Ha"; [iExists a; iIntros "{$Ha} !%"; apply lookup_insert|].
+      + iApply "Hh". simpl. iSplitL "Ha".
+        { iExists a; iIntros "{$Ha} !%"; apply lookup_insert. }
         iSplitL "Hκb".
-        { iExists c. iSplitR; [iPureIntro; rewrite lookup_insert_ne; last done; apply lookup_insert|].
-          iIntros (b) "Hb". iApply (ewp_mono with "[Hb Hκb]"). 
-          { iApply ("Hκb" with "Hb"). iNext.
-            rewrite !deep_handler_unfold. 
-            iApply "IH". iApply "HΓ". }
-          iIntros (v) "[Hτ' HΓ₃] !> {$Hτ'}". }
-        iApply env_sem_typed_insert; first done.
-        by iApply env_sem_typed_insert.
+        2: { do 2 (iApply env_sem_typed_insert; try done). }
+        iExists c. iSplitR.
+        { iPureIntro; rewrite lookup_insert_ne; last done; apply lookup_insert. }
+        iIntros (b) "Hb". iApply (ewp_mono with "[Hb Hκb]").
+        { iApply ("Hκb" with "Hb").
+          rewrite !deep_handler_unfold. iApply "IH". iApply "HΓ". }
+        iIntros (u) "[Hτ' HΓ₃] !> {$Hτ'}".
       + iIntros (u) "[Hτ' HΓ₃] !> {$Hτ'}".
         iApply (env_sem_typed_delete _ _ k c); first done.
         by iApply (env_sem_typed_delete _ _ w a).
