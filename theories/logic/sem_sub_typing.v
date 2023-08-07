@@ -256,6 +256,9 @@ Section copyable_types.
   Lemma copy_ty_nat : copy_ty ℤ.
   Proof. solve_persistent. Qed.
   
+  Lemma copy_ty_moved : copy_ty Moved.
+  Proof. solve_persistent. Qed.
+
   Lemma copy_ty_uarr τ ρ κ : copy_ty (τ -{ ρ }-> κ).
   Proof. solve_persistent. Qed.
   

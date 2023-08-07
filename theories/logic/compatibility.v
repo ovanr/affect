@@ -466,8 +466,8 @@ Section compatibility.
     iExists l. iSplit; first done. iExists v. iFrame.
   Qed.
   
-  Lemma sem_typed_load Γ x ρ τ: 
-    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ρ : τ ⊨ (x, Ref Moved) :: Γ).
+  Lemma sem_typed_load Γ x τ: 
+    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⊨ (x, Ref Moved) :: Γ).
   Proof.
     iIntros "%Φ %vs !# //= [(%v & -> & (%l & -> & (%w & Hl & Hτ))) HΓ] HΦ //=". 
     iApply (ewp_load with "Hl").
@@ -476,9 +476,9 @@ Section compatibility.
     iExists w. iFrame.
   Qed.
   
-  Lemma sem_typed_load_copy Γ x ρ τ: 
+  Lemma sem_typed_load_copy Γ x τ: 
     copy_ty τ →
-    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ρ : τ ⊨ (x, Ref τ) :: Γ).
+    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⊨ (x, Ref τ) :: Γ).
   Proof.
     iIntros (Hcpy) "%Φ %vs !# //= [(%v & -> & (%l & -> & (%w & Hl & Hτ))) HΓ] HΦ //=". 
     iApply (ewp_load with "Hl").
@@ -488,14 +488,15 @@ Section compatibility.
     iExists w. iIntros "{$Hτ $Hl}".
   Qed.
 
-  Lemma sem_typed_store Γ₁ Γ₂ x e ρ τ κ: 
-    Γ₁ ⊨ e : ρ : κ ⊨ Γ₂ -∗
-    (x, Ref τ) :: Γ₁ ⊨ (x <- e) : ρ : () ⊨ (x, Ref κ) :: Γ₂.
+  Lemma sem_typed_store Γ₁ Γ₂ x e ρ τ κ ι: 
+    copy_ty κ →
+    (x, Ref τ) :: Γ₁ ⊨ e : ρ : ι ⊨ (x, Ref κ) :: Γ₂ -∗
+    (x, Ref τ) :: Γ₁ ⊨ (x <- e) : ρ : () ⊨ (x, Ref ι) :: Γ₂.
   Proof.
-    iIntros "#He !# %Φ %vs //= [(%v & -> & (%l & -> & (%u & Hl & Hτ))) HΓ₁] HΦ //=".
+    iIntros (Hcpy) "#He !# %Φ %vs //= HΓ₁' HΦ //=".
     iApply (ewp_bind [StoreRCtx _]); first done. simpl.
-    iApply ("He" with "HΓ₁").
-    iIntros (w) "[Hκ HΓ₂]". 
+    iApply ("He" with "HΓ₁'").
+    iIntros (w) "[Hι [(%v & -> & (%l & -> & (% & Hl & Hκ))) HΓ₂]] /=". 
     iApply (ewp_store with "Hl"). iIntros "!> Hl !>". iApply "HΦ". 
     iFrame. iSplitR; first done. iExists #l. iSplitR; first done.
     iExists l. iSplitR; first done. iExists w. iFrame.
@@ -526,17 +527,16 @@ Section compatibility.
      this extra env_sem_typed Γ₂ vs is ignored and cannot be
      used inside the handler, so we have some loss of information.
    *)
-  Lemma sem_typed_shallow_try Γ₁ Γ₂ Γ₃ Γ' w k x e h r ι κ τ τ': 
-    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ →
-    w ∉ env_dom Γ' → k ∉ env_dom Γ' →
+  Lemma sem_typed_shallow_try Γ₁ Γ₂ Γ₃ Γ' w k e h r ι κ τ τ': 
+    w ∉ env_dom Γ₂ → w ∉ env_dom Γ' → k ∉ env_dom Γ' →
     w ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → w ≠ k →
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ' ⊨ Γ₂ -∗
     (w, ι) :: (k, κ -{ ρ }-∘ τ') :: Γ' ⊨ h w k : ρ : τ ⊨ Γ₃ -∗
-    (x, τ') :: Γ₂ ++ Γ' ⊨ r x : ρ : τ ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (TryWith e (λ: w k, h w k) (λ: x, r x)) : (ι ⇒ κ) : τ ⊨ Γ₃.
+    (w, τ') :: Γ₂ ++ Γ' ⊨ r w : ρ : τ ⊨ Γ₃ -∗
+    Γ₁ ++ Γ' ⊨ (TryWith e (λ: w k, h w k) (λ: w, r w)) : ρ : τ ⊨ Γ₃.
   Proof.
-    iIntros (????????) "%ρ #He #Hh #Hr !# %Φ %vs HΓ₁' HΦ //=".
+    iIntros (??????) "%ρ #He #Hh #Hr !# %Φ %vs HΓ₁' HΦ //=".
     rewrite env_sem_typed_app. iDestruct "HΓ₁'" as "[HΓ₁ HΓ']".
     ewp_pure_steps.
     iApply (ewp_try_with _ _ _ (λ v, τ' v ∗ env_sem_typed Γ₂ vs) 
@@ -552,7 +552,7 @@ Section compatibility.
         rewrite env_sem_typed_app. iFrame.
         iSplitL "HΓ₂"; by iApply env_sem_typed_insert.
       + iIntros (u) "[Hw HΓ₃] //=".
-        iApply "HΦ". iFrame. by iApply (env_sem_typed_delete _ _ x v).
+        iApply "HΦ". iFrame. by iApply (env_sem_typed_delete _ _ w v).
     - rewrite upcl_sem_row_eff.
       iIntros "(%a & -> & Ha & Hκb) //=". ewp_pure_steps.
       rewrite decide_True; [|split; first done; by injection].
@@ -574,17 +574,16 @@ Section compatibility.
         by iApply (env_sem_typed_delete _ _ w a).
   Qed.
   
-  Lemma sem_typed_deep_try Γ₁ Γ' Γ₂ Γ₃ e x w k h r ρ' ι κ τ τ':
-    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ →
-    w ∉ env_dom Γ' → w ∉ env_dom Γ₃ →
+  Lemma sem_typed_deep_try Γ₁ Γ' Γ₂ Γ₃ e w k h r ρ' ι κ τ τ':
+    w ∉ env_dom Γ₂ → w ∉ env_dom Γ' → w ∉ env_dom Γ₃ →
     k ∉ env_dom Γ' → k ∉ env_dom Γ₃ → w ≠ k → copy_env Γ' →
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
     (w, ι) :: (k, κ -{ ρ' }-∘ τ') :: Γ' ⊨ h w k : ρ' : τ' ⊨ Γ₃ -∗
-    (x, τ) :: Γ₂ ++ Γ' ⊨ r x : ρ' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (deep-try: e with effect (λ: w k, h w k) | return (λ: x, r x) end) : ρ' : τ' ⊨ Γ₃.
+    (w, τ) :: Γ₂ ++ Γ' ⊨ r w : ρ' : τ' ⊨ Γ₃ -∗
+    Γ₁ ++ Γ' ⊨ (deep-try: e with effect (λ: w k, h w k) | return (λ: w, r w) end) : ρ' : τ' ⊨ Γ₃.
   Proof.
-    iIntros (???????? Hcpy) "%ρ #He #Hh #Hr !# %Φ %vs HΓ₁' HΦ //=".
+    iIntros (?????? Hcpy) "%ρ #He #Hh #Hr !# %Φ %vs HΓ₁' HΦ //=".
     rewrite env_sem_typed_app. iDestruct "HΓ₁'" as "[HΓ₁ HΓ']".
     rewrite Hcpy. iDestruct "HΓ'" as "#HΓ'".
     ewp_pure_steps. iApply (ewp_mono with "[HΓ₁] [HΦ]").
@@ -603,7 +602,7 @@ Section compatibility.
         rewrite env_sem_typed_app. iSplitL "HΓ₂";
         by iApply env_sem_typed_insert.
       + iIntros (?) "[Hτ' HΓ₃] {$Hτ'}".
-        by iApply (env_sem_typed_delete _ _ x v).
+        by iApply (env_sem_typed_delete _ _ w v).
     - rewrite upcl_sem_row_eff.
       iIntros "(%a & -> & Ha & Hκb)". ewp_pure_steps.
       rewrite decide_True; [|split; first done; by injection].
