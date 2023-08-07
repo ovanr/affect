@@ -88,10 +88,9 @@ Section sub_typing.
   Lemma ty_le_arr (τ κ : sem_ty Σ) (ρ : sem_row Σ) :
     (τ -{ ρ }-> κ) ≤T (τ -{ ρ }-∘ κ).
   Proof.
-    iIntros (v) "#Hτκ %w Hw".
-    iApply (ewp_mono with "[Hw]").
-    { by iApply "Hτκ". }
-    iIntros (u) "Hu". by iModIntro.
+    iIntros (v) "#Hτκ %Φ %w Hw HΦ".
+    iApply ("Hτκ" with "Hw").
+    iIntros (u) "Hu". by iApply "HΦ".
   Qed.
   
   Lemma ty_le_larr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
@@ -100,12 +99,13 @@ Section sub_typing.
     κ₁ ≤T κ₂ →
     (τ₁ -{ ρ }-∘ κ₁) ≤T (τ₂ -{ ρ' }-∘ κ₂).
   Proof.
-    iIntros (Hρ Hτ₂₁ Hκ₁₂ v) "Hτκ₁ %w Hw".
+    iIntros (Hρ Hτ₂₁ Hκ₁₂ v) "Hτκ₁ %Φ %w Hw HΦ".
     iApply ewp_os_prot_mono.
     { iApply Hρ. }
-    iApply (ewp_mono with "[Hw Hτκ₁]").
-    { iApply "Hτκ₁". by iApply Hτ₂₁. }
-    iIntros (u) "Hu". iModIntro. by iApply Hκ₁₂.
+    iApply ("Hτκ₁" with "[Hw]").
+    { by iApply Hτ₂₁. }
+    iIntros (u) "Hu". iApply "HΦ".
+    by iApply Hκ₁₂.
   Qed.
   
   Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
@@ -114,12 +114,13 @@ Section sub_typing.
     κ₁ ≤T κ₂ →
     (τ₁ -{ ρ }-> κ₁) ≤T (τ₂ -{ ρ' }-> κ₂).
   Proof.
-    iIntros (Hρ Hτ₂₁ Hκ₁₂ v) "#Hτκ₁ %w !# Hw".
+    iIntros (Hρ Hτ₂₁ Hκ₁₂ v) "#Hτκ₁ %Φ %w !# Hw HΦ".
     iApply ewp_os_prot_mono.
     { iApply Hρ. }
-    iApply (ewp_mono with "[Hw]").
-    { iApply "Hτκ₁". by iApply Hτ₂₁. }
-    iIntros (u) "Hu". iModIntro. by iApply Hκ₁₂.
+    iApply ("Hτκ₁" with "[Hw]").
+    { by iApply Hτ₂₁. }
+    iIntros (u) "Hu". iApply "HΦ".
+    by iApply Hκ₁₂. 
   Qed.
   
   Lemma ty_le_ref (τ₁ τ₂ : sem_ty Σ) :

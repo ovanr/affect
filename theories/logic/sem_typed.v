@@ -123,8 +123,10 @@ Definition sem_typed `{!heapGS Σ}
   (ρ  : sem_row Σ)
   (τ  : sem_ty Σ) 
   (Γ₂  : env Σ) : iProp Σ :=
-    tc_opaque( □ (∀ (vs : gmap string val),
-                    env_sem_typed Γ₁ vs -∗ EWP (subst_map vs e) <| ρ |> {{ v, τ v ∗ env_sem_typed Γ₂ vs }}))%I.
+    tc_opaque( □ (∀ Φ (vs : gmap string val),
+                    env_sem_typed Γ₁ vs -∗ 
+                    (∀ v, τ v ∗ env_sem_typed Γ₂ vs -∗ Φ v) -∗ 
+                    EWP (subst_map vs e) <| ρ |> {{ v, Φ v }}))%I.
 
 Global Instance sem_typed_persistent `{!heapGS Σ} (Γ Γ' : env Σ) e ρ τ :
   Persistent (sem_typed Γ e ρ τ Γ').

@@ -60,14 +60,14 @@ Definition sem_ty_larr `{!heapGS Σ}
   (ρ : sem_row Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ κ }})%I.
+  (λ (v : val), ∀ Φ (w : val), τ w -∗ (∀ v, κ v -∗ Φ v) -∗ EWP (v w) <| ρ |> {{ Φ }})%I.
 
 (* Unrestricted Arrow type. *)
 Definition sem_ty_uarr `{irisGS eff_lang Σ} 
   (ρ : sem_row Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), ∀ (w : val), □ (τ w -∗ EWP (v w) <| ρ |> {{ κ }}))%I.
+  (λ (v : val), ∀ Φ (w : val), □ (τ w -∗ (∀ v, κ v -∗ Φ v) -∗ EWP (v w) <| ρ |> {{ Φ }}))%I.
 
 (* Polymorphic type. *)
 Definition sem_ty_forall `{irisGS eff_lang Σ} 
