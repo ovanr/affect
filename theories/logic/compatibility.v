@@ -64,6 +64,13 @@ Section compatibility.
     iApply "HΦ". iSplitR; first (iExists i); done.
   Qed.
   
+  Lemma sem_typed_var Γ x τ : 
+    ⊢ (x, τ) :: Γ ⊨ x : ⟨⟩ : τ ⊨ Γ.
+  Proof.
+    iIntros (Φ vs) "!# /= [(%v & -> & Hτ) HΓ₁] HΦ //=". 
+    iApply ewp_value. iApply "HΦ". iFrame.
+  Qed.
+
   (* Subsumption rule *)
   
   Lemma sem_typed_sub Γ₁ Γ₁' Γ₂ Γ₂' e ρ ρ' τ τ':
