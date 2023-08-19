@@ -233,17 +233,16 @@ Section compatibility.
 
   Lemma sem_typed_case Γ₁ Γ₂ Γ₃ e₁ e₂ e₃ τ ρ κ ι: 
     Γ₁ ⊨ e₁ : ρ : (τ + κ) ⊨ Γ₂ -∗
-    Γ₂ ⊨ e₂ : ⟨⟩ : (τ -{ ρ }-∘ ι) ⊨ Γ₃ -∗
-    Γ₂ ⊨ e₃ : ⟨⟩ : (κ -{ ρ }-∘ ι) ⊨ Γ₃ -∗
+    Γ₂ ⊨ e₂ : ρ : (τ -{ ρ }-∘ ι) ⊨ Γ₃ -∗
+    Γ₂ ⊨ e₃ : ρ : (κ -{ ρ }-∘ ι) ⊨ Γ₃ -∗
     Γ₁ ⊨ Case e₁ e₂ e₃ : ρ : ι ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ #He₃ !# %Φ %vs HΓ₁ HΦ //=".
     iApply (ewp_bind [CaseCtx _ _]); first done.
     iApply ("He₁" with "HΓ₁").
-    iIntros (v) "[(%w & [(-> & Hτ)|(-> & Hκ)]) HΓ₂] //="; 
+    iIntros (v) "[(%w & [(-> & Hτ)|(-> & Hκ)]) HΓ₂] //=";
       ewp_pure_steps;
-      iApply (ewp_bind [AppLCtx _]); try done; 
-      ewp_bottom.
+      iApply (ewp_bind [AppLCtx _]); try done.
     - iApply ("He₂" with "HΓ₂ [Hτ HΦ]").
       iIntros (v) "[Hτι HΓ₃] //=".
       iApply ("Hτι" with "Hτ"). 
@@ -496,11 +495,10 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_store Γ₁ Γ₂ x e ρ τ κ ι: 
-    copy_ty κ →
     (x, Ref τ) :: Γ₁ ⊨ e : ρ : ι ⊨ (x, Ref κ) :: Γ₂ -∗
     (x, Ref τ) :: Γ₁ ⊨ (x <- e) : ρ : () ⊨ (x, Ref ι) :: Γ₂.
   Proof.
-    iIntros (Hcpy) "#He !# %Φ %vs //= HΓ₁' HΦ //=".
+    iIntros "#He !# %Φ %vs //= HΓ₁' HΦ //=".
     iApply (ewp_bind [StoreRCtx _]); first done. simpl.
     iApply ("He" with "HΓ₁'").
     iIntros (w) "[Hι [(%v & -> & (%l & -> & (% & Hl & Hκ))) HΓ₂]] /=". 
