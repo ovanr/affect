@@ -103,3 +103,9 @@ Proof.
   - by repeat case_decide; simpl; repeat case_decide; try rewrite IHe;
     try naive_solver.
 Qed.
+
+Lemma subst_map_subst_empty vs₁ e :
+  subst_map vs₁ (subst_map ∅ e) = subst_map vs₁ e.
+Proof. by rewrite subst_map_empty. Qed.
+
+

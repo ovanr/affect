@@ -1,0 +1,25 @@
+opam-version: "2.0"
+compiler: ["ocaml-base-compiler.5.0.0"]
+roots: ["ocaml-base-compiler.5.0.0"]
+installed: [
+  "astring.0.8.5"
+  "base-bigarray.base"
+  "base-bytes.base"
+  "base-domains.base"
+  "base-nnp.base"
+  "base-threads.base"
+  "base-unix.base"
+  "cmdliner.1.2.0"
+  "fpath.0.7.3"
+  "ocaml.5.0.0"
+  "ocaml-base-compiler.5.0.0"
+  "ocaml-config.3"
+  "ocaml-options-vanilla.1"
+  "ocamlbuild.0.14.2"
+  "ocamlfind.1.9.6"
+  "seq.base"
+  "topkg.1.0.7"
+  "uucp.15.0.0"
+  "uuseg.15.0.0"
+  "uutf.1.0.3"
+]
