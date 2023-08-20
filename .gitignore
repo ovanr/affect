@@ -8,6 +8,9 @@
 *.v.d
 .*.aux
 *.glob
+Makefile.coq
+Makefile.coq.conf
+.Makefile.coq.d
 _opam
 .coqdeps.d
 build-dep
