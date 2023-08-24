@@ -13,6 +13,9 @@ From affine_tes.lang Require Import hazel.
 From affine_tes.logic Require Import sem_types.
 From affine_tes.logic Require Import sem_typed.
 
+(* This file is largely based from the adequacy proof in TES:
+   https://gitlab.inria.fr/cambium/tes/-/blob/main/theories/logic/adequacy.v
+ *)
 
 Context `{!heapGS Σ}.
 
