@@ -1,7 +1,7 @@
 open Effect
 open Effect.Deep
 
-type _ Effect.t += Xchg: int -> int t
+type 'a Effect.t += Xchg: int -> int Effect.t
 
 type 'a status = 
     Completed of 'a
@@ -12,9 +12,9 @@ let step (f : unit -> 'a) () : 'a status =
     match_with f () {
         retc = (fun v -> Completed v);
         exnc = raise;
-        effc = fun (type a) (eff : a t) ->
+        effc = fun (type a) (eff : a Effect.t) ->
             match eff with
-                Xchg(n) -> Some(fun (k : (a, _) continuation) -> Suspended({ msg = n; cont = k }))
+                Xchg(n) -> Some(fun (k : (a, 'b) continuation) -> Suspended({ msg = n; cont = k }))
             |   _       -> None
     }
 
