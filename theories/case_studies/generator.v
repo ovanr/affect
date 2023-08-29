@@ -71,7 +71,6 @@ Proof.
       iApply sem_typed_sufun; solve_sidecond.
       iApply (sem_typed_let _ [("cont", Ref Moved)] _ _ _ _ in_cont_ty); solve_sidecond.
       { iApply sem_typed_sub_nil. iApply sem_typed_load. }
-      Search ( [?x; ?y] = app [?x] [?y] ).
       rewrite app_singletons.
       set r := fun (w : string) => ("cont" <- (λ: <>, #());; NONE)%E.
       fold (r "w").
