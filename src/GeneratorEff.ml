@@ -1,14 +1,17 @@
 (* This file is largely based on:
     https://github.com/ocaml-multicore/ocaml-effects-tutorial/blob/master/sources/solved/generator.ml
    with some adjustments made:
-    ∙ this solution uses the handler's return branch instead of
+    ∙ an iterator does not take a container but instead it only
+      takes a function to perform on each element.
+      Thus iterators embed containers in them and don't take it as argument
+    ∙ The generate solution uses the handler's return branch instead of
       defining a recursive reference to avoid the last continuation from being called more than once
  *)
-type ('elt,'container) iterator = ('elt -> unit) -> 'container -> unit
+type 'elt iterator = ('elt -> unit) -> unit
 
 type 'elt generator = unit -> 'elt option
 
-let generate (type elt) (i : (elt, 'container) iterator) (c : 'container) : elt generator =
+let generate (type elt) (i : elt iterator) : elt generator =
     let open Effect in
     let open Effect.Shallow in
     let open struct
@@ -16,10 +19,10 @@ let generate (type elt) (i : (elt, 'container) iterator) (c : 'container) : elt 
             Yield : elt -> unit Effect.t
     end in 
     let yield x = perform (Yield x) in
-    let cont = ref (fiber (fun () -> i yield c; None)) in
+    let cont = ref (fiber (fun () -> i yield)) in
     fun () ->
         continue_with !cont () {
-            retc = (fun _ -> cont := (fiber (fun () -> None)); None);
+            retc = (fun () -> cont := fiber (fun () -> ()); None);
             exnc = raise;
             effc = fun (type a) (eff : a Effect.t) ->
                 match eff with
@@ -30,7 +33,7 @@ let generate (type elt) (i : (elt, 'container) iterator) (c : 'container) : elt 
                 |   _ -> None
         }
 
-let generate_deep (type elt) (i : (elt, 'container) iterator) (c : 'container) : elt generator =
+let generate_deep (type elt) (i : elt iterator) : elt generator =
     let open Effect in
     let open Effect.Deep in
     let open struct
@@ -38,7 +41,7 @@ let generate_deep (type elt) (i : (elt, 'container) iterator) (c : 'container) :
             Yield : elt -> unit Effect.t
     end in 
     let yield x = perform (Yield x) in
-    let cont = ref (fun () -> i yield c; None) in
+    let cont = ref (fun () -> i yield; None) in
     fun () ->
         match_with !cont () {
             retc = (
@@ -54,11 +57,19 @@ let generate_deep (type elt) (i : (elt, 'container) iterator) (c : 'container) :
                 |   _ -> None
         }
 
+let iterate (type elt) (g : elt generator) : elt iterator =
+    fun f -> 
+        let rec run_gen () = match g () with 
+                                None -> ()
+                            |   Some(x) -> f x; run_gen () in
+        run_gen ()
+            
+
 (***********************)
 (* Traversal generator *)
 (***********************)
 
-let gen_list : 'a list -> 'a generator = generate List.iter
+let gen_list : 'a list -> 'a generator = fun xs -> generate (Fun.flip List.iter xs)
 let gl : int generator = gen_list [1;2;3]
 ;;
 
@@ -68,7 +79,7 @@ assert (Some 3 = gl ());;
 assert (None = gl ());;
 assert (None = gl ());;
 
-let gen_array : 'a array -> 'a generator = generate Array.iter
+let gen_array : 'a array -> 'a generator = fun arr -> generate (Fun.flip Array.iter arr)
 let ga : float generator = gen_array [| 1.0; 2.0; 3.0 |]
 ;;
 
@@ -84,9 +95,9 @@ assert (None = ga ());;
 (***********)
 
 (* Iterator over nats. Dummy () container. *)
-let rec nats : int (* init *) -> (int, unit) iterator =
-    fun v f () ->
-    f v; nats (v+1) f ()
+let rec nats : int (* init *) -> int iterator =
+    fun v f ->
+    f v; nats (v+1) f
 
 (* Infinite stream *)
 type 'a stream = unit -> 'a
@@ -99,7 +110,7 @@ let inf : 'a generator -> 'a stream  =
     | _ -> assert false
 
 (* Nat stream *)
-let gen_nats : int stream = inf (generate (nats 0) ())
+let gen_nats : int stream = inf (generate (nats 0))
 ;;
 
 assert (0 = gen_nats ());;
@@ -120,7 +131,7 @@ let rec map : 'a stream -> ('a -> 'b) -> 'b stream =
 
 (* Even stream *)
 let gen_even : int stream =
-    let nat_stream = inf (generate (nats 0) ()) in
+    let nat_stream = inf (generate (nats 0)) in
     filter nat_stream (fun n -> n mod 2 = 0)
 ;;
 
@@ -131,7 +142,7 @@ assert (6 = gen_even ());;
 
 (* Odd stream *)
 let gen_odd : int stream =
-    let nat_stream = inf (generate (nats 1) ()) in
+    let nat_stream = inf (generate (nats 1)) in
     filter nat_stream (fun n -> n mod 2 == 1)
 ;;
 
@@ -143,7 +154,7 @@ assert (7 = gen_odd ());;
 
 (* Primes using sieve of Eratosthenes *)
 let gen_primes =
-    let s = inf (generate (nats 2) ()) in
+    let s = inf (generate (nats 2)) in
     let rs = ref s in
     fun () ->
     let s = !rs in

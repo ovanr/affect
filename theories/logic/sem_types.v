@@ -1,13 +1,13 @@
 
 (* sem_types.v *)
 
-(* This file contains the definition of semantic types and row,
+(* This file contains the definition of semantic types and signatures,
    together with the definition of base types and type formers.  
 *)
 
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe.
-From iris.base_logic.lib Require Import iprop.
+From iris.base_logic Require Export lib.iprop.
 From iris.base_logic Require Import upred.
 
 (* Hazel Reasoning *)
@@ -29,13 +29,29 @@ Declare Scope sem_ty_scope.
 Bind Scope sem_ty_scope with sem_ty.
 Delimit Scope sem_ty_scope with T.
 
-(** * Semantic Row. *)
+(** * Semantic Effect Signature. *)
 
-Notation sem_row Σ := (iEff Σ).
+Notation sem_sig Σ := (iEff Σ).
 
-Declare Scope sem_row_scope.
-Bind Scope ieff_scope with sem_row.
-Delimit Scope sem_row_scope with R.
+Declare Scope sem_sig_scope.
+Bind Scope ieff_scope with sem_sig.
+Delimit Scope sem_sig_scope with R.
+
+Lemma sem_ty_equiv {Σ} v (τ τ' : sem_ty Σ) : 
+  τ ≡ τ' → τ v ≡ τ' v.
+Proof.
+  intros Hτ. unfold equiv, ofe_equiv in Hτ. 
+  simpl in Hτ. unfold discrete_fun_equiv in Hτ.
+  by apply Hτ.
+Qed.
+
+Lemma sem_ty_dist {Σ} v (τ τ' : sem_ty Σ) n : 
+  dist n τ τ' → dist n (τ v) (τ' v).
+Proof.
+  intros Hττ'. unfold dist, ofe_dist in Hττ'.
+  simpl in Hττ'. unfold discrete_fun_dist in Hττ'.
+  by apply Hττ'.
+Qed.
 
 (* Base types. *)
 Definition sem_ty_unit {Σ} : sem_ty Σ := (λ v, ⌜ v = #() ⌝)%I.
@@ -56,22 +72,87 @@ Definition sem_ty_sum {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
   (λ v, ∃ v', (⌜v = InjLV v'%V⌝ ∗ τ v') ∨ (⌜ v = InjRV v'⌝ ∗ κ v'))%I.
 
 (* Linear Arrow type. *)
-Definition sem_ty_larr `{!heapGS Σ} 
-  (ρ : sem_row Σ)
+Definition sem_ty_aarr `{!heapGS Σ} 
+  (ρ : sem_sig Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), ∀ Φ (w : val), τ w -∗ (∀ v, κ v -∗ Φ v) -∗ EWP (v w) <| ρ |> {{ Φ }})%I.
+  (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ κ }})%I.
 
 (* Unrestricted Arrow type. *)
 Definition sem_ty_uarr `{irisGS eff_lang Σ} 
-  (ρ : sem_row Σ)
+  (ρ : sem_sig Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), ∀ Φ (w : val), □ (τ w -∗ (∀ v, κ v -∗ Φ v) -∗ EWP (v w) <| ρ |> {{ Φ }}))%I.
+  (λ (v : val), □ (∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ κ }}))%I.
+
+(* Sequentially Unrestricted Arrow type. *)
+Definition sem_ty_suarr_pre `{!irisGS eff_lang Σ} 
+  (ρ : sem_sig Σ)
+  (τ : sem_ty Σ)
+  (κ : sem_ty Σ) 
+  (rec : sem_ty Σ) : sem_ty Σ :=
+  (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ u, κ u ∗ rec v }})%I.
+
+Definition discrete_fun_app {Σ} A (P Q : A -d> iPropO Σ) x n :
+  P ≡{n}≡ Q → (P x) ≡{n}≡ (Q x).
+Proof. intros H. f_equiv. Qed.
+
+Definition discrete_fun_app3 {Σ} A B C (P Q : A -d> B -d> C -d> iPropO Σ) x1 x2 x3 n :
+  P ≡{n}≡ Q → (P x1 x2 x3) ≡{n}≡ (Q x1 x2 x3).
+Proof. intros H. apply discrete_fun_app. f_equiv. Qed.
+
+Definition discrete_fun_app4 {Σ} A B C D (P Q : A -d> B -d> C -d> D -d> iPropO Σ) x1 x2 x3 x4 n :
+  P ≡{n}≡ Q → (P x1 x2 x3 x4) ≡{n}≡ (Q x1 x2 x3 x4).
+Proof. intros H. apply discrete_fun_app3. f_equiv. Qed.
+
+Definition discrete_fun_app5 {Σ} A B C D E (P Q : A -d> B -d> C -d> D -d> E -d> iPropO Σ) x1 x2 x3 x4 x5 n :
+  P ≡{n}≡ Q → (P x1 x2 x3 x4 x5) ≡{n}≡ (Q x1 x2 x3 x4 x5).
+Proof. intros H. apply discrete_fun_app4. f_equiv. Qed.
+
+Global Instance sem_ty_suarr_pre_contractive `{!irisGS eff_lang Σ} 
+  (ρ : sem_sig Σ) (τ κ : sem_ty Σ) :
+  Contractive (sem_ty_suarr_pre ρ τ κ).
+Proof. 
+  intros ????. unfold sem_ty_suarr_pre. intros ?.
+  rewrite bi.forall_ne; first done. intros ?. f_equiv.
+  rewrite /ewp_def.
+  assert (Hunfold : (fixpoint ewp_pre ⊤ (x0 a) ρ iEff_bottom (λ u : val, (κ u ∗ x x0)%I)) ≡{n}≡
+          (ewp_pre (fixpoint ewp_pre) ⊤ (x0 a) ρ iEff_bottom (λ u : val, (κ u ∗ x x0)%I))).
+  { apply discrete_fun_app5. by rewrite  -fixpoint_unfold. }
+  rewrite Hunfold. clear Hunfold.
+  assert (Hunfold : (fixpoint ewp_pre ⊤ (x0 a) ρ iEff_bottom (λ u : val, (κ u ∗ y x0)%I)) ≡{n}≡
+          (ewp_pre (fixpoint ewp_pre) ⊤ (x0 a) ρ iEff_bottom (λ u : val, (κ u ∗ y x0)%I))).
+  { apply discrete_fun_app5. by rewrite  -fixpoint_unfold. }
+  rewrite Hunfold. clear Hunfold. rewrite /ewp_pre.
+  destruct (to_val (x0 a)) eqn:Htoval; first done.
+  destruct (to_eff (x0 a)) eqn:Htoeff; first done. simpl.
+  rewrite -/ewp_pre.
+  do 21 (f_contractive || f_equiv).
+  induction num_laters_per_step as [|k IHk]; simpl; last by rewrite IHk.
+  do 2 f_equiv. rewrite -/ewp_def.
+  f_equiv. intros ?. f_equiv. by apply sem_ty_dist.
+Qed.
+
+Definition sem_ty_suarr `{!irisGS eff_lang Σ} 
+  (ρ : sem_sig Σ)
+  (τ : sem_ty Σ)
+  (κ : sem_ty Σ) : sem_ty Σ := fixpoint (sem_ty_suarr_pre ρ τ κ).
+
+Lemma sem_ty_suarr_unfold `{!irisGS eff_lang Σ}
+  (ρ : sem_sig Σ)
+  (τ : sem_ty Σ)
+  (κ : sem_ty Σ) :
+  (sem_ty_suarr ρ τ κ) ≡
+    (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ u, κ u ∗ sem_ty_suarr ρ τ κ v }})%I.
+Proof.
+  unfold sem_ty_suarr. 
+  etrans; [apply fixpoint_unfold|].
+  by rewrite /sem_ty_suarr_pre.
+Qed.
 
 (* Polymorphic type. *)
 Definition sem_ty_forall `{irisGS eff_lang Σ} 
-  (ρ : sem_row Σ) (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := 
+  (ρ : sem_sig Σ) (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := 
     (λ v, ∀ τ, EWP (v <_>) <| ρ |> {{ C τ }})%I.
 
 (* Existential type. *)
@@ -87,21 +168,6 @@ Proof. solve_contractive. Qed.
 Definition sem_ty_rec {Σ} (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ :=
   fixpoint (sem_ty_rec_pre C).
 
-Lemma sem_ty_equiv {Σ} v (τ τ' : sem_ty Σ) : 
-  τ ≡ τ' → τ v ≡ τ' v.
-Proof.
-  intros Hτ. unfold equiv, ofe_equiv in Hτ. 
-  simpl in Hτ. unfold discrete_fun_equiv in Hτ.
-  by apply Hτ.
-Qed.
-
-Lemma sem_ty_dist {Σ} v (τ τ' : sem_ty Σ) n : 
-  dist n τ τ' → dist n (τ v) (τ' v).
-Proof.
-  intros Hττ'. unfold dist, ofe_dist in Hττ'.
-  simpl in Hττ'. unfold discrete_fun_dist in Hττ'.
-  by apply Hττ'.
-Qed.
 
 Lemma sem_ty_rec_unfold {Σ} (C : sem_ty Σ → sem_ty Σ) `{!NonExpansive C} v :
   (sem_ty_rec C)%T v ⊣⊢ ▷ C (sem_ty_rec C)%T v.
@@ -145,23 +211,23 @@ Proof.
     by iFrame. 
 Qed.
 
-(* Empty Effect Row. *)
-Definition sem_row_bot {Σ} : sem_row Σ := iEff_bottom.
+(* Empty Effect Sig. *)
+Definition sem_sig_nil {Σ} : sem_sig Σ := iEff_bottom.
 
-(* Effect Row. *)
-Definition sem_row_eff {Σ} (τ κ : sem_ty Σ) : sem_row Σ :=
+(* Effect Sig. *)
+Definition sem_sig_eff {Σ} (τ κ : sem_ty Σ) : sem_sig Σ :=
   (>> (a : val) >> ! a {{ τ a }};
    << (b : val) << ? b {{ κ b }} @OS).
 
-Lemma upcl_sem_row_eff {Σ} τ κ v Φ :
-  iEff_car (upcl OS (sem_row_eff (Σ:=Σ) τ κ)) v Φ ⊣⊢
+Lemma upcl_sem_sig_eff {Σ} τ κ v Φ :
+  iEff_car (upcl OS (sem_sig_eff (Σ:=Σ) τ κ)) v Φ ⊣⊢
     (∃ a, ⌜ v = a ⌝ ∗ τ a ∗ (∀ b, κ b -∗ Φ b))%I.
-Proof. by rewrite /sem_row_eff (upcl_tele' [tele _] [tele _]). Qed.
+Proof. by rewrite /sem_sig_eff (upcl_tele' [tele _] [tele _]). Qed.
 
-Lemma sem_row_eff_eq {Σ} τ κ v Φ :
-  iEff_car (sem_row_eff (Σ:=Σ) τ κ) v Φ ⊣⊢
+Lemma sem_sig_eff_eq {Σ} τ κ v Φ :
+  iEff_car (sem_sig_eff (Σ:=Σ) τ κ) v Φ ⊣⊢
     (∃ a, ⌜ a = v ⌝ ∗ τ a ∗ (∀ b, κ b -∗ Φ b))%I.
-Proof. by rewrite /sem_row_eff (iEff_tele_eq' [tele _] [tele _]). Qed.
+Proof. by rewrite /sem_sig_eff (iEff_tele_eq' [tele _] [tele _]). Qed.
 
 (* Notations. *)
 Notation "()" := sem_ty_unit : sem_ty_scope.
@@ -184,20 +250,24 @@ Notation "'∃:' A , C " := (sem_ty_exists (λ A, C%T))
 Notation "'μ:' A , C " := (sem_ty_rec (λ A, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "⟨⟩" := sem_row_bot : sem_row_scope.
-Notation "τ ⇒ κ" := (sem_row_eff τ%T κ%T) 
-  (at level 100, κ at level 200) : sem_row_scope.
+Notation "⟨⟩" := sem_sig_nil : sem_sig_scope.
+Notation "τ ⇒ κ" := (sem_sig_eff τ%T κ%T) 
+  (at level 100, κ at level 200) : sem_sig_scope.
 
-Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_larr ρ%R τ%T κ%T)
+Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_aarr ρ%R τ%T κ%T)
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ ⊸ κ" := (sem_ty_larr sem_row_bot τ%T κ%T)
+Notation "τ ⊸ κ" := (sem_ty_aarr sem_sig_nil τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ → κ" := (sem_ty_uarr sem_row_bot τ%T κ%T)
+Notation "τ → κ" := (sem_ty_uarr sem_sig_nil τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
+Notation "τ '∘-{' ρ '}->' κ" := (sem_ty_suarr ρ%R τ%T κ%T)
+  (at level 100, ρ, κ at level 200) : sem_ty_scope.
+Notation "τ ∘-> κ" := (sem_ty_suarr sem_sig_nil τ%T κ%T)
+  (at level 99, κ at level 200) : sem_ty_scope.
 
 (* Derived Types *)
 
@@ -210,6 +280,11 @@ Definition sem_ty_list {Σ} (τ : sem_ty Σ) : sem_ty Σ :=
 Notation "'List' τ" := (sem_ty_list τ%T) 
   (at level 50) : sem_ty_scope.
 
+(* List type. *)
+Definition sem_ty_option {Σ} (τ : sem_ty Σ) : sem_ty Σ := (() + τ)%T.
+
+Notation "'Option' τ" := (sem_ty_option τ%T) 
+  (at level 50) : sem_ty_scope.
 
 (**  Prove that type formers are non-expansive and respect setoid equality. *)
 Section types_properties.
@@ -218,7 +293,7 @@ Section types_properties.
   Ltac solve_non_expansive2 :=
     intros m x y Hxy x' y' Hxy'; try intros ?;
     unfold sem_ty_unit, sem_ty_int, sem_ty_bool,
-           sem_ty_prod, sem_ty_sum, sem_ty_larr,
+           sem_ty_prod, sem_ty_sum, sem_ty_aarr,
            sem_ty_uarr, sem_ty_ref, sem_ty_rec,
            sem_ty_list, sem_ty_forall, sem_ty_exists;
     repeat f_equiv; done || by apply sem_ty_dist.
@@ -229,7 +304,7 @@ Section types_properties.
   Global Instance sem_ty_sum_ne : NonExpansive2 (@sem_ty_sum Σ).
   Proof. solve_non_expansive2. Qed.
 
-  Global Instance sem_ty_larr_ne ρ : NonExpansive2 (sem_ty_larr ρ).
+  Global Instance sem_ty_larr_ne ρ : NonExpansive2 (sem_ty_aarr ρ).
   Proof. solve_non_expansive2. Qed.
 
   Global Instance sem_ty_uarr_ne ρ : NonExpansive2 (sem_ty_uarr ρ).
@@ -264,7 +339,7 @@ Section types_properties.
   Global Instance sem_ty_sum_proper : Proper ((≡) ==> (≡) ==> (≡)) (@sem_ty_sum Σ).
   Proof. solve_non_expansive2. Qed.
 
-  Global Instance sem_ty_larr_proper ρ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_larr ρ).
+  Global Instance sem_ty_larr_proper ρ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_aarr ρ).
   Proof. solve_non_expansive2. Qed.
 
   Global Instance sem_ty_uarr_proper ρ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_uarr ρ).

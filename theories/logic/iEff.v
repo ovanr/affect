@@ -17,8 +17,8 @@ Lemma iEff_tele_eq' {Σ} (TT1 TT2 : tele) v m
   (∃.. x, ⌜ tele_app v' x = v ⌝ ∗ tele_app P x ∗
     □? m (∀.. y, tele_app (tele_app Q  x) y -∗
           Φ (tele_app (tele_app w' x) y)))%I.
-Proof. by rewrite (iEff_tele_eq (tele_app v') (tele_app P)
+Proof. 
+  by rewrite (iEff_tele_eq (tele_app v') (tele_app P)
                   (λ x y, tele_app (tele_app w' x) y)
                   (λ x y, tele_app (tele_app Q  x) y)).
 Qed.
-

@@ -120,7 +120,7 @@ End environment.
 Definition sem_typed `{!heapGS Σ}
   (Γ₁  : env Σ)
   (e  : expr)
-  (ρ  : sem_row Σ)
+  (ρ  : sem_sig Σ)
   (τ  : sem_ty Σ) 
   (Γ₂  : env Σ) : iProp Σ :=
     tc_opaque( □ (∀ Φ (vs : gmap string val),

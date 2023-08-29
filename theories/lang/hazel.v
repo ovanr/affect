@@ -5,11 +5,15 @@
    the let-pair construct and its eliminator.
 *)
 
+From iris.algebra Require Import ofe.
+From iris.base_logic Require Export lib.iprop.
 From iris.program_logic Require Export language.
 From iris.heap_lang     Require Export locations.
 
 (* Hazel language *)
 From language Require Export eff_lang.
+From program_logic Require Import weakest_precondition 
+                                  state_reasoning.
 
 (* Local imports *)
 From affine_tes.lang Require Export subst_map.
@@ -74,7 +78,6 @@ Notation CONSV x xs := (InjRV (PairV x xs)) (only parsing).
 
 Notation ListMatch e1 e2 x e3 := 
   (Case (unfold: e1)%E (Lam BAnon e2) (Lam (BNamed x) (App (App e3 (Fst (Var x))) (Snd (Var x))))) (only parsing).
-
 Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
   (ListMatch e1 e2 x%binder (Lam x%binder (Lam xs%binder e3)))
   (e1, x, xs, e2, e1 at level 200,
@@ -110,3 +113,24 @@ Proof.
    destruct K as [|Ki K]; try destruct Ki; try naive_solver.
    simpl in H1. simplify_eq. by inversion H2.
 Qed.
+
+Global Instance ewp_pre_contractive `{!irisGS eff_lang Σ}: Contractive ewp_pre := 
+  weakest_precondition.ewp_pre_contractive.
+
+Global Instance ewp_contractive `{!heapGS Σ}e n Ψ₁ Ψ₂:
+  TCEq (to_val e) None →
+  TCEq (to_eff e) None →
+  Proper (pointwise_relation _ (dist_later n) ==> dist n) (ewp_def ⊤ e Ψ₁ Ψ₂).
+Proof.
+  intros Hval Heff Φ₁ Φ₂ HΦ. rewrite !ewp_unfold /ewp_pre /=.
+  destruct (to_val e) eqn:?; [inversion Hval|].
+  destruct (to_eff e) eqn:?; [inversion Heff|].
+  do 24 (f_contractive || f_equiv).
+  apply HΦ.
+Qed.
+
+Global Instance elem_binder_string : (ElemOf binder (list string)) := 
+  (λ b xs, match b with
+              BAnon => False%type
+            | BNamed x => x ∈ xs
+           end).
