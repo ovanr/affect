@@ -40,6 +40,13 @@ Section compatibility.
 
   Context `{!heapGS Σ}.
   
+  Lemma sem_typed_val τ v : 
+    ⊨ᵥ v : τ -∗ [] ⊨ v : ⟨⟩ : τ ⊨ [].
+  Proof.
+    iIntros "#Hv !# %Φ %vs _ HΦ /=".
+    iApply ewp_value. iApply "HΦ". iIntros "{$Hv}".
+  Qed.
+
   (* Base rules *)
   
   Lemma sem_typed_unit Γ : 
@@ -69,6 +76,23 @@ Section compatibility.
     iIntros (Φ vs) "!# /= [(%v & -> & Hτ) HΓ₁] HΦ //=". 
     iApply ewp_value. iApply "HΦ". iFrame.
   Qed.
+
+  Lemma sem_typed_closure x e τ ρ κ :
+    [(x, τ)] ⊨ e : ρ : κ ⊨ [] -∗ 
+    ⊨ᵥ (λ: x, e) : (τ -{ ρ }-> κ).
+  Proof.
+      iIntros "#He !# %v !# Hv /=".
+      ewp_pure_steps. rewrite -subst_map_singleton.
+      iApply ("He" with "[Hv] []").
+      { simpl. iSplitL "Hv"; last done. 
+        iExists v. iFrame. iPureIntro. apply lookup_insert. }
+      iIntros (w) "[Hκ _] {$Hκ}".
+  Qed.
+
+  Lemma sem_typed_closure_to_unrestricted x e τ ρ κ :
+    ⊨ᵥ (λ: x, e) : (τ -{ ρ }-∘ κ) -∗
+    ⊨ᵥ (λ: x, e) : (τ -{ ρ }-> κ).
+  Proof. iIntros "#He !# !#". iApply "He". Qed.
 
   (* Subsumption rule *)
   
@@ -147,7 +171,7 @@ Section compatibility.
 
   (* λ-calculus rules *)
 
-  Lemma sem_typed_afun Γ₁ Γ₂ (x : binder) e τ ρ κ: 
+  Lemma sem_typed_afun Γ₁ Γ₂ x e τ ρ κ: 
     x ∉ (env_dom Γ₁) →
     x ∉ (env_dom Γ₂) →
     (match x with BAnon => Γ₁ | BNamed x => (x,τ) :: Γ₁ end) ⊨ e : ρ : κ ⊨ [] -∗
@@ -212,13 +236,12 @@ Section compatibility.
       + iIntros (v) "[Hκ _]". by iApply "Hκ". 
   Qed.
   
-  Lemma sem_typed_sufun Γ₁ Γ₂ (x : binder) e τ ρ κ: 
-    x ∉ (env_dom Γ₁) →
-    x ∉ (env_dom Γ₂) →
+  Lemma sem_typed_sufun Γ₁ Γ₂ x e τ ρ κ: 
+    x ∉ (env_dom Γ₁) → x ∉ (env_dom Γ₂) →
     match x with BAnon => Γ₁ | BNamed x => (x,τ) :: Γ₁ end ⊨ e : ρ : κ ⊨ Γ₁ -∗
     Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⟨⟩ : (τ ∘-{ ρ }-> κ) ⊨ Γ₂.
   Proof.
-    iIntros (??) "#He !# %Φ %vs HΓ₁₂ HΦ //=".
+    iIntros (??) "#He !# %Φ %vs HΓ₁₂ HΦ /=".
     ewp_pure_steps. 
     rewrite env_sem_typed_app. iApply "HΦ". 
     iDestruct "HΓ₁₂" as "[HΓ₁ $]". 
@@ -232,7 +255,7 @@ Section compatibility.
       + iSplitL "Hτ". 
         { iExists w. iIntros "{$Hτ} !%". apply lookup_insert. }
         by iApply env_sem_typed_insert.
-      + iIntros (v) "//= [Hκ HΓ₁] {$Hκ}". 
+      + iIntros (v) "/= [Hκ HΓ₁] {$Hκ}". 
         iApply "IH". by iApply env_sem_typed_delete.
   Qed.
 
@@ -254,11 +277,10 @@ Section compatibility.
   Qed.
   
   Lemma sem_typed_suapp Γ₁ Γ₂ f e₂ τ ρ κ: 
-    (f, τ ∘-{ ρ }-> κ) :: Γ₂ ⊨ f : ρ : (τ ∘-{ ρ }-> κ) ⊨ Γ₂ -∗
-    (f, τ ∘-{ ρ }-> κ) :: Γ₁ ⊨ e₂ : ρ : τ ⊨ (f, τ ∘-{ ρ }-> κ) :: Γ₂ -∗
-    (f, τ ∘-{ ρ }-> κ) :: Γ₁ ⊨ (f e₂) : ρ : κ ⊨ (f, τ ∘-{ ρ }-> κ) :: Γ₂. 
+    Γ₁ ⊨ e₂ : ρ : τ ⊨ (f, τ ∘-{ ρ }-> κ) :: Γ₂ -∗
+    Γ₁ ⊨ (f e₂) : ρ : κ ⊨ (f, τ ∘-{ ρ }-> κ) :: Γ₂. 
   Proof.
-    iIntros "#Hf #He₂ !# %Φ %vs HΓ₁ HΦ /=".
+    iIntros "#He₂ !# %Φ %vs HΓ₁ HΦ /=".
     iApply (ewp_bind ([AppRCtx _])); first done.
     iApply ("He₂" with "HΓ₁").
     iIntros (v) "/= [Hτ [(%w & -> & Hw) HΓ₂]]".
@@ -270,8 +292,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_let Γ₁ Γ₂ Γ₃ x e₁ e₂ τ ρ κ: 
-    x ∉ (env_dom Γ₂) →
-    x ∉ (env_dom Γ₃) →
+    x ∉ (env_dom Γ₂) → x ∉ (env_dom Γ₃) →
     Γ₁ ⊨ e₁ : ρ : τ ⊨ Γ₂ -∗
     (x, τ) :: Γ₂ ⊨ e₂ : ρ : κ ⊨ Γ₃ -∗
     Γ₁ ⊨ (let: x := e₁ in e₂) : ρ : κ ⊨ Γ₃.
@@ -470,29 +491,56 @@ Section compatibility.
   
   (* Type abstraction and application *)
   Lemma sem_typed_TLam Γ₁ Γ₂ ρ e C : 
-    (∀ A, Γ₁ ⊨ e : ρ : C A ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀: A , ρ , C A)%T ⊨ Γ₂.
+    (∀ α, Γ₁ ⊨ e : ρ : C α ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀T: α , { ρ } , C α)%T ⊨ Γ₂.
   Proof.
     iIntros "#He !# %Φ %vs HΓ₁₂ HΦ //=".
     rewrite env_sem_typed_app.
     iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
     ewp_pure_steps. iApply "HΦ". 
-    iIntros "{$HΓ₂} %A //=". ewp_pure_steps.
+    iIntros "{$HΓ₂} %α //=". ewp_pure_steps.
     iApply ("He" with "HΓ₁ []"). 
     iIntros (w) "[HC _] {$HC}".
   Qed.
 
   Lemma sem_typed_TApp Γ₁ Γ₂ e ρ τ C : 
-    Γ₁ ⊨ e : ρ : (∀: α , ρ , C α) ⊨ Γ₂ -∗
+    Γ₁ ⊨ e : ρ : (∀T: α , { ρ } , C α) ⊨ Γ₂ -∗
     Γ₁ ⊨ e <_> : ρ : C τ ⊨ Γ₂. 
   Proof.
-    iIntros "#He !# %Φ %vs HΓ₁ HΦ //=".
+    iIntros "#He !# %Φ %vs HΓ₁ HΦ /=".
     iApply (ewp_bind [AppLCtx _]); first done.
     iApply ("He" with "HΓ₁").
     iIntros "%w [Hw HΓ₂] //=".
     iApply (ewp_mono with "[Hw]").
     { iApply "Hw". }
     iIntros (u) "HC !>". iApply "HΦ". iFrame.
+  Qed.
+
+  (* Signature abstraction and application *)
+  Lemma sem_typed_SLam Γ₁ Γ₂ e C : 
+    (∀ θ, Γ₁ ⊨ e : θ : C θ ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀S: θ , C θ)%T ⊨ Γ₂.
+  Proof.
+    iIntros "#He !# %Φ %vs HΓ₁₂ HΦ /=".
+    rewrite env_sem_typed_app.
+    iDestruct "HΓ₁₂" as "[HΓ₁ HΓ₂]".
+    ewp_pure_steps.
+    iApply "HΦ". iFrame.
+    iIntros (ρ). ewp_pure_steps.
+    iApply ("He" with "HΓ₁ []").
+    iIntros (v) "[HC _] {$HC}".
+  Qed.
+
+  Lemma sem_typed_SApp Γ₁ Γ₂ e ρ C : 
+    Γ₁ ⊨ e : ρ : (∀S: θ , C θ) ⊨ Γ₂ -∗
+    Γ₁ ⊨ e <_> : ρ : C ρ ⊨ Γ₂. 
+  Proof.
+    iIntros "#He !# %Φ %vs HΓ₁ HΦ /=".
+    iApply (ewp_bind [AppLCtx _]); first done.
+    iApply ("He" with "HΓ₁ [HΦ]").
+    iIntros (v) "[HC HΓ₂] /=".
+    iApply (ewp_mono with "HC").
+    iIntros (w) "HCρ !>". iApply "HΦ". iFrame.
   Qed.
 
   (* Existential type packing and unpacking *)

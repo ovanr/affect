@@ -18,18 +18,18 @@ From affine_tes.logic Require Import compatibility.
 
 Definition generate :=
   (λ: "i", let: "yield" := λ: "x", do: "x" in  
-           let: "cont" := ref (λ: <>, "i" "yield") in
+           let: "cont" := ref (λ: <>, "i" <_> "yield") in
            λ: <>, let: "comp" := Load "cont" in 
               TryWith ("comp" #())
                 (λ: "w" "k", ("cont" <- "k" ;; SOME "w"))%E
                 (λ: "w", "cont" <- (λ: <>,  #()) ;; NONE )%E
-  )%E. 
+  )%V. 
 
 Context `{!heapGS Σ}.
 
 Definition yield_sig (τ : sem_ty Σ) := (τ ⇒ ())%R.
 Definition yield_ty τ := τ -{ yield_sig τ }-> ().
-Definition iter_ty τ := ((yield_ty τ) -{ yield_sig τ }-∘ ())%T.
+Definition iter_ty τ := (∀S: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
 Definition generator_ty τ := (() ∘-> Option τ)%T.
 
 Ltac solve_dom := try 
@@ -45,13 +45,10 @@ Ltac solve_sidecond := solve_dom; solve_copy.
 Lemma app_singletons {A} (x y : A) : [x;y] = [x] ++ [y].
 Proof. done. Qed.
 
-Lemma sem_typed_generate i τ :
-  ⊢ [(i, iter_ty τ)] ⊨ generate i : ⟨⟩ : generator_ty τ ⊨ [].
+Lemma sem_typed_generate τ :
+  ⊢ ⊨ᵥ generate : (iter_ty τ → generator_ty τ).
 Proof.
-  iIntros.
-  iApply sem_typed_app; [|iApply sem_typed_var].
-  rewrite /generate {1}(symmetry (app_nil_r [])).
-  iApply (sem_typed_afun [] [] "i" _ (iter_ty τ) ⟨⟩%R (generator_ty τ)); solve_sidecond.
+  iIntros "". iApply sem_typed_closure.
   iApply (sem_typed_let _ [("i", iter_ty τ)] _ _ _ _ (yield_ty τ)); solve_sidecond. 
   - rewrite {1}(symmetry (app_nil_l [("i", iter_ty τ)])).
     iApply sem_typed_ufun; solve_sidecond.
@@ -65,7 +62,10 @@ Proof.
       rewrite -(app_nil_r Γ₁).
       iApply sem_typed_afun; solve_dom.
       iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ (yield_ty τ));
-        do 2 (iApply sem_typed_sub_nil; iApply sem_typed_var).
+        last (iApply sem_typed_sub_nil; iApply sem_typed_var).
+        iApply (sem_typed_SApp _ _ _ (yield_sig τ) (λ ρ, ( τ -{ ρ }-> ()) -{ ρ }-∘ ())).
+        iApply sem_typed_sub_nil. 
+        iApply sem_typed_var.
     + set Γ₁ :=[("cont", cont_ty)]; rewrite -(app_nil_r Γ₁). 
       set in_cont_ty := (() -{ yield_sig τ }-∘ ()).
       iApply sem_typed_sufun; solve_sidecond.

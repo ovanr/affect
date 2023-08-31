@@ -92,17 +92,14 @@ Section sub_typing.
     iApply ("Hτκ" with "Hw").
   Qed.
 
-  (* Lemma ty_le_u2suarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) : *)
-  (*   (τ -{ ρ }-> κ) ≤T (τ ∘-{ ρ }-> κ). *)
-  (* Proof. *)
-  (*   iIntros (v) "#Hτκ". *)
-  (*   iLöb as "IH". *)
-  (*   rewrite {2}sem_ty_equiv; [|apply sem_ty_suarr_unfold]. *)
-  (*   iIntros (w) "Hτ". *)
-  (*   assert ( *)
-  (*   iApply (ewp_mono with "[Hτκ Hτ]"). *)
-  (*   { by iApply "Hτκ". } *)
-  (*   iIntros "%u Hκ !> {$Hκ}". *)
+  Lemma ty_le_u2suarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
+    (τ -{ ρ }-> κ) ≤T (τ ∘-{ ρ }-> κ).
+  Proof.
+    iIntros (v) "#Hτκ".
+    iLöb as "IH".
+    rewrite {2}sem_ty_equiv; [|apply sem_ty_suarr_unfold].
+    iIntros (w) "Hτ".
+  Admitted.
 
 
   Lemma ty_le_suarr2arr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
@@ -197,13 +194,23 @@ Section sub_typing.
   Lemma ty_le_forall ρ₁ ρ₂ (τ₁ τ₂ : sem_ty Σ → sem_sig Σ → sem_ty Σ) :
     ρ₁ ≤R ρ₂ →
     (∀ α, τ₁ α ρ₁ ≤T τ₂ α ρ₂) →
-    (∀: α, ρ₁, τ₁ α ρ₁) ≤T (∀: α, ρ₂, τ₂ α ρ₂).
+    (∀T: α, { ρ₁ }, τ₁ α ρ₁) ≤T (∀T: α, { ρ₂ }, τ₂ α ρ₂).
   Proof.
     iIntros (Hρ₁₂ Hτ₁₂ v) "Hτ₁ %τ". unfold sem_ty_forall.
     iApply ewp_os_prot_mono; [iApply Hρ₁₂|].
     iApply (ewp_mono with "[Hτ₁]").
     { iApply "Hτ₁". }
     iIntros (w) "Hw !>". by iApply Hτ₁₂.
+  Qed.
+
+  Lemma ty_le_sig_forall (τ₁ τ₂ : sem_sig Σ → sem_ty Σ) :
+    (∀ θ, τ₁ θ ≤T τ₂ θ) →
+    (∀S: θ, τ₁ θ) ≤T (∀S: θ, τ₂ θ).
+  Proof.
+    iIntros (Hτ₁₂ v) "Hτ₁ %ρ".
+    iApply (ewp_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
+    iIntros (u) "Hτ₁ !>".
+    iApply (Hτ₁₂ ρ with "Hτ₁").
   Qed.
 
   Lemma ty_le_exists (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :

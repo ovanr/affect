@@ -155,6 +155,13 @@ Definition sem_ty_forall `{irisGS eff_lang Σ}
   (ρ : sem_sig Σ) (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := 
     (λ v, ∀ τ, EWP (v <_>) <| ρ |> {{ C τ }})%I.
 
+(* Polymorphic effect type. *)
+(* why is value restriction also important here? *)
+(* example: ∀ θ, ∀ τ, (τ -{ θ }-> ()) -{ θ }-> () *)
+Definition sem_ty_sig_forall `{irisGS eff_lang Σ} 
+  (τ : sem_sig Σ → sem_ty Σ) : sem_ty Σ := 
+    (λ v, ∀ θ, EWP (v <_>) <| θ |> {{ τ θ }})%I.
+
 (* Existential type. *)
 Definition sem_ty_exists `{irisGS eff_lang Σ} 
   (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∃ τ, C τ v)%I.
@@ -241,13 +248,16 @@ Infix "+" := (sem_ty_sum) : sem_ty_scope.
 Notation "'Ref' τ" := (sem_ty_ref τ%T) 
   (at level 50) : sem_ty_scope.
 
-Notation "'∀:' A , ρ , C " := (sem_ty_forall ρ (λ A, C%T)) 
+Notation "'∀T:' α , { ρ } ,  C " := (sem_ty_forall ρ (λ α, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'∃:' A , C " := (sem_ty_exists (λ A, C%T)) 
+Notation "'∀S:' θ , C " := (sem_ty_sig_forall (λ θ, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'μ:' A , C " := (sem_ty_rec (λ A, C%T)) 
+Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T)) 
+  (at level 180) : sem_ty_scope.
+
+Notation "'μ:' α , C " := (sem_ty_rec (λ α, C%T)) 
   (at level 180) : sem_ty_scope.
 
 Notation "⟨⟩" := sem_sig_nil : sem_sig_scope.

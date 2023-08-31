@@ -147,5 +147,5 @@ Definition sem_val_typed `{!heapGS Σ}
   (v : val) 
   (A : sem_ty Σ) : iProp Σ := □ (A v).
 
-Notation "⊨ᵥ v : A" := (sem_val_typed v A)
+Notation "⊨ᵥ v : A" := (sem_val_typed v%V A%T)
   (at level 20, v, A at next level) : bi_scope.
