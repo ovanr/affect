@@ -40,11 +40,11 @@ Section compatibility.
 
   Context `{!heapGS Σ}.
   
-  Lemma sem_typed_val τ v : 
-    ⊨ᵥ v : τ -∗ [] ⊨ v : ⟨⟩ : τ ⊨ [].
+  Lemma sem_typed_val Γ τ v : 
+    ⊨ᵥ v : τ -∗ Γ ⊨ v : ⟨⟩ : τ ⊨ Γ.
   Proof.
-    iIntros "#Hv !# %Φ %vs _ HΦ /=".
-    iApply ewp_value. iApply "HΦ". iIntros "{$Hv}".
+    iIntros "#Hv !# %Φ %vs HΓ HΦ /=".
+    iApply ewp_value. iApply "HΦ". iIntros "{$Hv} {$HΓ}".
   Qed.
 
   (* Base rules *)
@@ -753,7 +753,7 @@ Section compatibility.
     Γ₁ ⊨ e : ρ : τ' ⊨ Γ₂ -∗
     (w, ι) :: (k, κ -{ ρ }-∘ τ') :: Γ' ⊨ h w k : ρ' : τ ⊨ Γ₃ -∗
     (w, τ') :: Γ₂ ++ Γ' ⊨ r w : ρ' : τ ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (TryWith e (λ: w k, h w k) (λ: w, r w)) : ρ' : τ ⊨ Γ₃.
+    Γ₁ ++ Γ' ⊨ (shallow-try: e with effect (λ: w k, h w k) | return (λ: w, r w) end) : ρ' : τ ⊨ Γ₃.
   Proof.
     iIntros (??????) "%ρ #He #Hh #Hr !# %Φ %vs HΓ₁' HΦ //=".
     rewrite env_sem_typed_app. iDestruct "HΓ₁'" as "[HΓ₁ HΓ']".

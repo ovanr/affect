@@ -79,7 +79,7 @@ Notation CONSV x xs := (InjRV (PairV x xs)) (only parsing).
 Notation ListMatch e1 e2 x e3 := 
   (Case (unfold: e1)%E (Lam BAnon e2) (Lam (BNamed x) (App (App e3 (Fst (Var x))) (Snd (Var x))))) (only parsing).
 Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
-  (ListMatch e1 e2 x%binder (Lam x%binder (Lam xs%binder e3)))
+  (ListMatch e1 e2%E x%binder (Lam x%binder (Lam xs%binder e3%E)))
   (e1, x, xs, e2, e1 at level 200,
    format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
 

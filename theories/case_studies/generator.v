@@ -1,105 +1,118 @@
 
 From iris.proofmode Require Import base tactics.
-From Coq Require Import ssreflect ssrfun ssrbool.
-
 
 (* Hazel Reasoning *)
 From program_logic Require Import weakest_precondition 
-                                  deep_handler_reasoning 
+                                  tactics 
                                   state_reasoning.
 
 (* Local imports *)
 From affine_tes.lang Require Import hazel.
+From affine_tes.case_studies Require Import representable.
 From affine_tes.logic Require Import sem_types.
-From affine_tes.logic Require Import sem_typed.
-From affine_tes.logic Require Import sem_sub_typing.
-From affine_tes.logic Require Import sem_operators.
-From affine_tes.logic Require Import compatibility.
 
-Definition generate :=
-  (λ: "i", let: "yield" := λ: "x", do: "x" in  
-           let: "cont" := ref (λ: <>, "i" <_> "yield") in
-           λ: <>, let: "comp" := Load "cont" in 
-              TryWith ("comp" #())
-                (λ: "w" "k", ("cont" <- "k" ;; SOME "w"))%E
-                (λ: "w", "cont" <- (λ: <>,  #()) ;; NONE )%E
-  )%V. 
 
-Context `{!heapGS Σ}.
+Section generator.
+  Context `{!heapGS Σ}.
+  
+  Context {G : Type → Type} `{DataStructure Σ G, Iterable G}.
+  Context {A : Type} `{Representable Σ A}.
+      
+  Definition YIELD I T : iEff Σ :=
+    (>> (us : list A) (u : A) x >> !x   {{ represents x u ∗ ⌜permitted T (us ++ [u])⌝ ∗ I us }}; 
+                                   ?#() {{ I (us ++ [u]) }} @ OS).
+  Lemma upcl_yield I T v Φ:
+    iEff_car (upcl OS (YIELD I T)) v Φ ⊣⊢
+      (∃ us u x, ⌜ v = x ⌝ ∗ (represents x u ∗ ⌜ permitted T (us ++ [u])⌝ ∗ I us) ∗ 
+                             ((I (us ++ [u])) -∗ Φ #()))%I.
+  Proof.
+    by rewrite /YIELD (upcl_tele' [tele _ _ _ ] [tele]). 
+  Qed.
+  
+  Definition isGen_pre (isGen : val -d> G A -d> list A -d> iPropO Σ) 
+                              : val -d> G A -d> list A -d> iPropO Σ := 
+    λ gen T us,
+      (EWP (gen #()) {{ v, match v with 
+                            NONEV => ⌜complete T us⌝ ∗ isGen gen T us
+                          | SOMEV x => ∃ u, represents x u ∗ ⌜permitted T (us ++ [u])⌝ ∗ 
+                                            isGen gen T (us ++ [u])
+                          | _ => False
+                          end }})%I.
+  
+  Global Instance isGen_contractive : Contractive isGen_pre.
+  Proof.
+    intros ?????. rewrite /isGen_pre. intros ??.
+    apply ewp_contractive; try done. intros ?. destruct n; first done.
+    simpl in *. f_equiv. 
+    { do 3 f_equiv. by apply discrete_fun_app3. }
+    do 4 f_equiv; by apply discrete_fun_app3. 
+  Qed.
+  
+  Definition isGen : val -d> G A -d> list A -d> iPropO Σ := fixpoint isGen_pre.
+  
+  Lemma isGen_unfold T gen us :
+    isGen gen T us ⊣⊢ isGen_pre isGen gen T us.
+  Proof.
+    rewrite /isGen. apply (fixpoint_unfold isGen_pre).
+  Qed.
 
-Definition yield_sig (τ : sem_ty Σ) := (τ ⇒ ())%R.
-Definition yield_ty τ := τ -{ yield_sig τ }-> ().
-Definition iter_ty τ := (∀S: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
-Definition generator_ty τ := (() ∘-> Option τ)%T.
+End generator.
 
-Ltac solve_dom := try 
-    (apply not_elem_of_nil) || 
-    (apply not_elem_of_cons; split; solve_dom) || 
-    (intros ?; match goal with
-      | H : (BAnon ∈ env_dom _) |- _ => destruct H
-      end) ||
-    done.
+Section list_generator.
 
-Ltac solve_sidecond := solve_dom; solve_copy.
+  Context `{!heapGS Σ}.
 
-Lemma app_singletons {A} (x y : A) : [x;y] = [x] ++ [y].
-Proof. done. Qed.
+  Definition list_gen :=
+      (λ: "xs",
+        let: "rxs" := ref "xs" in 
+        (λ: <>,
+          list-match: Load "rxs" with
+            CONS "x" => "xxs" => "rxs" <- !"xxs" ;; SOME "x"
+          | NIL => NONE
+          end)
+      )%E.
 
-Lemma sem_typed_generate τ :
-  ⊢ ⊨ᵥ generate : (iter_ty τ → generator_ty τ).
-Proof.
-  iIntros "". iApply sem_typed_closure.
-  iApply (sem_typed_let _ [("i", iter_ty τ)] _ _ _ _ (yield_ty τ)); solve_sidecond. 
-  - rewrite {1}(symmetry (app_nil_l [("i", iter_ty τ)])).
-    iApply sem_typed_ufun; solve_sidecond.
-    iApply sem_typed_do. 
-    iApply sem_typed_sub_nil.
-    iApply sem_typed_var.
-  - set cont_ty := Ref (() -{ yield_sig τ }-∘ ()). 
-    iApply (sem_typed_let _ [] _ _ _ _ cont_ty); solve_sidecond.
-    + set Γ₁ :=[("yield", yield_ty τ); ("i", iter_ty τ)].
-      iApply sem_typed_alloc.
-      rewrite -(app_nil_r Γ₁).
-      iApply sem_typed_afun; solve_dom.
-      iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ (yield_ty τ));
-        last (iApply sem_typed_sub_nil; iApply sem_typed_var).
-        iApply (sem_typed_SApp _ _ _ (yield_sig τ) (λ ρ, ( τ -{ ρ }-> ()) -{ ρ }-∘ ())).
-        iApply sem_typed_sub_nil. 
-        iApply sem_typed_var.
-    + set Γ₁ :=[("cont", cont_ty)]; rewrite -(app_nil_r Γ₁). 
-      set in_cont_ty := (() -{ yield_sig τ }-∘ ()).
-      iApply sem_typed_sufun; solve_sidecond.
-      iApply (sem_typed_let _ [("cont", Ref Moved)] _ _ _ _ in_cont_ty); solve_sidecond.
-      { iApply sem_typed_sub_nil. iApply sem_typed_load. }
-      rewrite app_singletons.
-      set r := fun (w : string) => ("cont" <- (λ: <>, #());; NONE)%E.
-      fold (r "w").
-      set h := fun (w k : string) => ("cont" <- "k";; SOME "w")%E.
-      fold (h "w" "k"). rewrite /yield_sig.
-      set e := ("comp" #()).
-      iPoseProof (sem_typed_shallow_try 
-                    [("comp", in_cont_ty)] [] [("cont", cont_ty)] 
-                    [("cont", Ref Moved)]
-                    "w" "k" e h r τ () (Option τ) ()) as "Hhand"; solve_sidecond.
-      rewrite /Γ₁. iApply "Hhand"; iClear "Hhand".
-      * rewrite /e. iApply sem_typed_app; iApply sem_typed_sub_nil;
-          [iApply sem_typed_var|iApply sem_typed_unit]. 
-      * rewrite /h. 
-        iApply (sem_typed_swap_third).
-        iApply sem_typed_seq.
-        { iApply sem_typed_store. 
-          iApply sem_typed_swap_third.
-          iApply sem_typed_var. }
-        iApply sem_typed_swap_second.
-        iApply sem_typed_some.
-        iApply sem_typed_var.
-      * rewrite /r. simpl.
-        iApply sem_typed_weaken.
-        iApply sem_typed_seq. 
-        iApply sem_typed_store.
-        { rewrite -(app_nil_l [("cont", Ref Moved)]). 
-          iApply (sem_typed_afun _ _ _ _ () (yield_sig τ) ()); solve_sidecond.
-          iApply sem_typed_sub_nil.
-          iApply sem_typed_unit. }
-        iApply sem_typed_none.
-Qed.
+  Lemma list_gen_helper `{Representable Σ A} l xs us (T : list A) :
+    ⌜permitted T us ⌝ -∗
+    l ↦ xs ∗ represents xs (drop (length us) T)  -∗ 
+       isGen (λ: <>,
+              list-match: Load #l with
+                CONS "x" => "xxs" => #l <- !"xxs" ;; SOME "x"
+              | NIL => NONE
+              end)%V T us.
+  Proof.
+    iLöb as "IH" forall (xs us T).
+    iIntros "(%zs & %Hperm) [Hl Hrepr]". rewrite isGen_unfold /isGen_pre. 
+    ewp_pure_steps. ewp_bind_rule. iApply (ewp_load with "Hl").
+    iIntros "!> Hl !> /=". rewrite /rec_unfold. destruct zs.
+    - rewrite app_nil_r in Hperm. subst. rewrite drop_all.
+      iDestruct "Hrepr" as "->". ewp_pure_steps. iSplitR "Hl"; first done.
+      iApply "IH"; [iPureIntro; exists []; by rewrite app_nil_r|].
+      iIntros "{$Hl} /=". by rewrite drop_all.
+    - subst. rewrite drop_app. ewp_pure_steps.
+      iDestruct "Hrepr" as "(%x & %tl & %tlv & Hrepr & -> & Htl & Hgen)".
+      rewrite -/(represents tlv).
+      ewp_pure_steps. ewp_bind_rule. iApply (ewp_load with "Htl").
+      iIntros "!> Htl !> /=". ewp_bind_rule. iApply (ewp_store with "Hl").
+      iIntros "!> Hl !> /=". ewp_pure_steps.
+      iExists a. iFrame. iSplitR.
+      { iPureIntro. exists zs. by rewrite -app_assoc. }
+      iApply ("IH" with "[]").
+      { iPureIntro. exists zs. by rewrite -app_assoc. }
+      iIntros "{$Hl}". replace (us ++ a :: zs) with (us ++ [a] ++ zs) by done.
+      rewrite app_assoc. rewrite drop_app. iFrame.
+  Qed.
+
+  Lemma list_gen_isGen `{Representable Σ A} (T : list A) xs :
+    represents xs T -∗ EWP list_gen xs {{ g, isGen g T [] }}. 
+  Proof.
+    iIntros "Hrepr". rewrite /list_gen. 
+    ewp_pure_steps. ewp_bind_rule.
+    iApply ewp_alloc. iIntros "!> %l Hl !> /=".
+    ewp_pure_steps. 
+    iApply (list_gen_helper l xs [] T with "[] [Hl Hrepr]").
+    { iPureIntro. by exists T. }
+    rewrite drop_0. iFrame.
+  Qed.
+
+End list_generator.

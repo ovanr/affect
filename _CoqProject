@@ -11,4 +11,8 @@ theories/logic/sem_sub_typing.v
 theories/logic/sem_operators.v
 theories/logic/compatibility.v
 theories/logic/adequacy.v
+theories/case_studies/representable.v
+theories/case_studies/ghost.v
+theories/case_studies/iterator.v
 theories/case_studies/generator.v
+theories/case_studies/generator_iterator.v

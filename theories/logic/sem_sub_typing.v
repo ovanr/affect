@@ -102,7 +102,7 @@ Section sub_typing.
   Admitted.
 
 
-  Lemma ty_le_suarr2arr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
+  Lemma ty_le_su2aarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
     (τ ∘-{ ρ }-> κ) ≤T (τ -{ ρ }-∘ κ).
   Proof.
     iIntros (v) "Hτκ %w Hτ".
