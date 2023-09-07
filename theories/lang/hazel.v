@@ -13,6 +13,7 @@ From iris.heap_lang     Require Export locations.
 (* Hazel language *)
 From language Require Export eff_lang.
 From program_logic Require Import weakest_precondition 
+                                  deep_handler_reasoning
                                   state_reasoning.
 
 (* Local imports *)
@@ -134,3 +135,16 @@ Global Instance elem_binder_string : (ElemOf binder (list string)) :=
               BAnon => False%type
             | BNamed x => x ∈ xs
            end).
+
+Notation "'mapcont-try:' e 'with' 'map' m | 'cont' c | 'return' r 'end'" :=
+  (DeepTryWith e ((λ: "m" "c" "w" "k", 
+                      match: "m" "w" with 
+                         InjL "w" => "w"
+                      |  InjR "w" => "c" ("k" "w")
+                      end) m c)%E
+                 r)%I
+  (e, m, c at level 200, only parsing) : expr_scope.
+
+Notation "'mapcont-try-alt:' e 'with' 'map' m | 'cont' c | 'return' r 'end'" :=
+  (DeepTryWith e ((λ: "m" "c" "w" "k", "c" ("m" "w") "k") m c) r)%E
+  (e, m, c at level 200, only parsing) : expr_scope.

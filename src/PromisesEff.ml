@@ -45,4 +45,3 @@ let rec runner (type a) (main : unit -> a) : a =
     let p = ref (Waiting []) in
     fulfill p main; 
     let Completed x = !p in x
-        

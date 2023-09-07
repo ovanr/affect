@@ -21,7 +21,7 @@ From affine_tes.logic Require Import iEff.
 
 (** * Semantic Types. *)
 
-(* We equip sem_ty with the OFE structure val -d> iPropI
+(* We equip sem_ty with the OFE structure val -d> iPropO
  * which is the OFE of non-dependently-typed functions over a discrete domain *)
 Definition sem_ty Σ := val -d> (iPropO Σ).
 
