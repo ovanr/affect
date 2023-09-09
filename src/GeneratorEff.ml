@@ -11,7 +11,7 @@ type 'elt iterator = ('elt -> unit) -> unit
 
 type 'elt generator = unit -> 'elt option
 
-let generate (type elt) (i : elt iterator) : elt generator =
+let generate_shallow (type elt) (i : elt iterator) : elt generator =
     let open Effect in
     let open Effect.Shallow in
     let open struct
@@ -33,7 +33,7 @@ let generate (type elt) (i : elt iterator) : elt generator =
                 |   _ -> None
         }
 
-let generate_deep (type elt) (i : elt iterator) : elt generator =
+let generate_deep_alt (type elt) (i : elt iterator) : elt generator =
     let open Effect in
     let open Effect.Deep in
     let open struct
@@ -57,6 +57,29 @@ let generate_deep (type elt) (i : elt iterator) : elt generator =
                 |   _ -> None
         }
 
+let generate (type elem) (i : elem iterator) : elem generator =
+    let open Effect in
+    let open Effect.Deep in
+    let open struct
+        type _ Effect.t +=
+            Yield : elem -> unit Effect.t
+    end in 
+    let yield x = perform (Yield x) in
+    let rec cont = ref (fun () ->
+        match_with i yield {
+            retc = (fun () -> cont := (fun () -> None); None);
+            exnc = raise;
+            effc = fun (type a) (eff : a Effect.t) ->
+                match eff with
+                    Yield(x : elem) -> Some(fun (k: (a, _) continuation) -> 
+                        cont := continue k;
+                        Some(x)
+                    )
+                |   _ -> None
+        }) in
+    fun () -> !cont ()
+
+
 let iterate (type elt) (g : elt generator) : elt iterator =
     fun f -> 
         let rec run_gen () = match g () with 
@@ -69,7 +92,23 @@ let iterate (type elt) (g : elt generator) : elt iterator =
 (* Traversal generator *)
 (***********************)
 
-let gen_list : 'a list -> 'a generator = fun xs -> generate (Fun.flip List.iter xs)
+let list_iter (type a) (xs : a list) : a iterator = 
+    fun (f : a -> unit) : unit ->
+        let rec go xs = 
+            match xs with
+                x :: xxs -> f x; go xxs
+            | [] -> ()
+        in go xs
+
+let list_gen (type a) (xs : a list) : a generator =
+    let rxs = ref xs in
+    fun () ->
+        match !rxs with
+          x :: xxs -> rxs := xxs ; Some(x)
+        | [] -> None
+
+
+let gen_list : 'a list -> 'a generator = fun xs -> generate (list_iter xs)
 let gl : int generator = gen_list [1;2;3]
 ;;
 

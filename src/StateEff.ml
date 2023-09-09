@@ -1,8 +1,6 @@
 open Effect
 open Effect.Deep
 
-let (&) a f = f a
-
 (* Polymorphic State handlers *)
 (* we wrap the imperative and state-monad handlers in a module 
    to make them polymorphic over the type of state *)
@@ -11,6 +9,9 @@ module State (T: sig type ty end) =
         type 'a Effect.t += Get: unit -> T.ty Effect.t
         type 'a Effect.t += Put: T.ty -> unit Effect.t
         
+        let get () : T.ty = perform (Get ())
+        let put (s : T.ty) : unit = perform (Put s)
+
         let handle_state_cps (e : unit -> 'a) (state : T.ty) : 'a * T.ty = state |> match_with e () {
             retc = (fun x -> fun s -> (x, s)) ;
             exnc = raise;
@@ -38,7 +39,6 @@ module IntState = State(struct type ty = int end)
 
 open IntState
 
-
-let rec fact n : unit = if (1 < n) then (perform (Put (perform (Get ()) * n)); fact (n - 1))
+let rec fact n : unit = if (1 < n) then (put (get() * n); fact (n - 1))
 
 let runProg n = (fst (handle_state_cps (fun () -> fact n) 1), fst (handle_state_ref (fun () -> fact n) 1))
