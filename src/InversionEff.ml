@@ -1,7 +1,6 @@
 open Effect
 open Effect.Deep
 
-
 let invert (type a) ~(iter: (a -> unit) -> unit) : a Seq.t = 
     let open struct type _ Effect.t += Yield: a -> unit t end
     in fun () -> match_with iter (fun x -> perform (Yield x)) {

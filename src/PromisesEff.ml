@@ -3,8 +3,8 @@ open Effect.Deep
 open Printf
 
 type 'a status = 
-        Completed of 'a
-    |   Waiting of ('a, unit) continuation list
+        Done of 'a
+    |   Wait of ('a, unit) continuation list
 
 type 'a promise = 'a status ref
 
@@ -19,15 +19,15 @@ let yield () : unit = await (async (fun () -> ()))
 let rec runner (type a) (main : unit -> a) : a =
 
     let q : (unit -> unit) Queue.t = Queue.create () in
-    let next () = if not (Queue.is_empty q) then Queue.pop q ()
-    and resume_task v k = Queue.add (fun () -> continue k v) q in
+    let next () = if not (Queue.is_empty q) then Queue.pop q () in
+    let resume_task v k = Queue.add (fun () -> continue k v) q in
 
     let rec fulfill : 'a. 'a promise -> (unit -> 'a) -> unit = fun p e ->
         match_with e () {
             retc = (fun v -> 
-                let Waiting ws = !p in
-                p := Completed v; 
-                List.iter (resume_task v) (List.rev ws); 
+                let Wait ws = !p in
+                p := Done v; 
+                List.iter (resume_task v) (List.rev ws);
                 next ()
             );
             exnc = raise;
@@ -35,24 +35,26 @@ let rec runner (type a) (main : unit -> a) : a =
                 match eff with
                 |   Async(comp) -> Some(
                         fun (k : (a, _) continuation) -> 
-                            let new_prom = ref (Waiting []) in
-                            Queue.add (fun () -> continue k new_prom) q;
-                            fulfill new_prom comp
+                            let new_prom = ref (Wait []) in
+                            Queue.add (fun () -> fulfill new_prom comp) q;
+                            continue k new_prom
                     )
                 |   Await(prom) -> Some(
                         fun (k: (a, _) continuation) ->
                             match !prom with
-                                Completed(x)  -> continue k x
-                            |   Waiting(ws) -> prom := Waiting (k :: ws); next ()
+                                Done(x)  -> continue k x
+                            |   Wait(ws) -> prom := Wait (k :: ws); next ()
                     )
                 | _        -> None
         } in 
-    let p = ref (Waiting []) in
-    fulfill p main; 
-    let Completed x = !p in x
+    let pmain = ref (Wait []) in
+    fulfill pmain main; 
+    let Done x = !pmain in x
 
 let sonnet18 () : unit = 
-    let prom1 = async (fun () -> printf "Shall I "; yield (); printf "compare thee ") in 
+    let prom1 = async (fun () -> printf "Shall I "; yield (); printf "compare thee ") in
     let prom2 = async (fun () -> await prom1; printf "to a ") in
     let prom3 = async (fun () -> await prom1; printf "summer's day ") in
     await prom2; await prom3
+
+let _ = runner sonnet18

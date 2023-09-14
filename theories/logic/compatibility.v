@@ -751,9 +751,9 @@ Section compatibility.
     w ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → w ≠ k →
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ' ⊨ Γ₂ -∗
-    (w, ι) :: (k, κ -{ ρ }-∘ τ') :: Γ' ⊨ h w k : ρ' : τ ⊨ Γ₃ -∗
-    (w, τ') :: Γ₂ ++ Γ' ⊨ r w : ρ' : τ ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (shallow-try: e with effect (λ: w k, h w k) | return (λ: w, r w) end) : ρ' : τ ⊨ Γ₃.
+    (w, ι) :: (k, κ -{ ρ }-∘ τ') :: Γ' ⊨ h : ρ' : τ ⊨ Γ₃ -∗
+    (w, τ') :: Γ₂ ++ Γ' ⊨ r : ρ' : τ ⊨ Γ₃ -∗
+    Γ₁ ++ Γ' ⊨ (shallow-try: e with effect (λ: w k, h) | return (λ: w, r) end) : ρ' : τ ⊨ Γ₃.
   Proof.
     iIntros (??????) "%ρ #He #Hh #Hr !# %Φ %vs HΓ₁' HΦ //=".
     rewrite env_sem_typed_app. iDestruct "HΓ₁'" as "[HΓ₁ HΓ']".
@@ -798,9 +798,9 @@ Section compatibility.
     k ∉ env_dom Γ' → k ∉ env_dom Γ₃ → w ≠ k → copy_env Γ' →
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (w, ι) :: (k, κ -{ ρ' }-∘ τ') :: Γ' ⊨ h w k : ρ' : τ' ⊨ Γ₃ -∗
-    (w, τ) :: Γ₂ ++ Γ' ⊨ r w : ρ' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (deep-try: e with effect (λ: w k, h w k) | return (λ: w, r w) end) : ρ' : τ' ⊨ Γ₃.
+    (w, ι) :: (k, κ -{ ρ' }-∘ τ') :: Γ' ⊨ h : ρ' : τ' ⊨ Γ₃ -∗
+    (w, τ) :: Γ₂ ++ Γ' ⊨ r : ρ' : τ' ⊨ Γ₃ -∗
+    Γ₁ ++ Γ' ⊨ (deep-try: e with effect (λ: w k, h) | return (λ: w, r) end) : ρ' : τ' ⊨ Γ₃.
   Proof.
     iIntros (?????? Hcpy) "%ρ #He #Hh #Hr !# %Φ %vs HΓ₁' HΦ //=".
     rewrite env_sem_typed_app. iDestruct "HΓ₁'" as "[HΓ₁ HΓ']".
@@ -847,12 +847,12 @@ Section compatibility.
     w ∉ env_dom Γ₂ → w ∉ env_dom Γ' → r ∉ env_dom Γ' → 
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (w, ι) :: Γ' ⊨ e₁ w : ρ' : τ' + κ ⊨ Γ' -∗
-    (r, τ') :: Γ' ⊨ e₂ r : ρ' : τ' ⊨ Γ' -∗
-    (w, τ) :: Γ₂ ++ Γ' ⊨ e₃ w : ρ' : τ' ⊨ Γ' -∗
-    Γ₁ ++ Γ' ⊨ (mapcont-try: e with  map (λ: w, e₁ w) 
-                                   | cont (λ: r, e₂ r) 
-                                   | return (λ: w, e₃ w) end) : ρ' : τ' ⊨ Γ'.
+    (w, ι) :: Γ' ⊨ e₁ : ρ' : τ' + κ ⊨ Γ' -∗
+    (r, τ') :: Γ' ⊨ e₂ : ρ' : τ' ⊨ Γ' -∗
+    (w, τ) :: Γ₂ ++ Γ' ⊨ e₃ : ρ' : τ' ⊨ Γ' -∗
+    Γ₁ ++ Γ' ⊨ (mapcont-try: e with  map (λ: w, e₁) 
+                                   | cont (λ: r, e₂) 
+                                   | return (λ: w, e₃) end) : ρ' : τ' ⊨ Γ'.
   Proof. 
     iIntros (???) "%ρ #He #He₁ #He₂ #He₃ !# %Φ %vs HΓ₁Γ' HΦ /=".
     rewrite env_sem_typed_app. iDestruct "HΓ₁Γ'" as "[HΓ₁ HΓ']".
@@ -919,12 +919,12 @@ Section compatibility.
     w ≠ k → copy_env Γ₃ →
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (w, ι) :: Γ' ++ Γ₃ ⊨ e₁ w : ρ' : ι' ⊨ Γ' -∗
-    (w, ι') :: (k, κ -{ ρ' }-∘ τ') :: Γ₃ ⊨ e₂ w k : ρ' : τ' ⊨ [] -∗
-    (w, τ) :: Γ₂ ++ Γ' ++ Γ₃ ⊨ e₃ w : ρ' : τ' ⊨ [] -∗
-    Γ₁ ++ Γ' ++ Γ₃ ⊨ (mapcont-try-alt: e with map (λ: w, e₁ w)
-                                            | cont (λ: w k, e₂ w k)
-                                            | return (λ: w, e₃ w) end) : ρ' : τ' ⊨ [].
+    (w, ι) :: Γ' ++ Γ₃ ⊨ e₁ : ρ' : ι' ⊨ Γ' -∗
+    (w, ι') :: (k, κ -{ ρ' }-∘ τ') :: Γ₃ ⊨ e₂ : ρ' : τ' ⊨ [] -∗
+    (w, τ) :: Γ₂ ++ Γ' ++ Γ₃ ⊨ e₃ : ρ' : τ' ⊨ [] -∗
+    Γ₁ ++ Γ' ++ Γ₃ ⊨ (mapcont-try-alt: e with map (λ: w, e₁)
+                                            | cont (λ: w k, e₂)
+                                            | return (λ: w, e₃) end) : ρ' : τ' ⊨ [].
   Proof. 
     iIntros (?????? Hcpy) "%ρ #He #He₁ #He₂ #He₃ !# %Φ %vs HΓ₁Γ'Γ₃ HΦ /=".
     rewrite !env_sem_typed_app. iDestruct "HΓ₁Γ'Γ₃" as "(HΓ₁ & HΓ' & HΓ₃)".

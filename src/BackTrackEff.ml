@@ -12,7 +12,10 @@ module BackTrackEff =
         let handle_decide e = try_with e () {
             effc = fun (type a) (eff : a t) ->
                 match eff with
-                    Decide() -> Some(fun (k : (a, 'b) continuation) -> continue k true || continue k false)
+                    Decide() -> Some(fun (k : (a, 'b) continuation) -> 
+                        let open Multicont.Deep in
+                        let r = promote k in
+                        (resume r) true || (resume r) false)
                 |   _        -> None
         }
     end
@@ -22,4 +25,4 @@ let program () =
     let open BackTrackEff in 
     55 <= (choose 5 20 + choose 35 45)
 
-let runner () = BackTrackEff.handle_decide program 
+let _ = BackTrackEff.handle_decide program 
