@@ -6,7 +6,7 @@
 *)
 
 
-From iris.proofmode Require Import base tactics.
+From iris.proofmode Require Import base tactics classes.
 From iris.base_logic.lib Require Import iprop invariants.
 
 (* Hazel Reasoning *)
@@ -15,8 +15,11 @@ From program_logic Require Import weakest_precondition
                                   state_reasoning.
 
 (* Local imports *)
+From affine_tes.lang Require Import hazel.
+From affine_tes.lang Require Import subst_map.
+From affine_tes.logic Require Import sem_def.
 From affine_tes.logic Require Import sem_types.
-From affine_tes.logic Require Import sem_typed.
+From affine_tes.logic Require Import sem_env.
 
 
 (* Copyable types *)
@@ -25,14 +28,14 @@ Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) :=
 
 (* Copyable environment *)
 Definition copy_env `{!heapGS Σ} Γ :=
-  ∀ vs, Persistent (env_sem_typed Γ vs).
+  ∀ vs, Persistent (⟦ Γ ⟧ vs).
 
 (* Sub-typing and relations *)
 
 Definition ty_le {Σ} (A B : sem_ty Σ) := ∀ v, A v ⊢ B v.
 Definition sig_le {Σ} (ρ ρ' : sem_sig Σ) := ⊢ iEff_le ρ ρ'.
 Definition env_le `{!heapGS Σ} Γ₁ Γ₂ :=
-  ∀ vs, env_sem_typed Γ₁ vs ⊢ env_sem_typed Γ₂ vs.
+  ∀ vs, ⟦ Γ₁ ⟧ vs ⊢ ⟦ Γ₂ ⟧ vs.
 
 Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).
 Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
@@ -93,22 +96,24 @@ Section sub_typing.
   Qed.
 
   Lemma ty_le_u2suarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
-    (τ -{ ρ }-> κ) ≤T (τ ∘-{ ρ }-> κ).
+    (τ -{ ρ }-> κ) ≤T (τ ∘-{ ρ ; [] ; [] }-> κ).
   Proof.
     iIntros (v) "#Hτκ".
     iLöb as "IH".
-    rewrite {2}sem_ty_equiv; [|apply sem_ty_suarr_unfold].
-    iIntros (w) "Hτ".
-  Admitted.
-
+    rewrite {2}sem_ty_suarr_unfold.
+    iIntros (w vs) "_ Hτ /=".
+    iApply (ewp_frame_later_r with "[Hτ Hτκ]").
+    { by iApply "Hτκ". }
+    iIntros "!> {$IH}". solve_env.
+  Qed.
 
   Lemma ty_le_su2aarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
-    (τ ∘-{ ρ }-> κ) ≤T (τ -{ ρ }-∘ κ).
+    (τ ∘-{ ρ; []; [] }-> κ) ≤T (τ -{ ρ }-∘ κ).
   Proof.
     iIntros (v) "Hτκ %w Hτ".
-    rewrite sem_ty_equiv; [|apply sem_ty_suarr_unfold].
+    rewrite sem_ty_suarr_unfold.
     iApply (ewp_mono with "[Hτκ Hτ]").
-    { by iApply "Hτκ". }
+    { by iApply ("Hτκ" $! w empty). }
     iIntros "%u /= [Hκ _] !> {$Hκ}".
   Qed.
   
@@ -140,21 +145,28 @@ Section sub_typing.
     iIntros (u) "Hu". by iApply Hκ₁₂. 
   Qed.
   
-  Lemma ty_le_suarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_sig Σ) :
+  Lemma ty_le_suarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_sig Σ) (Γ₁ Γ₂ Γ₁' Γ₂' : env Σ) :
     ρ ≤R ρ' →
     τ₂ ≤T τ₁ →
     κ₁ ≤T κ₂ →
-    (τ₁ ∘-{ ρ }-> κ₁) ≤T (τ₂ ∘-{ ρ' }-> κ₂).
+    Γ₁' ≤E Γ₁ → 
+    Γ₂ ≤E Γ₂' →
+    env_dom Γ₁ = env_dom Γ₁' →
+    (τ₁ ∘-{ ρ ; Γ₁ ; Γ₂  }-> κ₁) ≤T (τ₂ ∘-{ ρ' ; Γ₁' ; Γ₂' }-> κ₂).
   Proof.
-    iIntros (Hρ Hτ₂₁ Hκ₁₂ v) "Hτκ₁". 
+    iIntros (Hρ Hτ₂₁ Hκ₁₂ HΓ₁'Γ₁ HΓ₂Γ₂' ? v) "Hτκ₁". 
     iLöb as "IH".
-    rewrite sem_ty_equiv; [iApply sem_ty_suarr_unfold|apply sem_ty_suarr_unfold].
-    simpl. iIntros (w) "Hτ₂". 
-    iApply (ewp_mono with "[Hτκ₁ Hτ₂]").
-    { iApply ewp_os_prot_mono. iApply Hρ. iApply "Hτκ₁". by iApply Hτ₂₁. }
-    iIntros (u) "[Hκ₁ Hτκ₁] !>". iSplitL "Hκ₁".
-    { by iApply Hκ₁₂. }
-  Admitted.
+    iApply sem_ty_suarr_unfold.
+    simpl. iIntros (w vs) "HΓ₁' Hτ₂ /=". 
+    iApply ewp_os_prot_mono; [iApply Hρ|]. 
+    rewrite HΓ₁'Γ₁ Hτ₂₁. rewrite -H.
+    iApply (ewp_mono with "[Hτκ₁ HΓ₁' Hτ₂]").
+    - rewrite {2}sem_ty_suarr_unfold /=.
+      iSpecialize ("Hτκ₁" $! w vs with "HΓ₁' Hτ₂").
+      iApply (ewp_frame_later_r with "Hτκ₁ IH").
+    - iIntros (u) "[(Hκ₁ & HΓ₂ & Hτκ₁) Hτκ₂] !>".
+      rewrite Hκ₁₂ HΓ₂Γ₂'. iFrame. by iApply "Hτκ₂".
+  Qed.
 
   Lemma ty_le_ref (τ₁ τ₂ : sem_ty Σ) :
     τ₁ ≤T τ₂ →
@@ -253,42 +265,43 @@ Section sub_typing.
     τ₁ ≤T τ₂ →
     (x, τ₁) :: Γ₁ ≤E (x, τ₂) :: Γ₂.
   Proof.
-    iIntros (HΓ₁₂ Hτ₁₂ vs) "//= ((%v & Hlookup & Hv) & HΓ₁)".
-    iSplitR "HΓ₁"; last (by iApply HΓ₁₂).
-    iExists v. iFrame. by iApply Hτ₁₂.
+    iIntros (HΓ₁₂ Hτ₁₂ vs) "[%v (Hlookup & Hv & HΓ₁)]".
+    iExists v. iFrame. iSplitR "HΓ₁"; last (by iApply HΓ₁₂).
+    by iApply Hτ₁₂.
   Qed.
   
   Lemma env_le_copy_contraction Γ x τ :
     copy_ty τ →
     (x, τ) :: Γ ≤E (x, τ) :: (x, τ) :: Γ.
   Proof.
-    iIntros (Hcpyτ vs) "//= [(%w & -> & Hτ) $]". 
+    move =>Hcpyτ vs.
+    iIntros "//= [%w (%Hrw & Hτ & HΓ)]". 
     rewrite Hcpyτ. iDestruct "Hτ" as "#Hτ".
-    iSplitL; iExists w; by iSplit.
+    by do 2 (iExists w; iFrame "%#").
   Qed.
   
   Lemma env_le_bring_forth Γ n x τ :
     nth_error Γ n = Some (x, τ) →
     Γ ≤E (x, τ) :: (list_delete n Γ) .
   Proof.
-    iInduction n as [|] "IH" forall (Γ); iIntros (Hnth vs).
-    { iIntros "HΓ". simpl in Hnth. destruct Γ; first done. simplify_eq. iFrame. }
-    iIntros "/= HΓ". simpl in Hnth. destruct Γ; first done; simpl. destruct p.
-    iDestruct "HΓ" as "[Hp HΓ]". iFrame. iApply "IH".
-    { by iPureIntro. }
-    iFrame.
+    iInduction n as [|] "IH" forall (Γ); iIntros (Hnth vs);
+    iIntros "HΓ"; simpl in Hnth; destruct Γ; first done; simplify_eq; first done.
+    destruct p; simpl. rewrite !env_sem_typed_cons.
+    iDestruct "HΓ" as "[$ HΓ]". rewrite -env_sem_typed_cons.
+    by iApply "IH". 
   Qed.
 
   Lemma env_le_bring_forth_rev Γ n x τ :
     nth_error Γ n = Some (x, τ) →
     (x, τ) :: (list_delete n Γ) ≤E Γ.
   Proof.
-    iInduction n as [|] "IH" forall (Γ); iIntros (Hnth vs).
-    { iIntros "[Hτ HΓ']". simpl in Hnth. destruct Γ; first done. simplify_eq. iFrame. }
-    iIntros "/= [Hτ HΓ]". simpl in Hnth. destruct Γ; first done; simpl. destruct p.
-    iDestruct "HΓ" as "[Hp HΓ]". iFrame. iApply "IH".
-    { by iPureIntro. }
-    iFrame.
+    iInduction n as [|] "IH" forall (Γ); iIntros (Hnth vs);
+    simpl in Hnth; 
+    destruct Γ as [|[y κ] Γ']; first done; 
+    simplify_eq; simpl; first (iIntros "$").
+    iIntros "[%v (? & ? & [%w (? & ? & ?)])]". 
+    iExists w. iFrame. iApply "IH"; first done.
+    iExists v. iFrame.
   Qed.
 
   Lemma env_le_swap_second Γ x y τ₁ τ₂ : 
@@ -307,11 +320,11 @@ Section sub_typing.
 
   Lemma env_le_weaken Γ x τ :
     (x, τ) :: Γ ≤E Γ.
-  Proof. iIntros (vs) "(_ & $) /=". Qed.
+  Proof. iIntros (?) "[% (? & ? & $)]". Qed.
 
 End sub_typing.
 
-Ltac solve_copy :=
+Global Ltac solve_copy :=
   repeat (intros ? ||
           apply bi.emp_persistent ||
           apply bi.sep_persistent ||
@@ -387,13 +400,15 @@ Section copyable_types.
   Qed.
 
   Lemma copy_env_nil : copy_env [].
-  Proof. solve_copy. Qed.
+  Proof. intros ?. rewrite env_sem_typed_empty. solve_copy. Qed.
   
   Lemma copy_env_cons Γ x τ : 
     copy_env Γ →
     copy_ty τ →
     copy_env ((x, τ) :: Γ).
-  Proof. by solve_copy. Qed.
+  Proof. 
+    intros ???. rewrite env_sem_typed_cons.
+    by solve_copy. Qed.
 
   Lemma copy_pers τ :
     ⌜ copy_ty τ ⌝ -∗ □ (∀ v, τ v -∗ □ (τ v)).

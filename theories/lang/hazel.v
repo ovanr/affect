@@ -6,18 +6,20 @@
 *)
 
 From iris.algebra Require Import ofe.
-From iris.base_logic Require Export lib.iprop.
+From iris.base_logic Require Export lib.iprop .
 From iris.program_logic Require Export language.
+From iris.proofmode Require Import base tactics classes.
+From program_logic Require Import weakest_precondition.
 From iris.heap_lang     Require Export locations.
 
 (* Hazel language *)
 From language Require Export eff_lang.
 From program_logic Require Import weakest_precondition 
+                                  basic_reasoning_rules
                                   deep_handler_reasoning
                                   state_reasoning.
 
-(* Local imports *)
-From affine_tes.lang Require Export subst_map.
+From affine_tes.lib Require Import base.
 
 Definition pair_elim :=
   (λ: "x", λ: "f", "f" (Fst "x") (Snd "x"))%V.
@@ -84,6 +86,58 @@ Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
   (e1, x, xs, e2, e1 at level 200,
    format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
 
+Fixpoint ctx_lambda (domΓ : list string) (e : expr) : expr := 
+  match domΓ with 
+    [] => e
+  | y :: domΓ' => (λ: y, ctx_lambda domΓ' e)%E 
+  end.
+
+Fixpoint ctx_lambda_val (domΓ : list string) (v : val) : val := 
+  match domΓ with 
+    [] => v
+  | y :: domΓ' => (λ: y, ctx_lambda_val domΓ' v)%V 
+  end.
+
+Notation "λ*: Γ , e" := (ctx_lambda Γ e)%E (at level 200) : expr_scope.
+Notation "λ*: Γ , v" := (ctx_lambda_val Γ v)%V (at level 200) : val_scope.
+
+Notation "λλ*: x , Γ , e" := (λ: x, (λ*: Γ, e))%E (at level 200) : expr_scope.
+Notation "λλ*: x , Γ , e" := (λ: x, (λ*: Γ, e) )%V (at level 200) : val_scope.
+
+Notation "λ*λ: Γ , x , e" := (λ*: Γ, (λ: x, e))%E (at level 200) : expr_scope.
+Notation "λ*λ: Γ , x , e" := (λ*: Γ, (λ: x, e))%V (at level 200) : val_scope.
+
+Notation "λλ*λ: x , Γ , y , e" := (λ: x, (λ*λ: Γ, y, e))%E (at level 200) : expr_scope.
+Notation "λλ*λ: x , Γ , y , e" := (λ: x, (λ*λ: Γ, y, e) )%V (at level 200) : val_scope.
+
+Lemma lambdas_is_lambda domΓ x e :
+  exists y e', (λ*λ: domΓ , x, e)%E = (λ: y, e')%E.
+Proof.
+  destruct domΓ; [by exists x, e|].
+  by exists s, (ctx_lambda domΓ (λ: x, e)%E).  
+Qed.
+
+Fixpoint app_mult (e : expr) (es : list expr) : expr :=
+  match es with 
+    [] => e
+  | e' :: ees => app_mult (App e e') ees
+  end.
+
+(* Similarly, we overload the <_> notation to denote hidden argument application *)
+Notation "e '<_' es '_>'" := (app_mult e es)%E (at level 10) : expr_scope.
+
+Notation "'mapcont-try:' e 'with' 'map' m | 'cont' c | 'return' r 'end'" :=
+  (DeepTryWith e ((λ: "m" "c" "w" "k", 
+                      match: "m" "w" with 
+                         InjL "w" => "w"
+                      |  InjR "w" => "c" ("k" "w")
+                      end) m c)%E
+                 r)%I
+  (e, m, c at level 200, only parsing) : expr_scope.
+
+Notation "'mapcont-try-alt:' e 'with' 'map' m | 'cont' c | 'return' r 'end'" :=
+  (DeepTryWith e ((λ: "m" "c" "w" "k", "c" ("m" "w") "k") m c) r)%E
+  (e, m, c at level 200, only parsing) : expr_scope.
 
 Global Instance load_atomic (l : loc) :
   Atomic StronglyAtomic (Load $ Val $ LitV $ LitLoc l).
@@ -120,6 +174,7 @@ Global Instance ewp_pre_contractive `{!irisGS eff_lang Σ}: Contractive ewp_pre 
 
 Global Instance ewp_contractive `{!heapGS Σ}e n Ψ₁ Ψ₂:
   TCEq (to_val e) None →
+
   TCEq (to_eff e) None →
   Proper (pointwise_relation _ (dist_later n) ==> dist n) (ewp_def ⊤ e Ψ₁ Ψ₂).
 Proof.
@@ -130,21 +185,72 @@ Proof.
   apply HΦ.
 Qed.
 
-Global Instance elem_binder_string : (ElemOf binder (list string)) := 
-  (λ b xs, match b with
-              BAnon => False%type
-            | BNamed x => x ∈ xs
-           end).
+Lemma ewp_frame_later_l `{irisGS eff_lang Σ} E e Ψ Φ R :
+  TCEq (to_val e) None →
+  ▷ R -∗ EWP e @ E <| Ψ |> {{ Φ }} -∗ EWP e @ E <| Ψ |> {{ v, R ∗ Φ v }}.
+Proof.
+  iIntros (Hval) "HR Hewp". rewrite !ewp_unfold {2}/ewp_pre -{1}ewp_unfold.
+  destruct (to_val e) eqn:?; first (inversion Hval).
+  destruct (to_eff e) eqn:?.
+  - simpl. destruct p eqn:?, p0 eqn:?, m.
+    + rewrite -(of_to_eff _ _ _ _ Heqo0) -ewp_eff_os_eq /=.
+      iDestruct "Hewp" as "(%Φ' & HΨ & Hps)". iExists Φ'. iFrame.
+      iIntros (w) "HΦ'". iSpecialize ("Hps" $! w with "HΦ'"). iNext.
+      iApply (ewp_frame_l with "HR"). iFrame.
+    + rewrite -(of_to_eff _ _ _ _ Heqo0) -ewp_eff_ms_eq /=.
+      iDestruct "Hewp" as "(%Φ' & [[] _])". 
+  - rewrite ewp_unfold {1}/ewp_pre Heqo Heqo0.
+    iIntros (σ₁ ns κ κs nt) "Hσ₁". 
+    iMod ("Hewp" $! σ₁ ns κ κs nt with "Hσ₁") as "[Hred Hewp]".
+    iIntros "!> {$Hred} %e₂ %σ₂ Hprim /=".
+    iSpecialize ("Hewp" $! e₂ σ₂ with "Hprim").
+    iMod "Hewp" as "Hewp". iIntros "!> !>".
+    iMod "Hewp" as "Hewp". iIntros "!>".
+    iInduction (num_laters_per_step) as [|] "IH";
+      last (simpl; iApply ("IH" with "HR Hewp")).
+    simpl. iMod "Hewp" as "[Hst Hewp]". iIntros "!>".
+    iFrame. iApply (ewp_frame_l with "HR Hewp").
+Qed.
 
-Notation "'mapcont-try:' e 'with' 'map' m | 'cont' c | 'return' r 'end'" :=
-  (DeepTryWith e ((λ: "m" "c" "w" "k", 
-                      match: "m" "w" with 
-                         InjL "w" => "w"
-                      |  InjR "w" => "c" ("k" "w")
-                      end) m c)%E
-                 r)%I
-  (e, m, c at level 200, only parsing) : expr_scope.
+Lemma ewp_frame_later_r `{irisGS eff_lang Σ} E e Ψ Φ R :
+  TCEq (to_val e) None →
+  EWP e @ E <| Ψ |> {{ Φ }} -∗ ▷ R -∗ EWP e @ E <| Ψ |> {{ v, Φ v ∗ R }}.
+Proof.
+  iIntros (Hval) "Hewp HR". 
+  iApply (ewp_mono with "[Hewp HR]").
+  { iApply (ewp_frame_later_l with "HR Hewp"). }
+  iIntros (?) "[HR HΦ] !> {$HR $HΦ}".
+Qed.
 
-Notation "'mapcont-try-alt:' e 'with' 'map' m | 'cont' c | 'return' r 'end'" :=
-  (DeepTryWith e ((λ: "m" "c" "w" "k", "c" ("m" "w") "k") m c) r)%E
-  (e, m, c at level 200, only parsing) : expr_scope.
+Lemma fill_not_val e f :
+  to_val e = None → to_val (fill f e) = None.
+Proof. destruct f; first done; simpl; by destruct f. Qed.
+
+Lemma fill_frame_not_val e f :
+  to_val e = None → to_val (fill_frame f e) = None.
+Proof. by destruct f. Qed. 
+
+Lemma fill_not_eff e f :
+  to_eff e = None → to_eff (fill f e) = None.
+Proof. destruct f; first done; simpl; by destruct f. Qed.
+
+Lemma fill_eff e f eff :
+  to_eff (fill f e) = Some eff → to_eff e = Some eff.
+Proof. induction f; first done; simpl; by destruct a. Qed.
+
+Lemma fill_frame_eff e f eff :
+  to_eff (fill_frame f e) = Some eff → to_eff e = Some eff.
+Proof. by destruct f. Qed.
+
+Lemma reducible_fill_inv e f σ :
+  to_val e = None →
+    to_eff e = None →
+      reducible (fill f e) σ →
+          reducible e σ.
+Proof.
+  intros ?? Hred; induction f; first done.
+  apply IHf. simpl in Hred.
+  apply (reducible_fill_frame_inv a); last done.
+  { by apply fill_not_val. }
+  { by apply fill_not_eff. }
+Qed.

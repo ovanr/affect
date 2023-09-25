@@ -16,42 +16,9 @@ From program_logic Require Import weakest_precondition
 
 (* Local imports *)
 From affine_tes.lang Require Import hazel.
+From affine_tes.lang Require Import subst_map.
 From affine_tes.logic Require Import iEff.
-
-
-(** * Semantic Types. *)
-
-(* We equip sem_ty with the OFE structure val -d> iPropO
- * which is the OFE of non-dependently-typed functions over a discrete domain *)
-Definition sem_ty Σ := val -d> (iPropO Σ).
-
-Declare Scope sem_ty_scope.
-Bind Scope sem_ty_scope with sem_ty.
-Delimit Scope sem_ty_scope with T.
-
-(** * Semantic Effect Signature. *)
-
-Notation sem_sig Σ := (iEff Σ).
-
-Declare Scope sem_sig_scope.
-Bind Scope ieff_scope with sem_sig.
-Delimit Scope sem_sig_scope with R.
-
-Lemma sem_ty_equiv {Σ} v (τ τ' : sem_ty Σ) : 
-  τ ≡ τ' → τ v ≡ τ' v.
-Proof.
-  intros Hτ. unfold equiv, ofe_equiv in Hτ. 
-  simpl in Hτ. unfold discrete_fun_equiv in Hτ.
-  by apply Hτ.
-Qed.
-
-Lemma sem_ty_dist {Σ} v (τ τ' : sem_ty Σ) n : 
-  dist n τ τ' → dist n (τ v) (τ' v).
-Proof.
-  intros Hττ'. unfold dist, ofe_dist in Hττ'.
-  simpl in Hττ'. unfold discrete_fun_dist in Hττ'.
-  by apply Hττ'.
-Qed.
+From affine_tes.logic Require Import sem_def.
 
 (* Base types. *)
 Definition sem_ty_unit {Σ} : sem_ty Σ := (λ v, ⌜ v = #() ⌝)%I.
@@ -72,7 +39,7 @@ Definition sem_ty_sum {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
   (λ v, ∃ v', (⌜v = InjLV v'%V⌝ ∗ τ v') ∨ (⌜ v = InjRV v'⌝ ∗ κ v'))%I.
 
 (* Linear Arrow type. *)
-Definition sem_ty_aarr `{!heapGS Σ} 
+Definition sem_ty_aarr `{irisGS eff_lang Σ} 
   (ρ : sem_sig Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
@@ -84,14 +51,6 @@ Definition sem_ty_uarr `{irisGS eff_lang Σ}
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
   (λ (v : val), □ (∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ κ }}))%I.
-
-(* Sequentially Unrestricted Arrow type. *)
-Definition sem_ty_suarr_pre `{!irisGS eff_lang Σ} 
-  (ρ : sem_sig Σ)
-  (τ : sem_ty Σ)
-  (κ : sem_ty Σ) 
-  (rec : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ u, κ u ∗ rec v }})%I.
 
 Definition discrete_fun_app {Σ} A (P Q : A -d> iPropO Σ) x n :
   P ≡{n}≡ Q → (P x) ≡{n}≡ (Q x).
@@ -109,44 +68,66 @@ Definition discrete_fun_app5 {Σ} A B C D E (P Q : A -d> B -d> C -d> D -d> E -d>
   P ≡{n}≡ Q → (P x1 x2 x3 x4 x5) ≡{n}≡ (Q x1 x2 x3 x4 x5).
 Proof. intros H. apply discrete_fun_app4. f_equiv. Qed.
 
-Global Instance sem_ty_suarr_pre_contractive `{!irisGS eff_lang Σ} 
-  (ρ : sem_sig Σ) (τ κ : sem_ty Σ) :
-  Contractive (sem_ty_suarr_pre ρ τ κ).
+(* Sequentially Unrestricted Arrow type. *)
+Definition sem_ty_suarr_pre `{irisGS eff_lang Σ} 
+  (ρ : sem_sig Σ)
+  (Γ₁ : env Σ)
+  (Γ₂ : env Σ)
+  (τ : sem_ty Σ)
+  (κ : sem_ty Σ) 
+  (rec : sem_ty Σ) : sem_ty Σ :=
+  (λ (v : val), ∀ (w : val) (vs : gmap string val),
+      ⟦ Γ₁ ⟧ vs -∗ 
+      τ w -∗ 
+      EWP (v <_ map (subst_map vs ∘ Var) (env_dom Γ₁) _> w) <| ρ |> {{ u, κ u ∗ ⟦ Γ₂ ⟧ vs ∗ rec v }})%I.
+
+Global Instance sem_ty_suarr_pre_contractive `{irisGS eff_lang Σ} 
+  (ρ : sem_sig Σ) (Γ₁ Γ₂ : env Σ) (τ κ : sem_ty Σ) :
+  Contractive (sem_ty_suarr_pre ρ Γ₁ Γ₂ τ κ).
 Proof. 
   intros ????. unfold sem_ty_suarr_pre. intros ?.
-  rewrite bi.forall_ne; first done. intros ?. f_equiv.
+  do 2 (rewrite bi.forall_ne; first done; intros ?). f_equiv.
   rewrite /ewp_def.
-  assert (Hunfold : (fixpoint ewp_pre ⊤ (x0 a) ρ iEff_bottom (λ u : val, (κ u ∗ x x0)%I)) ≡{n}≡
-          (ewp_pre (fixpoint ewp_pre) ⊤ (x0 a) ρ iEff_bottom (λ u : val, (κ u ∗ x x0)%I))).
-  { apply discrete_fun_app5. by rewrite  -fixpoint_unfold. }
-  rewrite Hunfold. clear Hunfold.
-  assert (Hunfold : (fixpoint ewp_pre ⊤ (x0 a) ρ iEff_bottom (λ u : val, (κ u ∗ y x0)%I)) ≡{n}≡
-          (ewp_pre (fixpoint ewp_pre) ⊤ (x0 a) ρ iEff_bottom (λ u : val, (κ u ∗ y x0)%I))).
-  { apply discrete_fun_app5. by rewrite  -fixpoint_unfold. }
-  rewrite Hunfold. clear Hunfold. rewrite /ewp_pre.
-  destruct (to_val (x0 a)) eqn:Htoval; first done.
-  destruct (to_eff (x0 a)) eqn:Htoeff; first done. simpl.
-  rewrite -/ewp_pre.
+  assert (Hunfold : ∀ z,
+            fixpoint ewp_pre ⊤ (app_mult x0 (map (subst_map a0 ∘ Var) (env_dom Γ₁)) a) ρ
+              iEff_bottom (λ u : val, (κ u ∗ ⟦ Γ₂ ⟧ a0 ∗ z x0)%I) ≡{n}≡ 
+            ewp_pre (fixpoint ewp_pre) ⊤ (app_mult x0 (map (subst_map a0 ∘ Var) (env_dom Γ₁)) a) ρ
+              iEff_bottom (λ u : val, (κ u ∗ ⟦ Γ₂ ⟧ a0 ∗ z x0)%I)).
+  { intros ?. apply discrete_fun_app5. by rewrite  -fixpoint_unfold. }
+  rewrite (Hunfold x) (Hunfold y). clear Hunfold. rewrite /ewp_pre.
+  destruct (to_val) eqn:Hval; first done. 
+  destruct (to_eff) eqn:Heff; first done. rewrite -/ewp_pre. simpl.
   do 21 (f_contractive || f_equiv).
-  induction num_laters_per_step as [|k IHk]; simpl; last by rewrite IHk.
+  induction num_laters_per_step as [|k IHk]; simpl; last (by rewrite IHk).
   do 2 f_equiv. rewrite -/ewp_def.
-  f_equiv. intros ?. f_equiv. by apply sem_ty_dist.
+  do 2 f_equiv. intros ?. do 2 f_equiv. by apply sem_ty_dist.
 Qed.
 
-Definition sem_ty_suarr `{!irisGS eff_lang Σ} 
+Definition sem_ty_suarr `{irisGS eff_lang Σ}
   (ρ : sem_sig Σ)
+  (Γ₁ Γ₂ : env Σ)
   (τ : sem_ty Σ)
-  (κ : sem_ty Σ) : sem_ty Σ := fixpoint (sem_ty_suarr_pre ρ τ κ).
+  (κ : sem_ty Σ) : sem_ty Σ := fixpoint (sem_ty_suarr_pre ρ Γ₁ Γ₂ τ κ).
 
-Lemma sem_ty_suarr_unfold `{!irisGS eff_lang Σ}
+Lemma sem_ty_suarr_unfold `{irisGS eff_lang Σ}
   (ρ : sem_sig Σ)
+  (Γ₁ Γ₂ : env Σ)
   (τ : sem_ty Σ)
-  (κ : sem_ty Σ) :
-  (sem_ty_suarr ρ τ κ) ≡
-    (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ u, κ u ∗ sem_ty_suarr ρ τ κ v }})%I.
+  (κ : sem_ty Σ) 
+  (v : val) :
+  (sem_ty_suarr ρ Γ₁ Γ₂ τ κ)%V v ⊣⊢
+    (∀ (w : val) (vs : gmap string val),
+      ⟦ Γ₁ ⟧ vs -∗ 
+      τ w -∗ 
+      EWP (v <_ map (subst_map vs ∘ Var) (env_dom Γ₁) _>  w) <| ρ |> {{ u, κ u ∗ 
+                                                                           ⟦ Γ₂ ⟧ vs ∗ 
+                                                                           sem_ty_suarr ρ Γ₁ Γ₂ τ κ v }})%I.
 Proof.
   unfold sem_ty_suarr. 
-  etrans; [apply fixpoint_unfold|].
+  set suarr := sem_ty_suarr_pre ρ Γ₁ Γ₂ τ κ.
+  assert (Hfix : fixpoint suarr v ≡ suarr (fixpoint suarr) v).
+  { iApply sem_ty_equiv. apply fixpoint_unfold. }
+  etrans; [apply Hfix|].
   by rewrite /sem_ty_suarr_pre.
 Qed.
 
@@ -222,8 +203,8 @@ Qed.
 Definition sem_sig_nil {Σ} : sem_sig Σ := iEff_bottom.
 
 (* Effect Sig. *)
-Definition sem_sig_eff {Σ} (τ κ : sem_ty Σ) : sem_sig Σ :=
-  (>> (a : val) >> ! a {{ τ a }};
+Definition sem_sig_eff {Σ} (τ κ : sem_ty Σ) : (sem_sig Σ) :=
+  (>> (a : val) >> ! a {{ τ a }}; 
    << (b : val) << ? b {{ κ b }} @OS).
 
 Lemma upcl_sem_sig_eff {Σ} τ κ v Φ :
@@ -274,9 +255,9 @@ Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
 Notation "τ → κ" := (sem_ty_uarr sem_sig_nil τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
-Notation "τ '∘-{' ρ '}->' κ" := (sem_ty_suarr ρ%R τ%T κ%T)
-  (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ ∘-> κ" := (sem_ty_suarr sem_sig_nil τ%T κ%T)
+Notation "τ '∘-{' ρ ; Γ₁ ; Γ₂ '}->' κ" := (sem_ty_suarr ρ%R Γ₁ Γ₂ τ%T κ%T)
+  (at level 100, ρ, Γ₁, Γ₂, κ at level 200) : sem_ty_scope.
+Notation "τ ∘-> κ" := (sem_ty_suarr sem_sig_nil [] [] τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 (* Derived Types *)

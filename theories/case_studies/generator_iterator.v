@@ -12,8 +12,8 @@ From program_logic Require Import weakest_precondition
 
 (* Local imports *)
 From affine_tes.lang Require Import hazel.
+From affine_tes.logic Require Import sem_def.
 From affine_tes.logic Require Import sem_types.
-From affine_tes.logic Require Import sem_typed.
 From affine_tes.logic Require Import sem_sub_typing.
 From affine_tes.logic Require Import sem_operators.
 From affine_tes.logic Require Import compatibility.
@@ -91,20 +91,14 @@ Section typing.
         iApply (sem_typed_let _ [("cont", Ref Moved)] _ _ _ _ in_cont_ty); solve_sidecond.
         { iApply sem_typed_sub_nil. iApply sem_typed_load. }
         rewrite app_singletons.
-        set r := fun (w : string) => ("cont" <- (λ: <>, #());; NONE)%E.
-        fold (r "w").
-        set h := fun (w k : string) => ("cont" <- "k";; SOME "w")%E.
-        fold (h "w" "k"). rewrite /yield_sig.
-        set e := ("comp" #()).
         iPoseProof (sem_typed_shallow_try 
                       [("comp", in_cont_ty)] [] [("cont", cont_ty)] 
                       [("cont", Ref Moved)]
-                      "w" "k" e h r τ () (Option τ) ()) as "Hhand"; solve_sidecond.
+                      "w" "k" _ _ _ τ () (Option τ) ()) as "Hhand"; solve_sidecond.
         rewrite /Γ₁. iApply "Hhand"; iClear "Hhand".
-        * rewrite /e. iApply sem_typed_app; iApply sem_typed_sub_nil;
+        * iApply sem_typed_app; iApply sem_typed_sub_nil;
             [iApply sem_typed_var|iApply sem_typed_unit]. 
-        * rewrite /h. 
-          iApply (sem_typed_swap_third).
+        * iApply (sem_typed_swap_third).
           iApply sem_typed_seq.
           { iApply sem_typed_store. 
             iApply sem_typed_swap_third.
@@ -112,8 +106,7 @@ Section typing.
           iApply sem_typed_swap_second.
           iApply sem_typed_some.
           iApply sem_typed_var.
-        * rewrite /r. simpl.
-          iApply sem_typed_weaken.
+        * iApply sem_typed_weaken.
           iApply sem_typed_seq. 
           iApply sem_typed_store.
           { rewrite -(app_nil_l [("cont", Ref Moved)]). 

@@ -5,8 +5,9 @@
    Proofs related to `subst_map` and `subst` are also provided.
 *)
 
-(* Hazel language *)
-From language Require Import eff_lang.
+(* Local imports *)
+From affine_tes.lib Require Import base.
+From affine_tes.lang Require Import hazel.
 
 Fixpoint subst_map (vs : gmap string val) (e : expr) : expr :=
   match e with
@@ -56,7 +57,7 @@ Proof.
   { intros [|x]; by rewrite /= ?delete_empty. }
   induction e; simplify_map_eq; rewrite ?Hdel; auto with f_equal.
 Qed.
-
+  
 Lemma subst_map_insert x v vs e :
   subst_map (<[x:=v]>vs) e = subst x v (subst_map (delete x vs) e).
 Proof.
@@ -72,6 +73,13 @@ Proof.
     + by rewrite /= delete_insert_delete delete_idemp.
     + by rewrite /= binder_delete_insert // delete_insert_delete
         !binder_delete_delete delete_idemp.
+Qed.
+
+Lemma subst'_subst_map_insert x u vs e :
+  subst' x u (subst_map (binder_delete x vs) e) = subst_map (binder_insert x u vs) e.
+Proof.
+  destruct x; first done. simpl.
+  by rewrite -subst_map_insert.
 Qed.
 
 Lemma subst_map_delete_subst x v vs e :
@@ -108,4 +116,53 @@ Lemma subst_map_subst_empty vs₁ e :
   subst_map vs₁ (subst_map ∅ e) = subst_map vs₁ e.
 Proof. by rewrite subst_map_empty. Qed.
 
+Lemma to_val_subst_map vs e :
+  to_val e = None →
+  (¬ exists x, e = Var x) →
+  to_val (subst_map vs e) = None. 
+Proof.
+  revert vs. induction e; intros ???; try done.
+  simpl. destruct (vs !! x) eqn:Hlookup; last done.
+  destruct H0. by exists x.
+Qed.
 
+Lemma to_eff_subst_map vs e :
+  to_eff e = None →
+  (¬ exists x, e = Var x) →
+  to_eff (subst_map vs e) = None. 
+Proof.
+  revert vs. induction e; intros ???; try done.
+  simpl. destruct (vs !! x) eqn:Hlookup; last done.
+  destruct H0. by exists x.
+Qed.
+
+Lemma subst_map_ctx_lambda domΓ e vs :
+  subst_map vs (λ*: domΓ, e)%E = (λ*: domΓ, subst_map (delete domΓ vs) e)%E. 
+Proof.
+  revert vs. induction domΓ; simpl; first done.
+  intros vs. f_equal.
+  specialize (IHdomΓ (delete a vs)). 
+  by rewrite -delete_list_commute in IHdomΓ.
+Qed.
+
+Lemma subst_map_app_mult e es vs :
+  subst_map vs (e <_ es _>)%E = ((subst_map vs e) <_ (map (subst_map vs) es) _>)%E.
+Proof.
+  revert e. induction es; first done.
+  intros e. simpl. apply (IHes (e a)).
+Qed.
+
+Corollary subst_map_app_mult_val (v : val) es vs :
+  subst_map vs (v <_ es _>)%E = (v <_ map (subst_map vs) es _>)%E.
+Proof. apply subst_map_app_mult. Qed.
+
+Lemma subst_map_union vs ws e :
+  subst_map ws (subst_map vs e) = subst_map (vs ∪ ws) e.
+Proof.
+  revert ws vs. induction e; simpl; try congruence; intros ws vs.
+  - destruct (vs !! x) as [|] eqn:H; try done.   
+    { by erewrite lookup_union_Some_l. } 
+    by erewrite lookup_union_r.
+  - destruct x, f; simpl; [ by erewrite IHe | | | ];
+    erewrite !delete_union;  by rewrite IHe.
+Qed.

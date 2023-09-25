@@ -1,3 +1,7 @@
+(* compile: ocamlopt -I $(opam var lib)/multicont multicont.cmxa Decide.ml 
+   Notice that running this in the interpreter gives a different result
+   because the stack-to-heap conversion does not happen.
+ *)
 open Effect
 open Effect.Deep
 
@@ -5,7 +9,7 @@ type 'a Effect.t += Decide : unit -> bool Effect.t
 
 let decide () : bool = Effect.perform (Decide ())
 
-let main () = let x = ref true in x := decide () && !x; !x 
+let mymain () = let x = ref true in x := decide () && !x; !x 
 
 let handleDecide (e : unit -> bool) : bool =
     match_with e () {
@@ -22,4 +26,4 @@ let handleDecide (e : unit -> bool) : bool =
           | _ -> None)
     }
 
-let _ = Printf.printf "%b\n" (handleDecide main)
+let _ = Printf.printf "%b\n" (handleDecide mymain)

@@ -8,15 +8,52 @@
 From iris.proofmode Require Import base tactics classes.
 From iris.program_logic Require Import weakestpre.
 
+From stdpp Require Import base gmap.
+
+
 (* Hazel Reasoning *)
 From program_logic Require Import weakest_precondition 
                                   state_reasoning.
 
 (* Local imports *)
+From affine_tes.lib Require Import base.
 From affine_tes.lang Require Import hazel.
+From affine_tes.lang Require Import subst_map.
 From affine_tes.logic Require Import iEff.
-From affine_tes.logic Require Import sem_types.
 
+(** * Semantic Types. *)
+
+(* We equip sem_ty with the OFE structure val -d> iPropO
+ * which is the OFE of non-dependently-typed functions over a discrete domain *)
+Definition sem_ty Σ := val -d> (iPropO Σ).
+
+Declare Scope sem_ty_scope.
+Bind Scope sem_ty_scope with sem_ty.
+Delimit Scope sem_ty_scope with T.
+
+(** * Semantic Effect Signature. *)
+
+Notation sem_sig Σ := (iEff Σ).
+
+Declare Scope sem_sig_scope.
+Bind Scope ieff_scope with sem_sig.
+Delimit Scope sem_sig_scope with R.
+
+Lemma sem_ty_equiv {Σ} v (τ τ' : sem_ty Σ) : 
+  τ ≡ τ' → τ v ≡ τ' v.
+Proof.
+  intros Hτ. unfold equiv, ofe_equiv in Hτ. 
+  simpl in Hτ. unfold discrete_fun_equiv in Hτ.
+  by apply Hτ.
+Qed.
+
+Lemma sem_ty_dist {Σ} v (τ τ' : sem_ty Σ) n : 
+  dist n τ τ' → dist n (τ v) (τ' v).
+Proof.
+  intros Hττ'. unfold dist, ofe_dist in Hττ'.
+  simpl in Hττ'. unfold discrete_fun_dist in Hττ'.
+  by apply Hττ'.
+Qed.
 
 (** The Type Environment
 
@@ -47,9 +84,10 @@ the same variable occurs twice in Γ we get that:
 Notation env Σ := (list (string * sem_ty Σ)).
 
 (** The domain of the environment. *)
-Notation env_dom := (map fst).
+Definition env_dom {Σ} (Γ : env Σ) : list string := (map fst Γ).
+Global Opaque env_dom.
 
-Fixpoint env_sem_typed `{heapGS Σ} (Γ : env Σ)
+Fixpoint env_sem_typed `{irisGS eff_lang Σ} (Γ : env Σ)
                         (vs : gmap string val) : iProp Σ :=
   match Γ with
     | [] => emp
@@ -57,67 +95,31 @@ Fixpoint env_sem_typed `{heapGS Σ} (Γ : env Σ)
                      env_sem_typed Γ' vs
   end.
 
-Section environment. 
+Notation "⟦ Γ ⟧" := (env_sem_typed Γ)%T.
 
-  Context `{!heapGS Σ}.
+Global Instance env_sem_typed_into_exist `{irisGS eff_lang Σ} x τ Γ vs : 
+  IntoExist (⟦ (x, τ) :: Γ ⟧ vs) (λ v, ⌜ vs !! x = Some v ⌝ ∗ τ v ∗ ⟦ Γ ⟧ vs)%I (to_ident_name v).
+Proof.
+  rewrite /IntoExist /=. iIntros "[(%v & Hrw & Hτ) HΓ]". 
+  iExists v. iFrame.
+Qed.
 
-  Lemma env_sem_typed_empty vs : ⊢ env_sem_typed [] vs.
-  Proof. done. Qed.
+Global Instance env_sem_typed_from_exist `{irisGS eff_lang Σ} x τ Γ vs: 
+  FromExist (⟦ (x, τ) :: Γ ⟧ vs) (λ v, ⌜ vs !! x = Some v ⌝ ∗ τ v ∗ ⟦ Γ ⟧ vs)%I .
+Proof.
+  rewrite /FromExist /=. iIntros "[%v (Hrw & Hτ & HΓ)]". 
+  iFrame. iExists v. iFrame.
+Qed.
 
-  Lemma env_sem_typed_insert Γ vs (x : string) v :
-    x ∉ (env_dom Γ) →
-    env_sem_typed Γ vs ⊢ env_sem_typed Γ (binder_insert x v vs).
-  Proof.
-    iIntros (Helem) "Henv".
-    iInduction Γ as [|[y A] Γ'] "IH"; first done. simpl in *.
-    iDestruct "Henv" as "((%w & %Hvs & HAw) & HΓ')". iSplitL "HAw".
-    - iExists w. iFrame. iPureIntro.
-      destruct (decide (y = x)) as [->|]. 
-      { destruct Helem. by apply elem_of_list_here. }
-      by rewrite lookup_insert_ne.
-    - iApply "IH"; last done. iPureIntro. 
-      destruct (not_elem_of_cons (env_dom Γ') x y) as [[ ] _]; done.
-  Qed.
-  
-  Lemma env_sem_typed_delete Γ vs (x : string) v :
-    x ∉ (env_dom Γ) →
-    env_sem_typed Γ (binder_insert x v vs) ⊢ env_sem_typed Γ vs.
-  Proof.
-    iIntros (Helem) "Henv".
-    iInduction Γ as [|[y A] Γ'] "IH"; first done. simpl in *.
-    iDestruct "Henv" as "((%w & %Hvs & HAw) & HΓ')". iSplitL "HAw".
-    - iExists w. iFrame. iPureIntro.
-      destruct (decide (y = x)) as [->|]. 
-      { destruct Helem. by apply elem_of_list_here. }
-      by rewrite lookup_insert_ne in Hvs.
-    - iApply "IH"; last done. iPureIntro. 
-      destruct (not_elem_of_cons (env_dom Γ') x y) as [[ ] _]; done.
-  Qed.
-
-  Lemma env_sem_typed_app Γ₁ Γ₂ vs :
-    env_sem_typed (Γ₁ ++ Γ₂) vs ⊣⊢ 
-    env_sem_typed Γ₁ vs ∗ env_sem_typed Γ₂ vs.
-  Proof. 
-    iSplit.
-    - iIntros "HΓ₁₂". iInduction Γ₁ as [|[y A] Γ₁'] "IH"; first (by iFrame).
-      simpl in *. 
-      iDestruct "HΓ₁₂" as "($ & HΓ₁'₂)". by iApply "IH".
-    - iIntros "[HΓ₁ HΓ₂]". 
-      iInduction Γ₁ as [|[y A] Γ₁'] "IH"; first (by iFrame). simpl. 
-      iDestruct ("HΓ₁") as "[HA HΓ₁']".
-      iFrame.
-      iApply ("IH" with "HΓ₁' HΓ₂").
-  Qed.
-
-End environment.
+Global Opaque env_sem_typed.
 
 (* Semantic typing judgment. *)
 
-(* The semantic typing judgement is defined to be persistent
+(* The semantic typing judgment is defined to be persistent
  * because we want the persistent resources it uses to only be 
  * from the environment Γ.
  *)
-Definition sem_typed `{!heapGS Σ}
+Definition sem_typed `{!irisGS eff_lang Σ}
   (Γ₁  : env Σ)
   (e  : expr)
   (ρ  : sem_sig Σ)
@@ -128,7 +130,7 @@ Definition sem_typed `{!heapGS Σ}
                     (∀ v, τ v ∗ env_sem_typed Γ₂ vs -∗ Φ v) -∗ 
                     EWP (subst_map vs e) <| ρ |> {{ v, Φ v }}))%I.
 
-Global Instance sem_typed_persistent `{!heapGS Σ} (Γ Γ' : env Σ) e ρ τ :
+Global Instance sem_typed_persistent `{!irisGS eff_lang Σ} (Γ Γ' : env Σ) e ρ τ :
   Persistent (sem_typed Γ e ρ τ Γ').
 Proof.
   unfold sem_typed, tc_opaque. apply _.
@@ -143,7 +145,7 @@ Notation "⊨ e : ρ : α" := (sem_typed [] e%E ρ%R α%T [])
 (* The value semantic typing judgement is also defined
  * to be persistent, so only persistent values hold for it.
  *) 
-Definition sem_val_typed `{!heapGS Σ} 
+Definition sem_val_typed `{!irisGS eff_lang Σ} 
   (v : val) 
   (A : sem_ty Σ) : iProp Σ := □ (A v).
 
