@@ -891,20 +891,30 @@ Section compatibility.
   Lemma sem_typed_deep_try_alt Γ₁ Δ Γ₂ Γ₃ e w k h r ρ' ι κ τ τ':
     w ∉ env_dom Γ₂ → w ∉ env_dom Δ → w ∉ env_dom Γ₃ →
     k ∉ env_dom Δ → k ∉ env_dom Γ₃ → w ≠ k →
-    env_dom Γ₂ ## env_dom Δ →
     env_dom Γ₃ ⊆ env_dom Δ →
     let ρ := (ι ⇒ κ)%R in
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
     [(w, ι) ; (k, κ -{ ρ' ; Δ ; Γ₃ }-∘ τ')] ⊨ h : ρ' : (() -{ ρ' ; Δ ; Γ₃ }-∘ τ') ⊨ [] -∗
     (w, τ) :: Γ₂ ⊨ r : ρ' : (() -{ ρ' ; Δ ; Γ₃ }-∘ τ') ⊨ [] -∗
-    Γ₁ ⊨ (deep-try-alt: e requires (env_dom Δ) with  
-                            effect k => w => h 
-                          | return w => r end)%E : ρ' : (() -{ ρ' ; Δ ; Γ₃ }-∘ τ') ⊨ [].
+    Γ₁ ++ Δ ⊨ (deep-try-alt: e thread (env_dom Δ) with  
+                                effect k => w => h 
+                              | return w => r end) : ρ' : τ' ⊨ Γ₃. 
   Proof.
-    iIntros (?????????) "#He #Hh #Hr %Φ !# %vs HΓ₁ HΦ /=".
-    iApply (ewp_mono _ _ (λ v, (() -{ ρ'; Δ; Γ₃ }-∘ τ') v) with "[HΓ₁] [HΦ]");
-      last (iIntros "% H !>"; iApply "HΦ"; iFrame). 
-    ewp_pure_steps. 
+    iIntros (???????) "#He #Hh #Hr %Φ !# %vs HΓ₁Δ HΦ /=".
+    iDestruct (env_sem_typed_app with "HΓ₁Δ") as "[HΓ₁ HΔ]".
+    rewrite subst_map_app_mult.
+    iDestruct (subst_map_var with "HΔ") as "[%ws %Hrw]". 
+    rewrite map_map app_mult_cons.
+    replace (λ x: string, subst_map vs x) with (subst_map vs ∘ Var) by done.
+    rewrite Hrw. 
+    assert (Hcons : ∀ xs, map Val xs ++ [ Val #() ] = map Val (xs ++ [ #() ])).
+    { intros xs. induction xs; first done. simpl. by rewrite IHxs. }
+    rewrite Hcons. iApply ewp_bind_app_mult.
+    iApply (ewp_mono _ _ (λ v, (() -{ ρ'; Δ; Γ₃ }-∘ τ') v) with "[HΓ₁] [HΔ HΦ]").
+    2: { iIntros "% Hv !>". rewrite -Hcons -Hrw -app_mult_cons.
+         iApply (ewp_mono with "[Hv HΔ]"); [by iApply ("Hv" with "HΔ")|].
+         iIntros (?) "[Hτ' HΓ₃] !>". iApply "HΦ". iFrame. }
+    iSimpl. ewp_pure_steps. 
     iApply (ewp_deep_try_with _ _ _ (λ v, τ v ∗ env_sem_typed Γ₂ vs) with "[HΓ₁] []").
     { iApply ("He" with "HΓ₁"). iIntros "* H {$H}". }
     iLöb as "IH". rewrite {2}deep_handler_unfold.
@@ -963,8 +973,6 @@ Section compatibility.
           by rewrite -env_sem_typed_difference_delete. }
         rewrite Hrwuus'. 
         rewrite (app_mult_cons (c u)).
-        assert (Hcons : ∀ xs, map Val xs ++ [ Val #() ] = map Val (xs ++ [ #() ])).
-        { intros xs. induction xs; first done. simpl. by rewrite IHxs. }
         rewrite Hcons.
         iApply ewp_bind_app_mult.
         iApply (ewp_mono with "[Hκb Hκ]").

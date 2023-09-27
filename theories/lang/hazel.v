@@ -119,13 +119,12 @@ Fixpoint app_mult (e : expr) (es : list expr) : expr :=
 (* Use the <_> notation to denote hidden argument application *)
 Notation "e '<_' es '_>'" := (app_mult e es)%E (at level 10) : expr_scope.
 
-
-Notation "'deep-try-alt:' e 'requires' xs 'with' 'effect' k => x => h '|' 'return' y => r 'end'" :=
+Notation "'deep-try-alt:' e 'thread' xs 'with' 'effect' k => x => h '|' 'return' y => r 'end'" :=
   (let k' := k%string in
    let x' := x%string in
    let xs' := xs in
   (DeepTryWith e
-      (λ: x' k', let: k' := (λλ*λ: k', xs', x', (k' x') <_ map Var xs' _> #())%V k' in h) (λ: y, r))%E)
+      (λ: x' k', let: k' := (λλ*λ: k', xs', x', (k' x') <_ map Var xs' _> #())%V k' in h) (λ: y, r) <_ map Var xs' _> #())%E)
   (e, h, k, x, y, r at level 200, only parsing) : expr_scope.
 
 Global Instance load_atomic (l : loc) :
