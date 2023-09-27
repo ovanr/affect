@@ -6,7 +6,7 @@
 *)
 
 From iris.proofmode Require Import base tactics.
-From iris.algebra Require Import ofe.
+From iris.algebra Require Import ofe list.
 From iris.base_logic Require Export lib.iprop.
 From iris.base_logic Require Import upred.
 
@@ -38,12 +38,18 @@ Definition sem_ty_prod {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
 Definition sem_ty_sum {Σ} (τ κ : sem_ty Σ) : sem_ty Σ := 
   (λ v, ∃ v', (⌜v = InjLV v'%V⌝ ∗ τ v') ∨ (⌜ v = InjRV v'⌝ ∗ κ v'))%I.
 
-(* Linear Arrow type. *)
-Definition sem_ty_aarr `{irisGS eff_lang Σ} 
+(* Affine Arrow type. *)
+Definition sem_ty_aarr `{irisGS eff_lang Σ}
   (ρ : sem_sig Σ)
+  (Γ₁ : env Σ)
+  (Γ₂ : env Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), ∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ κ }})%I.
+  (λ (v : val), 
+    ∀ (w : val) (vs : gmap string val),
+      ⟦ Γ₁ ⟧ vs -∗ 
+      τ w -∗ 
+      EWP (v <_ map (subst_map vs ∘ Var) (env_dom Γ₁) _> w) <| ρ |> {{ u, κ u ∗ ⟦ Γ₂ ⟧ vs }})%I.
 
 (* Unrestricted Arrow type. *)
 Definition sem_ty_uarr `{irisGS eff_lang Σ} 
@@ -245,9 +251,11 @@ Notation "⟨⟩" := sem_sig_nil : sem_sig_scope.
 Notation "τ ⇒ κ" := (sem_sig_eff τ%T κ%T) 
   (at level 100, κ at level 200) : sem_sig_scope.
 
-Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_aarr ρ%R τ%T κ%T)
+Notation "τ '-{' ρ ; Γ₁ ; Γ₂ '}-∘' κ" := (sem_ty_aarr ρ%R Γ₁ Γ₂ τ%T κ%T)
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ ⊸ κ" := (sem_ty_aarr sem_sig_nil τ%T κ%T)
+Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_aarr ρ%R [] [] τ%T κ%T)
+  (at level 100, ρ, κ at level 200) : sem_ty_scope.
+Notation "τ ⊸ κ" := (sem_ty_aarr sem_sig_nil [] [] τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
@@ -255,9 +263,11 @@ Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
 Notation "τ → κ" := (sem_ty_uarr sem_sig_nil τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
-Notation "τ '∘-{' ρ ; Γ₁ ; Γ₂ '}->' κ" := (sem_ty_suarr ρ%R Γ₁ Γ₂ τ%T κ%T)
+Notation "τ '>-{' ρ ; Γ₁ ; Γ₂ '}-∘' κ" := (sem_ty_suarr ρ%R Γ₁ Γ₂ τ%T κ%T)
   (at level 100, ρ, Γ₁, Γ₂, κ at level 200) : sem_ty_scope.
-Notation "τ ∘-> κ" := (sem_ty_suarr sem_sig_nil [] [] τ%T κ%T)
+Notation "τ '>-{' ρ '}-∘' κ" := (sem_ty_suarr ρ%R [] [] τ%T κ%T)
+  (at level 100, ρ, κ at level 200) : sem_ty_scope.
+Notation "τ >-∘ κ" := (sem_ty_suarr sem_sig_nil [] [] τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 (* Derived Types *)
@@ -279,7 +289,7 @@ Notation "'Option' τ" := (sem_ty_option τ%T)
 
 (**  Prove that type formers are non-expansive and respect setoid equality. *)
 Section types_properties.
-  Context `{!heapGS Σ}.
+  Context `{heapGS Σ}.
 
   Ltac solve_non_expansive2 :=
     intros m x y Hxy x' y' Hxy'; try intros ?;
@@ -287,7 +297,7 @@ Section types_properties.
            sem_ty_prod, sem_ty_sum, sem_ty_aarr,
            sem_ty_uarr, sem_ty_ref, sem_ty_rec,
            sem_ty_list, sem_ty_forall, sem_ty_exists;
-    repeat f_equiv; done || by apply sem_ty_dist.
+    repeat (f_equiv || done || intros ? || by apply sem_ty_dist).
 
   Global Instance sem_ty_prod_ne : NonExpansive2 (@sem_ty_prod Σ).
   Proof. solve_non_expansive2. Qed.
@@ -295,7 +305,7 @@ Section types_properties.
   Global Instance sem_ty_sum_ne : NonExpansive2 (@sem_ty_sum Σ).
   Proof. solve_non_expansive2. Qed.
 
-  Global Instance sem_ty_larr_ne ρ : NonExpansive2 (sem_ty_aarr ρ).
+  Global Instance sem_ty_aarr_ne ρ Γ₁ Γ₂: NonExpansive2 (sem_ty_aarr ρ Γ₁ Γ₂).
   Proof. solve_non_expansive2. Qed.
 
   Global Instance sem_ty_uarr_ne ρ : NonExpansive2 (sem_ty_uarr ρ).
@@ -330,7 +340,7 @@ Section types_properties.
   Global Instance sem_ty_sum_proper : Proper ((≡) ==> (≡) ==> (≡)) (@sem_ty_sum Σ).
   Proof. solve_non_expansive2. Qed.
 
-  Global Instance sem_ty_larr_proper ρ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_aarr ρ).
+  Global Instance sem_ty_aarr_proper ρ Γ₁ Γ₂ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_aarr ρ Γ₁ Γ₂).
   Proof. solve_non_expansive2. Qed.
 
   Global Instance sem_ty_uarr_proper ρ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_uarr ρ).

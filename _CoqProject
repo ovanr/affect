@@ -11,6 +11,7 @@ theories/logic/sem_types.v
 theories/logic/sem_env.v
 theories/logic/sem_sub_typing.v
 theories/logic/sem_operators.v
+theories/logic/reasoning.v
 theories/logic/compatibility.v
 theories/logic/adequacy.v
 theories/case_studies/representable.v

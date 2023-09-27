@@ -110,34 +110,23 @@ Notation "λ*λ: Γ , x , e" := (λ*: Γ, (λ: x, e))%V (at level 200) : val_sco
 Notation "λλ*λ: x , Γ , y , e" := (λ: x, (λ*λ: Γ, y, e))%E (at level 200) : expr_scope.
 Notation "λλ*λ: x , Γ , y , e" := (λ: x, (λ*λ: Γ, y, e) )%V (at level 200) : val_scope.
 
-Lemma lambdas_is_lambda domΓ x e :
-  exists y e', (λ*λ: domΓ , x, e)%E = (λ: y, e')%E.
-Proof.
-  destruct domΓ; [by exists x, e|].
-  by exists s, (ctx_lambda domΓ (λ: x, e)%E).  
-Qed.
-
 Fixpoint app_mult (e : expr) (es : list expr) : expr :=
   match es with 
     [] => e
   | e' :: ees => app_mult (App e e') ees
   end.
 
-(* Similarly, we overload the <_> notation to denote hidden argument application *)
+(* Use the <_> notation to denote hidden argument application *)
 Notation "e '<_' es '_>'" := (app_mult e es)%E (at level 10) : expr_scope.
 
-Notation "'mapcont-try:' e 'with' 'map' m | 'cont' c | 'return' r 'end'" :=
-  (DeepTryWith e ((λ: "m" "c" "w" "k", 
-                      match: "m" "w" with 
-                         InjL "w" => "w"
-                      |  InjR "w" => "c" ("k" "w")
-                      end) m c)%E
-                 r)%I
-  (e, m, c at level 200, only parsing) : expr_scope.
 
-Notation "'mapcont-try-alt:' e 'with' 'map' m | 'cont' c | 'return' r 'end'" :=
-  (DeepTryWith e ((λ: "m" "c" "w" "k", "c" ("m" "w") "k") m c) r)%E
-  (e, m, c at level 200, only parsing) : expr_scope.
+Notation "'deep-try-alt:' e 'requires' xs 'with' 'effect' k => x => h '|' 'return' y => r 'end'" :=
+  (let k' := k%string in
+   let x' := x%string in
+   let xs' := xs in
+  (DeepTryWith e
+      (λ: x' k', let: k' := (λλ*λ: k', xs', x', (k' x') <_ map Var xs' _> #())%V k' in h) (λ: y, r))%E)
+  (e, h, k, x, y, r at level 200, only parsing) : expr_scope.
 
 Global Instance load_atomic (l : loc) :
   Atomic StronglyAtomic (Load $ Val $ LitV $ LitLoc l).

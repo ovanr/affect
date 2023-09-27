@@ -6,6 +6,7 @@
 *)
 
 From iris.proofmode Require Import base tactics classes.
+From iris.algebra Require Import list.
 From iris.program_logic Require Import weakestpre.
 
 From stdpp Require Import base gmap.
@@ -81,7 +82,9 @@ the same variable occurs twice in Γ we get that:
 
 *) 
 
-Notation env Σ := (list (string * sem_ty Σ)).
+Canonical Structure stringO := leibnizO string.
+
+Notation env Σ := (list (stringO * sem_ty Σ)).
 
 (** The domain of the environment. *)
 Definition env_dom {Σ} (Γ : env Σ) : list string := (map fst Γ).

@@ -91,12 +91,13 @@ Section sub_typing.
   Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
     (τ -{ ρ }-> κ) ≤T (τ -{ ρ }-∘ κ).
   Proof.
-    iIntros (v) "#Hτκ %w Hw".
-    iApply ("Hτκ" with "Hw").
+    iIntros (v) "#Hτκ %w %vs _ Hτ".
+    iApply (ewp_mono with "[Hτ Hτκ]"); [by iApply "Hτκ"|].
+    iIntros (u) "$ !> //".
   Qed.
 
   Lemma ty_le_u2suarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
-    (τ -{ ρ }-> κ) ≤T (τ ∘-{ ρ ; [] ; [] }-> κ).
+    (τ -{ ρ }-> κ) ≤T (τ >-{ ρ ; [] ; [] }-∘ κ).
   Proof.
     iIntros (v) "#Hτκ".
     iLöb as "IH".
@@ -107,28 +108,35 @@ Section sub_typing.
     iIntros "!> {$IH}". solve_env.
   Qed.
 
-  Lemma ty_le_su2aarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) :
-    (τ ∘-{ ρ; []; [] }-> κ) ≤T (τ -{ ρ }-∘ κ).
+  Lemma ty_le_su2aarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) (Γ₁ Γ₂ Γ₁' Γ₂' : env Σ) :
+    Γ₁' ≤E Γ₁ →
+    Γ₂ ≤E Γ₂' →
+    env_dom Γ₁ = env_dom Γ₁' →
+    (τ >-{ ρ; Γ₁; Γ₂ }-∘ κ) ≤T (τ -{ ρ; Γ₁'; Γ₂' }-∘ κ).
   Proof.
-    iIntros (v) "Hτκ %w Hτ".
-    rewrite sem_ty_suarr_unfold.
-    iApply (ewp_mono with "[Hτκ Hτ]").
-    { by iApply ("Hτκ" $! w empty). }
-    iIntros "%u /= [Hκ _] !> {$Hκ}".
+    iIntros (HΓ₁'Γ₁ HΓ₂Γ₂' Heq) "%v Hτκ %w %vs HΓ₁' Hτ". 
+    rewrite sem_ty_suarr_unfold HΓ₁'Γ₁ Heq.
+    iApply (ewp_mono with "[Hτκ HΓ₁' Hτ]").
+    { iApply ("Hτκ" $! w vs with "HΓ₁' Hτ"). }
+    iIntros "%u /= [Hκ [HΓ₂ _]] !> {$Hκ}".
+    by iApply HΓ₂Γ₂'.
   Qed.
   
-  Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_sig Σ) :
+  Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_sig Σ) (Γ₁ Γ₂ Γ₁' Γ₂' : env Σ) :
     ρ ≤R ρ' →
     τ₂ ≤T τ₁ →
     κ₁ ≤T κ₂ →
-    (τ₁ -{ ρ }-∘ κ₁) ≤T (τ₂ -{ ρ' }-∘ κ₂).
+    Γ₁' ≤E Γ₁ →
+    Γ₂ ≤E Γ₂' →
+    env_dom Γ₁ = env_dom Γ₁' →
+    (τ₁ -{ ρ ; Γ₁ ; Γ₂ }-∘ κ₁) ≤T (τ₂ -{ ρ' ; Γ₁' ; Γ₂' }-∘ κ₂).
   Proof.
-    iIntros (Hρ Hτ₂₁ Hκ₁₂ v) "Hτκ₁ %w Hw".
-    iApply ewp_os_prot_mono.
-    { iApply Hρ. }
-    iApply (ewp_mono with "[Hτκ₁ Hw]").
-    { iApply ("Hτκ₁" with "[Hw]"); by iApply Hτ₂₁. }
-    iIntros (u) "Hu !>". by iApply Hκ₁₂.
+    iIntros (Hρ Hτ₂₁ Hκ₁₂ HΓ₁'Γ₁ HΓ₂Γ₂' Heq v) "Hτκ₁ %w %vs HΓ₁' Hτ".
+    iApply ewp_os_prot_mono; [iApply Hρ|].
+    rewrite -Heq HΓ₁'Γ₁ Hτ₂₁.
+    iApply (ewp_mono with "[Hτκ₁ Hτ HΓ₁']").
+    { iApply ("Hτκ₁" $! w vs with "HΓ₁' Hτ"). }
+    iIntros (u) "Hu !>". by rewrite Hκ₁₂ HΓ₂Γ₂'.
   Qed.
   
   Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_sig Σ) :
@@ -152,7 +160,7 @@ Section sub_typing.
     Γ₁' ≤E Γ₁ → 
     Γ₂ ≤E Γ₂' →
     env_dom Γ₁ = env_dom Γ₁' →
-    (τ₁ ∘-{ ρ ; Γ₁ ; Γ₂  }-> κ₁) ≤T (τ₂ ∘-{ ρ' ; Γ₁' ; Γ₂' }-> κ₂).
+    (τ₁ >-{ ρ ; Γ₁ ; Γ₂  }-∘ κ₁) ≤T (τ₂ >-{ ρ' ; Γ₁' ; Γ₂' }-∘ κ₂).
   Proof.
     iIntros (Hρ Hτ₂₁ Hκ₁₂ HΓ₁'Γ₁ HΓ₂Γ₂' ? v) "Hτκ₁". 
     iLöb as "IH".
