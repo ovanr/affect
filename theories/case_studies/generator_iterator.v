@@ -11,8 +11,10 @@ From program_logic Require Import weakest_precondition
                                   state_reasoning.
 
 (* Local imports *)
+From affine_tes.lib Require Import base.
 From affine_tes.lang Require Import hazel.
 From affine_tes.logic Require Import sem_def.
+From affine_tes.logic Require Import sem_env.
 From affine_tes.logic Require Import sem_types.
 From affine_tes.logic Require Import sem_sub_typing.
 From affine_tes.logic Require Import sem_operators.
@@ -50,15 +52,18 @@ Section typing.
   Definition yield_sig (τ : sem_ty Σ) := (τ ⇒ ())%R.
   Definition yield_ty τ := τ -{ yield_sig τ }-> ().
   Definition iter_ty τ := (∀S: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
-  Definition generator_ty τ := (() ∘-> Option τ)%T.
+  Definition generator_ty τ := (() >-∘ Option τ)%T.
   
-  Ltac solve_dom := try 
-      (apply not_elem_of_nil) || 
-      (apply not_elem_of_cons; split; solve_dom) || 
-      (intros ?; match goal with
-        | H : (BAnon ∈ env_dom _) |- _ => destruct H
-        end) ||
-      done.
+  Ltac solve_dom := 
+      try rewrite !env_dom_nil;
+      try rewrite !env_dom_cons; 
+      repeat (
+        (by apply not_elem_of_nil) ||
+        (by apply not_elem_of_cons; split; solve_dom) || 
+          (intros ?; match goal with
+            | H : (BAnon ∈ _) |- _ => destruct H
+            end) ||
+      done).
   
   Ltac solve_sidecond := solve_dom; solve_copy.
   
@@ -79,8 +84,12 @@ Section typing.
       + set Γ₁ :=[("yield", yield_ty τ); ("i", iter_ty τ)].
         iApply sem_typed_alloc.
         rewrite -(app_nil_r Γ₁).
+        set Δ := [] : env Σ.
+        replace (λ: <>, "i" #() "yield")%E with (λ*λ: env_dom Δ, <>, "i" #() "yield")%E by done.
         iApply sem_typed_afun; solve_dom.
-        iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ (yield_ty τ));
+        { admit. }
+        replace (Var "i") with ("i" <_ map Var (env_dom Δ) _>)%E by done.
+        iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ _ _ (yield_ty τ)).
           last (iApply sem_typed_sub_nil; iApply sem_typed_var).
           iApply (sem_typed_SApp _ _ _ (yield_sig τ) (λ ρ, ( τ -{ ρ }-> ()) -{ ρ }-∘ ())).
           iApply sem_typed_sub_nil. 

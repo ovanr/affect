@@ -58,6 +58,9 @@ Proof.
   induction e; simplify_map_eq; rewrite ?Hdel; auto with f_equal.
 Qed.
   
+Lemma subst_map_val (v : val) vs : subst_map vs v = v.
+Proof. done. Qed.
+
 Lemma subst_map_insert x v vs e :
   subst_map (<[x:=v]>vs) e = subst x v (subst_map (delete x vs) e).
 Proof.
@@ -97,7 +100,6 @@ Qed.
 Lemma subst_map_singleton x v e :
   subst_map {[x:=v]} e = subst x v e.
 Proof. by rewrite subst_map_insert delete_empty subst_map_empty. Qed.
-
 
 Lemma subst_subst_ne x₁ x₂ v w e :
   x₁ ≠ x₂ →

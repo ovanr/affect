@@ -119,12 +119,31 @@ Fixpoint app_mult (e : expr) (es : list expr) : expr :=
 (* Use the <_> notation to denote hidden argument application *)
 Notation "e '<_' es '_>'" := (app_mult e es)%E (at level 10) : expr_scope.
 
+Definition from_binder (b : binder) (e : expr) : expr :=
+  match b with
+    BAnon => e
+  | BNamed x => Var x
+  end.
+
+(* Transforms a function f of type `τ -{ ρ }-∘ () -{ ρ ; Γ₁; Γ₂ }-∘ κ`
+   to a function of type `τ -{ ρ ; Γ₁; Γ₂ }-∘ κ` *)
+Definition lambdas_norm (f x : string) (Γ : list string) : val :=
+   (λλ*λ: f, Γ, x, f x <_ map Var Γ _> #())%V.
+
+Notation "rec*: f , Γ , x , e" := 
+  (let f' := f%string in
+   let Γ' := Γ in
+   let x' := x%string in
+    (lambdas_norm f' x' Γ')
+      (rec: f' x' := λ*λ: Γ', <>,  
+        let: f' := (lambdas_norm f' x' Γ') f' in e))%E (at level 200) : expr_scope.
+
 Notation "'deep-try-alt:' e 'thread' xs 'with' 'effect' k => x => h '|' 'return' y => r 'end'" :=
   (let k' := k%string in
    let x' := x%string in
    let xs' := xs in
   (DeepTryWith e
-      (λ: x' k', let: k' := (λλ*λ: k', xs', x', (k' x') <_ map Var xs' _> #())%V k' in h) (λ: y, r) <_ map Var xs' _> #())%E)
+      (λ: x' k', let: k' := (lambdas_norm k' x' xs') k' in h) (λ: y, r) <_ map Var xs' _> #())%E)
   (e, h, k, x, y, r at level 200, only parsing) : expr_scope.
 
 Global Instance load_atomic (l : loc) :

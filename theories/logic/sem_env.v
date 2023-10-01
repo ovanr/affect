@@ -63,6 +63,33 @@ Proof.
       destruct (not_elem_of_cons (env_dom Γ') x y) as [[ ] _]; done.
 Qed.
 
+Lemma env_sem_typed_delete `{irisGS eff_lang Σ} Γ vs (x : string) :
+  x ∉ (env_dom Γ) →
+  ⟦ Γ ⟧ vs ⊣⊢ ⟦ Γ ⟧ (binder_delete x vs).
+Proof.
+  intros Helem. 
+  iInduction Γ as [|[y τ] Γ'] "IH";
+    first (iSplit; iIntros; by rewrite env_sem_typed_empty). 
+  rewrite !env_sem_typed_cons; iSplit; iIntros "Henv";
+  iDestruct ("Henv") as "((%w & %Hvs & Hw) & HΓ')".
+  assert (x ≠ y).
+  { rewrite env_dom_cons in Helem.
+    destruct (not_elem_of_cons (env_dom Γ') x y) as [[ ] _]; done. }
+  - iSplitL "Hw".
+    + iExists _. iIntros "{$Hw} !% /=". 
+      by rewrite lookup_delete_ne.
+    + iApply "IH"; last done. iPureIntro. 
+      destruct (not_elem_of_cons (env_dom Γ') x y) as [[ ] _]; done.
+  - iSplitL "Hw".
+    + iExists w.  iIntros "{$Hw} !%". 
+      destruct (decide (y = x)) as [->|]. 
+      { destruct Helem. rewrite env_dom_cons. apply elem_of_list_here. }
+      simpl in Hvs.
+      by rewrite lookup_delete_ne in Hvs.
+    + iApply "IH"; last done. iPureIntro. 
+      destruct (not_elem_of_cons (env_dom Γ') x y) as [[ ] _]; done.
+Qed.
+
 Ltac solve_sem_typed_insert :=
   rewrite env_sem_typed_insert; try (simplify_eq; done); progress iFrame "%#∗".
 

@@ -40,6 +40,18 @@ Proof.
   intros ?. apply IHes.
 Qed.
 
+Lemma map_subst_map_singleton_ne Γ x v :
+  x ∉ Γ → map (subst_map {[x:=v]} ∘ Var) Γ = map Var Γ.
+Proof.
+  intros H. induction Γ; first done. simpl.
+  edestruct (not_elem_of_cons Γ) as [[] _]; first done.
+  rewrite lookup_singleton_ne; last done. by rewrite IHΓ.
+Qed.
+
+Lemma map_map_subst_map Γ ws :
+  map (subst_map ws) (map Var Γ) = map (subst_map ws ∘ Var) Γ.
+Proof. by rewrite map_map. Qed.
+
 Lemma ewp_bind_app_mult `{heapGS Σ} e ρ (vs : list val) Φ : 
   EWP e <| ρ |> {{ w, EWP w <_ map Val vs _> <| ρ |> {{ Φ }} }} -∗
   EWP e <_ map Val vs _> <| ρ |> {{ Φ }}.
@@ -61,6 +73,28 @@ Proof.
     apply neutral_app; first done. simpl. apply _.
 Qed.
 
+Lemma subst_map_var `{heapGS Σ} Γ vs :
+  ⟦ Γ ⟧ vs -∗
+  ∃ ws, ⌜map (subst_map vs ∘ Var) (env_dom Γ) = map Val ws ⌝.
+Proof.
+  iIntros "HΓ". iInduction Γ as [|[x τ] Γ'] "IH"; [by iExists []|].
+  rewrite env_dom_cons. simpl.
+  iDestruct "HΓ" as "[%m (%Hrw & _ & HΓ')]". rewrite Hrw.
+  iDestruct ("IH" with "HΓ'") as "(%ws & %HIH)". 
+  iExists (m :: ws). iPureIntro. simpl. by f_equal.
+Qed.
+
+Lemma ewp_bind_app_mult' `{heapGS Σ} Δ e ρ vs Φ : 
+  ⟦ Δ ⟧ vs -∗
+  (⟦ Δ ⟧ vs -∗ EWP e <| ρ |> {{ w, EWP w <_ map (subst_map vs ∘ Var) (env_dom Δ) _> <| ρ |> {{ Φ }} }}) -∗
+  EWP e <_ map (subst_map vs ∘ Var) (env_dom Δ) _> <| ρ |> {{ Φ }}.
+Proof. 
+  iIntros "HΔ He".
+  iDestruct (subst_map_var with "HΔ") as "[%vs' %Hrwvs']". 
+  rewrite Hrwvs'. iApply ewp_bind_app_mult. rewrite -Hrwvs'.
+  by iApply "He".
+Qed.
+
 Lemma ewp_bind_inv_lambda `{heapGS Σ} (x y : string) e v ρ (vs : list val) Φ : 
   EWP (λ: y, if decide (x ≠ y) then subst x v e else e)%V <_ map Val vs _> <| ρ |> {{ Φ }} -∗
   EWP (λ: x y, e)%V v <_ map Val vs _> <| ρ |> {{ Φ }}.
@@ -73,16 +107,6 @@ Proof.
   iApply "H".
 Qed.
 
-Lemma subst_map_var `{heapGS Σ} Γ vs :
-  env_sem_typed Γ vs -∗
-  ∃ ws, ⌜map (subst_map vs ∘ Var) (env_dom Γ) = map Val ws ⌝.
-Proof.
-  iIntros "HΓ". iInduction Γ as [|[x τ] Γ'] "IH"; [by iExists []|].
-  rewrite env_dom_cons. simpl.
-  iDestruct "HΓ" as "[%m (%Hrw & _ & HΓ')]". rewrite Hrw.
-  iDestruct ("IH" with "HΓ'") as "(%ws & %HIH)". 
-  iExists (m :: ws). iPureIntro. simpl. by f_equal.
-Qed.
 
 Lemma ewp_app_mult' `{heapGS Σ} (z : string) κ ρ (Γ' : env Σ) vs e Φ :
   let Γ := (z, κ) :: Γ' in

@@ -35,7 +35,7 @@ Definition sem_ty_prod {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
   (λ v, ∃ v₁ v₂, ⌜v = (v₁, v₂)%V⌝ ∗ τ v₁ ∗ κ v₂)%I.
 
 (* Sum type. *)
-Definition sem_ty_sum {Σ} (τ κ : sem_ty Σ) : sem_ty Σ := 
+Definition sem_ty_sum {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
   (λ v, ∃ v', (⌜v = InjLV v'%V⌝ ∗ τ v') ∨ (⌜ v = InjRV v'⌝ ∗ κ v'))%I.
 
 (* Affine Arrow type. *)
@@ -45,18 +45,24 @@ Definition sem_ty_aarr `{irisGS eff_lang Σ}
   (Γ₂ : env Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), 
+  (λ (v : val),
     ∀ (w : val) (vs : gmap string val),
-      ⟦ Γ₁ ⟧ vs -∗ 
-      τ w -∗ 
+      ⟦ Γ₁ ⟧ vs -∗
+      τ w -∗
       EWP (v <_ map (subst_map vs ∘ Var) (env_dom Γ₁) _> w) <| ρ |> {{ u, κ u ∗ ⟦ Γ₂ ⟧ vs }})%I.
 
 (* Unrestricted Arrow type. *)
 Definition sem_ty_uarr `{irisGS eff_lang Σ} 
   (ρ : sem_sig Σ)
+  (Γ₁ : env Σ)
+  (Γ₂ : env Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), □ (∀ (w : val), τ w -∗ EWP (v w) <| ρ |> {{ κ }}))%I.
+  (λ (v : val), □ (
+    ∀ (w : val) (vs : gmap string val),
+      ⟦ Γ₁ ⟧ vs -∗ 
+      τ w -∗ 
+      EWP (v <_ map (subst_map vs ∘ Var) (env_dom Γ₁) _> w) <| ρ |> {{ u, κ u ∗ ⟦ Γ₂ ⟧ vs }}))%I.
 
 Definition discrete_fun_app {Σ} A (P Q : A -d> iPropO Σ) x n :
   P ≡{n}≡ Q → (P x) ≡{n}≡ (Q x).
@@ -258,7 +264,9 @@ Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_aarr ρ%R [] [] τ%T κ%T)
 Notation "τ ⊸ κ" := (sem_ty_aarr sem_sig_nil [] [] τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
-Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
+Notation "τ '-{' ρ ; Γ₁ ; Γ₂ '}->' κ" := (sem_ty_uarr ρ%R Γ₁ Γ₂ τ%T κ%T)
+  (at level 100, ρ, κ at level 200) : sem_ty_scope.
+Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R [] [] τ%T κ%T)
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
 Notation "τ → κ" := (sem_ty_uarr sem_sig_nil τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
@@ -292,10 +300,10 @@ Section types_properties.
   Context `{heapGS Σ}.
 
   Ltac solve_non_expansive2 :=
-    intros m x y Hxy x' y' Hxy'; try intros ?;
+    repeat intros ?;
     unfold sem_ty_unit, sem_ty_int, sem_ty_bool,
            sem_ty_prod, sem_ty_sum, sem_ty_aarr,
-           sem_ty_uarr, sem_ty_ref, sem_ty_rec,
+           sem_ty_uarr, sem_ty_suarr, sem_ty_ref, sem_ty_rec,
            sem_ty_list, sem_ty_forall, sem_ty_exists;
     repeat (f_equiv || done || intros ? || by apply sem_ty_dist).
 
@@ -308,8 +316,15 @@ Section types_properties.
   Global Instance sem_ty_aarr_ne ρ Γ₁ Γ₂: NonExpansive2 (sem_ty_aarr ρ Γ₁ Γ₂).
   Proof. solve_non_expansive2. Qed.
 
-  Global Instance sem_ty_uarr_ne ρ : NonExpansive2 (sem_ty_uarr ρ).
+  Global Instance sem_ty_uarr_ne ρ Γ₁ Γ₂ : NonExpansive2 (sem_ty_uarr ρ Γ₁ Γ₂).
   Proof. solve_non_expansive2. Qed.
+
+  Global Instance sem_ty_suarr_ne ρ Γ₁ Γ₂ : NonExpansive2 (sem_ty_suarr ρ Γ₁ Γ₂).
+  Proof. 
+    intros ????????. rewrite /sem_ty_suarr. apply sem_ty_dist. apply fixpoint_ne.
+    intros ?. rewrite /sem_ty_suarr_pre. intros ?. repeat f_equiv; [by apply sem_ty_dist|].
+    intros ?. f_equiv. by apply sem_ty_dist.
+  Qed.
 
   Global Instance sem_ty_ref_ne : NonExpansive2 (@sem_ty_ref Σ _).
   Proof. solve_non_expansive2. Qed.
@@ -343,7 +358,14 @@ Section types_properties.
   Global Instance sem_ty_aarr_proper ρ Γ₁ Γ₂ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_aarr ρ Γ₁ Γ₂).
   Proof. solve_non_expansive2. Qed.
 
-  Global Instance sem_ty_uarr_proper ρ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_uarr ρ).
+  Global Instance sem_ty_suarr_proper ρ Γ₁ Γ₂ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_suarr ρ Γ₁ Γ₂).
+  Proof. 
+    intros ??????. apply equiv_dist=>n.
+    apply sem_ty_suarr_ne=> A; [by apply equiv_dist|].
+    apply sem_ty_dist. by apply equiv_dist. 
+  Qed.
+
+  Global Instance sem_ty_uarr_proper ρ Γ₁ Γ₂ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_uarr ρ Γ₁ Γ₂).
   Proof. solve_non_expansive2. Qed.
 
   Global Instance sem_ty_ref_proper : Proper ((≡) ==> (≡)) (@sem_ty_ref Σ _).

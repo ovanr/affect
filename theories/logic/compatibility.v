@@ -86,21 +86,19 @@ Section compatibility.
     [(x, τ)] ⊨ e : ρ : κ ⊨ [] -∗ 
     ⊨ᵥ (λ: x, e) : (τ -{ ρ }-> κ).
   Proof.
-      iIntros "#He !# %v !# Hv /=".
+      iIntros "#He !# %v !# %ws _ Hτ /=". rewrite env_dom_nil env_sem_typed_empty /=.
       ewp_pure_steps. rewrite -subst_map_singleton.
-      iApply ("He" with "[Hv] []"); first solve_env.
+      iApply ("He" with "[Hτ] []"); first solve_env.
       iIntros (w) "[Hκ _] {$Hκ}".
   Qed.
 
-  Lemma sem_typed_closure_to_unrestricted x e τ ρ κ :
-    ⊨ᵥ (λ: x, e) : (τ -{ ρ }-∘ κ) -∗
-    ⊨ᵥ (λ: x, e) : (τ -{ ρ }-> κ).
+  Lemma sem_typed_closure_to_unrestricted x e τ ρ κ Γ₁ Γ₂ :
+    ⊨ᵥ (λ*λ: env_dom Γ₁, x, e) : (τ -{ ρ ; Γ₁ ; Γ₂ }-∘ κ) -∗
+    ⊨ᵥ (λ*λ: env_dom Γ₁, x, e) : (τ -{ ρ ; Γ₁ ; Γ₂ }-> κ).
   Proof. 
-    iIntros "#He !# !# %v Hτ". 
-    iSpecialize ("He" $! v gmap_empty).
-    rewrite env_dom_nil /= env_sem_typed_empty.
-    iApply (ewp_mono with "[Hτ]"); [by iApply "He"|].
-    iIntros (u) "[$ _] !> //=".
+    iIntros "#He !# %w !# %vs HΓ₁ Hτ". 
+    iSpecialize ("He" $! w vs).
+    iApply ("He" with "HΓ₁ Hτ").
   Qed.
 
   (* Subsumption rule *)
@@ -239,38 +237,154 @@ Section compatibility.
         rewrite -(env_sem_typed_difference_delete Δ₂ Δ₁); last done. iFrame. 
   Qed.
 
-  Lemma sem_typed_ufun Γ₁ Γ₂ f x e τ ρ κ:
-    x ∉ (env_dom Γ₁) →
-    f ∉ (env_dom Γ₁) →
-    match (x,f) with (BNamed x, BNamed f) => x ≠ f | _ => True%type end →
-    copy_env Γ₁ →
-    (x, τ) ::? (f, τ -{ ρ }-> κ) ::? Γ₁ ⊨ e : ρ : κ ⊨ [] -∗
-    Γ₁ ++ Γ₂ ⊨ (rec: f x := e) : ⟨⟩ : (τ -{ ρ }-> κ) ⊨ Γ₂.
+
+  Lemma sem_typed_lambdas_norm Γ Γ' Δ₁ Δ₂ f x ρ e τ κ :
+    env_dom Δ₂ ⊆ env_dom Δ₁ →
+    x ∉ env_dom Δ₁ → f ∉ env_dom Δ₁ → f ≠ x →
+    Γ ⊨ e : ρ : (τ -{ ρ }-> (() -{ ρ ; Δ₁; Δ₂ }-∘ κ)) ⊨ Γ' -∗
+    Γ ⊨ (lambdas_norm f x (env_dom Δ₁) e) : ρ : (τ -{ ρ ; Δ₁; Δ₂ }-> κ) ⊨ Γ'.
   Proof.
-    iIntros (??? HcpyΓ₁) "#He !# %Φ %vs HΓ₁₂ HΦ //=".
-    ewp_pure_steps. iApply "HΦ".
-    iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ $]".
+    iIntros (Hdis Hx Hf Hfx) "#He %Φ %vs !# HΓ HΦ". 
+    rewrite /lambdas_norm /=. 
+    iApply (ewp_bind [AppRCtx _]); first done.
+    iApply ("He" with "HΓ"). iIntros (w) "[#Hτuκ HΓ'] /=".
+    ewp_pure_steps. 
+    rewrite -subst_map_singleton subst_map_ctx_lambda delete_list_singleton_ne; last done.
+    rewrite /= subst_map_app_mult /= lookup_delete lookup_delete_ne; last done.
+    rewrite lookup_insert. 
+    replace (map (subst_map (delete x {[f := w]})) (map Var (env_dom Δ₁))) with
+            (map Var (env_dom Δ₁)).
+    2: { clear - Δ₁ x f w Hx Hf Hfx. 
+         induction Δ₁ as [|[z ι] Δ₁']; first done. rewrite env_dom_cons /=.
+         rewrite env_dom_cons in Hx Hf.
+         edestruct (not_elem_of_cons (env_dom Δ₁') x)  as [[] _]; first done.
+         edestruct (not_elem_of_cons (env_dom Δ₁') f)  as [[] _]; first done.
+         rewrite lookup_delete_ne; last done. rewrite lookup_singleton_ne; last done.
+         by rewrite -IHΔ₁'. }
+    destruct Δ₁ as [|[z ι] Δ₁'] eqn:HΔ₁eq.
+    - rewrite env_dom_nil /=. ewp_pure_steps.
+      iApply "HΦ". iIntros "{$HΓ'} %u %us !# _ Hτ /=".
+      rewrite env_dom_nil /=. ewp_pure_steps. rewrite decide_True; last done.
+      iApply (ewp_bind [AppLCtx _]); first done.
+      iApply (ewp_mono with "[Hτuκ Hτ]"); [by iApply "Hτuκ"|].
+      iIntros (?) "[Hu _] !> /=". by iApply "Hu".
+      Unshelve. apply empty.
+    - rewrite {1}env_dom_cons env_dom_nil /=. ewp_pure_steps. iApply "HΦ".
+      iIntros "{$HΓ'} %u %us !# HΔ₁ Hτ". iApply (ewp_bind [AppLCtx _]); first done.
+      iApply (ewp_app_mult with "HΔ₁"). iIntros "HΔ₁".
+      simpl. ewp_pure_steps. rewrite -subst_map_insert subst_map_app_mult /=.
+      rewrite lookup_insert map_map_subst_map -HΔ₁eq. 
+      rewrite -HΔ₁eq in Hx Hf Hdis.
+      set uus := (<[x:=u]> (us ∖ delete (env_dom Δ₁) us)).
+      iDestruct (subst_map_var Δ₁ uus with "[HΔ₁]") as "[%uus' %Hrwuus']".
+      { rewrite -env_sem_typed_insert; last done.
+        by rewrite env_sem_typed_difference_delete. }
+      rewrite Hrwuus' app_mult_cons. 
+      replace ([ #() : expr ]) with (map Val [ #() : val ]) by done.
+      rewrite -map_app. iApply ewp_bind_app_mult.
+      iApply (ewp_mono with "[Hτuκ Hτ] [HΔ₁]"); [by iApply "Hτuκ"|].
+      iIntros (q) "[Hq _] !> /=". rewrite map_app /= -app_mult_cons -Hrwuus'.
+      iSpecialize ("Hq" $! #() uus with "[HΔ₁] []"); try done.
+      { rewrite -env_sem_typed_insert; last done.
+        by rewrite env_sem_typed_difference_delete. }
+      iApply (ewp_mono with "Hq").
+      assert (x ∉ env_dom Δ₂).
+      { intros ?. apply Hx. by eapply (elem_of_subseteq (env_dom Δ₂)); done. }
+      iIntros (?) "[$ HΔ₁] !>". rewrite /uus.
+      { rewrite -env_sem_typed_insert; last done. 
+        by rewrite -env_sem_typed_difference_delete. }
+      Unshelve. apply empty.
+  Qed.
+
+
+  Lemma sem_typed_ufun Γ₁ Γ₂ Δ₁ Δ₂ f x e τ ρ κ:
+    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → f ∉ (env_dom Δ₁) → x ∉ (env_dom Δ₁) →
+    env_dom Δ₂ ⊆ env_dom Δ₁ →
+    env_dom Γ₁ ## env_dom Δ₁ →
+    x ≠ f →
+    copy_env Γ₁ →
+    (x, τ) :: (f, τ -{ ρ ; Δ₁ ; Δ₂ }-> κ) :: Δ₁ ++ Γ₁ ⊨ e : ρ : κ ⊨ Δ₂ -∗
+    Γ₁ ++ Γ₂ ⊨ (rec*: f , env_dom Δ₁, x,  e) : ρ : (τ -{ ρ ; Δ₁ ; Δ₂ }-> κ) ⊨ Γ₂.
+  Proof.
+    iIntros (??????? HcpyΓ₁) "#He !# %Φ %vs HΓ₁₂ HΦ".
+    iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
+    iApply (ewp_mono _ _ (λ v, (τ -{ ρ; Δ₁; Δ₂ }-> κ) v ∗ ⟦ Γ₂ ⟧ vs) with "[HΓ₁ HΓ₂] [HΦ]");
+      last (iIntros (?) "[Hτκ HΓ₂] !>"; iApply "HΦ"; iFrame). 
+    iApply (ewp_frame_r with "[HΓ₁] HΓ₂").
+    iApply (sem_typed_lambdas_norm Γ₁ [] Δ₁ Δ₂ f x ρ _ τ κ with "[] HΓ₁"); 
+      try done; last (iIntros (?) "[$ _] $! //").
+    iIntros "!# %Φ' %vs' HΓ₁ HΦ'".
     rewrite HcpyΓ₁. iDestruct "HΓ₁" as "#HΓ₁".
-    iLöb as "IH".
-    iIntros (w) "!# Hτ". ewp_pure_steps. destruct f; destruct x; simpl.
-    - iApply ("He" with "HΓ₁ []").
-      iIntros (v) "[Hκ _] {$Hκ}".
-    - rewrite -subst_map_insert. 
-      iApply ("He" with "[HΓ₁ Hτ] []"); first solve_env.
-      iIntros (v) "//= [Hκ _] {$Hκ}".
-    - rewrite -subst_map_insert.
-      iApply ("He" with "[HΓ₁ Hτ] []"); first solve_env.
-      iIntros (v) "//= [Hκ _] {$Hκ}".
-    - rewrite subst_subst_ne; last done.
-      rewrite -subst_map_insert.
-      rewrite -delete_insert_ne; last done.
-      rewrite -subst_map_insert.
-      iApply ("He" with "[Hτ] []"); [iExists w; iFrame; iSplit|].
-      + iPureIntro. rewrite lookup_insert_ne; last done.
-        by rewrite lookup_insert.
-      + iExists _. iFrame "#"; iSplit; [iPureIntro; apply lookup_insert|].
-        by do 2 (rewrite -env_sem_typed_insert; last done).
-      + iIntros (v) "[Hκ _]". by iApply "Hκ".
+    simpl. ewp_pure_steps. iApply "HΦ'". iLöb as "IH".
+    iSplitL; last done.
+    iIntros (w ws) "!# _ Hτ". rewrite env_dom_nil /=. ewp_pure_steps. 
+    rewrite delete_commute -subst_map_insert -delete_insert_ne; last done.
+    rewrite -subst_map_insert /= !subst_map_ctx_lambda.
+    destruct Δ₁ as [|[z ι] Δ₁'] eqn:HeqΔ.
+    - replace Δ₂ with ([] : env Σ) by 
+        (symmetry; apply (map_eq_nil fst); by apply list_nil_subseteq). 
+      rewrite !env_dom_nil /= !delete_list_nil insert_commute; last done.
+      rewrite lookup_insert lookup_delete. ewp_pure_steps.
+      iSplitL; last done.
+      iIntros (??) "_ -> /=". rewrite env_dom_nil /=.
+      ewp_pure_steps. iApply (ewp_bind [AppRCtx _]); first done.
+      replace ([] : list string) with (env_dom ([] : env Σ)) by done.
+      set f' := (rec: f x <> :=
+                  let: f := lambdas_norm f x (env_dom []) f in
+                  subst_map (delete f (delete f (delete x vs'))) e)%V.
+      rewrite -(subst_map_empty (lambdas_norm _ _ _ _ )).
+      iApply (sem_typed_lambdas_norm [] [] [] []  with "[] []"); 
+        [done|done|done|done| |done|].
+      { rewrite /f'. iIntros (Φ'' ?) "!# _ HΦ'' /=". ewp_pure_steps.
+        iApply "HΦ''". iDestruct "IH" as "[$ _]". }
+      iIntros (u) "[#Hτκ _] /=". ewp_pure_steps. 
+      rewrite -subst_map_insert insert_insert.
+      iApply ("He" with "[Hτ]"); last (iIntros (?) "[$ $] //").
+      solve_env. by do 2 (rewrite -env_sem_typed_insert; last done). 
+    - rewrite {4}env_dom_cons. iSimpl. ewp_pure_steps. iSplitL; last done.
+      rewrite !lookup_delete_not_elem; try done.
+      rewrite insert_commute; last done. rewrite lookup_insert lookup_delete.
+      rewrite !delete_list_commute delete_idemp delete_insert_delete.
+      iIntros (u us) "HΔ₁ -> /=". 
+      iApply (ewp_bind [AppLCtx _]); first done.
+      iApply (ewp_app_mult with "HΔ₁"). iIntros "HΔ₁ /=".
+      ewp_pure_steps. iApply (ewp_bind [AppRCtx _]); first done.
+      set f' := (rec: f x :=
+                    λ*λ: env_dom ((z, ι)%core :: Δ₁'), <>,
+                    (let: f := lambdas_norm f x (env_dom ((z, ι)%core :: Δ₁')) f in
+                    subst_map
+                      (delete (env_dom ((z, ι)%core :: Δ₁')) (delete f (delete x vs'))) e))%V.
+      replace (lambdas_norm f x (env_dom ((z,ι) :: Δ₁')) f') with
+              (subst_map us (lambdas_norm f x (env_dom ((z,ι) :: Δ₁')) f')) by done.
+      iApply (sem_typed_lambdas_norm _ _ ((z,ι) :: Δ₁') Δ₂ with "[] HΔ₁"); try done.
+      { iIntros (Φ'' ?) "!# HΔ₁ HΦ'' /=". rewrite /f'. ewp_pure_steps.
+        iApply "HΦ''". iSplitR "HΔ₁"; last done.
+        iDestruct "IH" as "[$ _]". }
+      iIntros (?) "[Hτκ HΔ₁] /=". ewp_pure_steps.
+      rewrite -subst_map_insert subst_map_union.
+      iApply ("He" with "[Hτ Hτκ HΔ₁]"). 
+      + iExists w. iFrame. iSplit.
+        { iPureIntro. apply lookup_union_Some_l.
+          rewrite delete_insert_ne; last done.
+          rewrite lookup_delete_not_elem; last done.
+          apply lookup_insert. }
+        iExists v. iFrame. iSplit.
+        { iPureIntro. rewrite lookup_union_r; [apply lookup_insert|].
+          by rewrite -delete_list_commute lookup_delete. }
+        rewrite app_comm_cons env_sem_typed_app. iSplitL "HΔ₁".
+        { rewrite -env_sem_typed_delete_union; last done.
+          rewrite -env_sem_typed_insert; last done.
+          by rewrite -env_sem_typed_difference_delete. }
+        iApply env_sem_typed_union.
+        rewrite -env_sem_typed_delete_disjoint; last done.
+        rewrite -env_sem_typed_delete; last done.
+        by rewrite -env_sem_typed_insert. 
+      + iIntros (?) "[$ HΔ₂]".
+        rewrite -env_sem_typed_delete_union; last done.
+        assert (f ∉ env_dom Δ₂).
+        { intros ?. apply H1. by eapply (elem_of_subseteq (env_dom Δ₂)); done. }
+        rewrite -env_sem_typed_insert; last done.
+        by iApply env_sem_typed_difference_delete.
   Qed.
 
   Lemma sem_typed_sufun Γ₁ Γ₂ Δ₁ Δ₂ x e τ ρ κ:
@@ -896,7 +1010,7 @@ Section compatibility.
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
     [(w, ι) ; (k, κ -{ ρ' ; Δ ; Γ₃ }-∘ τ')] ⊨ h : ρ' : (() -{ ρ' ; Δ ; Γ₃ }-∘ τ') ⊨ [] -∗
     (w, τ) :: Γ₂ ⊨ r : ρ' : (() -{ ρ' ; Δ ; Γ₃ }-∘ τ') ⊨ [] -∗
-    Γ₁ ++ Δ ⊨ (deep-try-alt: e thread (env_dom Δ) with  
+    Γ₁ ++ Δ ⊨ (deep-try-alt: e  thread (env_dom Δ) with  
                                 effect k => w => h 
                               | return w => r end) : ρ' : τ' ⊨ Γ₃. 
   Proof.
@@ -927,7 +1041,7 @@ Section compatibility.
     - rewrite upcl_sem_sig_eff.
       iIntros "(%a & -> & Ha & Hκb)". ewp_pure_steps. 
       do 2 (rewrite decide_True; [|split; first done; by injection]). iSimpl.
-      rewrite lookup_delete.
+      rewrite !/lambdas_norm lookup_delete.
       rewrite decide_False; last tauto. iSimpl.
       rewrite decide_False; last done. iSimpl.
       rewrite decide_True; last done. ewp_pure_steps.

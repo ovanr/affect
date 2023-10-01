@@ -2,19 +2,22 @@ open Effect
 open Effect.Deep
 open Printf
 
+type queue = Queue of (queue -> queue) list ref and
+    job 
+
 type promiseId = int
 
 type status = 
         Done 
-    |   Wait of (unit -> unit) list
+    |   Wait of (queue -> queue) list
 
 type promise = status ref
+
+type 'a cPromise = promiseId * 'a option ref 
 
 type _ Effect.t += 
         Async: (unit -> unit) -> promiseId Effect.t
     |   Await: promiseId -> promiseId Effect.t
-
-type 'a cPromise = promiseId * 'a option ref 
 
 let async (comp : unit -> unit) : promiseId = perform (Async comp)
 let await (prom : promiseId) : unit = perform (Await prom); ()
@@ -33,15 +36,19 @@ let await' (type a) (prom : a cPromise) : a =
 
 let rec runner (type a) (main : unit -> unit) : unit =
 
-    let q : (unit -> unit) Queue.t = Queue.create () in
+    let q : queue = Queue (ref []) in
     let promises : promise list ref = ref [] in
-    let next () = if not (Queue.is_empty q) then Queue.pop q () in
-    let resume_task k = Queue.add (fun () -> k ()) q in
-    let modifyPromise : promiseId -> (promise -> unit) -> unit = fun pid f -> () in
-    let isPromiseDone : promiseId -> bool option = fun pid -> Some true in
-    let nextPromId () = 0 in
+    let next () : (queue -> queue) option = 
+        let Queue q' = q in
+        match !q' with
+            [] -> q' := []; None
+        | (j :: js) -> q' := js; Some(j) in
+    (* let resume_task k = Queue.add (fun () -> k ()) q in *)
+    (* let modifyPromise : promiseId -> (promise -> unit) -> unit = fun pid f -> () in *)
+    (* let isPromiseDone : promiseId -> bool option = fun pid -> Some true in *)
+    (* let nextPromId () = 0 in *)
 
-    let rec fulfill : promiseId -> (unit -> unit) -> unit = fun p e ->
+    let rec fulfill : promiseId -> (unit -> unit) -> queue -> queue = fun p e ->
         match_with e () {
             retc = (fun v -> 
                 modifyPromise p (fun st ->
