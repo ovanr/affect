@@ -189,3 +189,17 @@ Proof.
   apply elem_of_cons. by right.
 Qed.
 
+Lemma disjoint_empty {A} (xs : list A) : 
+  xs ## [].
+Proof.
+  intros ???. by eapply not_elem_of_nil.
+Qed.
+
+Lemma disjoint_cons_inv {A} `{ EqDecision A } (x : A) xs ys:
+  xs ## ys → x ∉ ys → x :: xs ## ys.
+Proof.
+  intros ?????.
+  edestruct (elem_of_cons xs x0 x) as [[] _]; first done; subst.
+  { by apply H0. }
+  by eapply H.
+Qed.

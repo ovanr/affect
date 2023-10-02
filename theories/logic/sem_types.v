@@ -268,7 +268,7 @@ Notation "τ '-{' ρ ; Γ₁ ; Γ₂ '}->' κ" := (sem_ty_uarr ρ%R Γ₁ Γ₂ 
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
 Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R [] [] τ%T κ%T)
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ → κ" := (sem_ty_uarr sem_sig_nil τ%T κ%T)
+Notation "τ → κ" := (sem_ty_uarr sem_sig_nil [] [] τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 Notation "τ '>-{' ρ ; Γ₁ ; Γ₂ '}-∘' κ" := (sem_ty_suarr ρ%R Γ₁ Γ₂ τ%T κ%T)

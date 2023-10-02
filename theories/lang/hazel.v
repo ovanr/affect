@@ -130,21 +130,20 @@ Definition from_binder (b : binder) (e : expr) : expr :=
 Definition lambdas_norm (f x : string) (Γ : list string) : val :=
    (λλ*λ: f, Γ, x, f x <_ map Var Γ _> #())%V.
 
-Notation "rec*: f , Γ , x , e" := 
-  (let f' := f%string in
-   let Γ' := Γ in
-   let x' := x%string in
-    (lambdas_norm f' x' Γ')
-      (rec: f' x' := λ*λ: Γ', <>,  
-        let: f' := (lambdas_norm f' x' Γ') f' in e))%E (at level 200) : expr_scope.
+Definition RecStar f x Γ e := 
+  ((lambdas_norm f x Γ)
+    (rec: f x := λ*λ: Γ, <>, let: f := (lambdas_norm f x Γ) f in e%E))%E. 
+
+Notation "rec*: f , Γ , x , e" := (RecStar f x Γ e) (at level 200) : expr_scope.
+
+Definition DeepTryWithAlt e x k xs h y r :=
+  (DeepTryWith e
+      (λ: (BNamed x) (BNamed k), 
+        let: k := (lambdas_norm k x xs) k in h) (λ: y, r) <_ map Var xs _> #())%E.
 
 Notation "'deep-try-alt:' e 'thread' xs 'with' 'effect' k => x => h '|' 'return' y => r 'end'" :=
-  (let k' := k%string in
-   let x' := x%string in
-   let xs' := xs in
-  (DeepTryWith e
-      (λ: x' k', let: k' := (lambdas_norm k' x' xs') k' in h) (λ: y, r) <_ map Var xs' _> #())%E)
-  (e, h, k, x, y, r at level 200, only parsing) : expr_scope.
+  (DeepTryWithAlt e x k xs h y r)
+  (e, h, k, x, y, r at level 200) : expr_scope.
 
 Global Instance load_atomic (l : loc) :
   Atomic StronglyAtomic (Load $ Val $ LitV $ LitLoc l).
@@ -181,7 +180,6 @@ Global Instance ewp_pre_contractive `{!irisGS eff_lang Σ}: Contractive ewp_pre 
 
 Global Instance ewp_contractive `{!heapGS Σ}e n Ψ₁ Ψ₂:
   TCEq (to_val e) None →
-
   TCEq (to_eff e) None →
   Proper (pointwise_relation _ (dist_later n) ==> dist n) (ewp_def ⊤ e Ψ₁ Ψ₂).
 Proof.

@@ -1,4 +1,5 @@
 
+From stdpp Require Import base list.
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import excl_auth.
 
@@ -39,11 +40,11 @@ Definition generate :=
 Definition iterate :=
   (λ: "g", 
     (λ: <> "f", 
-      (rec: "go" "g" := match: "g" #() with
-                           NONE => #()
-                        |  SOME "x" => "f" "x" ;; "go" "g"
-                        end) "g"))%V.
-
+    (rec*: "go", [] , "g", 
+        match: "g" #() with
+            NONE => #()
+        |  SOME "x" => "f" "x" ;; "go" "g" 
+        end) "g"))%V.
 
 Section typing.
 
@@ -65,11 +66,39 @@ Section typing.
             end) ||
       done).
   
-  Ltac solve_sidecond := solve_dom; solve_copy.
-  
+  Ltac solve_disjoint := 
+      repeat (
+        apply disjoint_empty ||
+        apply disjoint_cons_inv ||
+        done
+      ).
+
+
+  Ltac solve_copy' :=
+  repeat intros ?;
+  repeat (
+    rewrite !env_sem_typed_empty ||
+    rewrite !env_sem_typed_cons ||
+    solve_copy).
+
+  Ltac solve_sidecond := 
+      try rewrite !env_dom_nil;
+      try rewrite !env_dom_cons;
+      solve_dom; 
+      solve_disjoint;
+      solve_copy'.
+
   Lemma app_singletons {A} (x y : A) : [x;y] = [x] ++ [y].
   Proof. done. Qed.
   
+  Lemma ctx_lambda_env_dom_nil e :
+    e = (λ*: env_dom ([] : env Σ), e)%E.
+  Proof. by rewrite env_dom_nil. Qed.
+
+  Lemma app_mult_env_dom_nil e :
+    e = (e <_ map Var (env_dom ([] : env Σ)) _>)%E.
+  Proof. by rewrite env_dom_nil. Qed.
+
   Lemma sem_typed_generate τ :
     ⊢ ⊨ᵥ generate : (iter_ty τ → generator_ty τ).
   Proof.
@@ -84,18 +113,17 @@ Section typing.
       + set Γ₁ :=[("yield", yield_ty τ); ("i", iter_ty τ)].
         iApply sem_typed_alloc.
         rewrite -(app_nil_r Γ₁).
-        set Δ := [] : env Σ.
-        replace (λ: <>, "i" #() "yield")%E with (λ*λ: env_dom Δ, <>, "i" #() "yield")%E by done.
-        iApply sem_typed_afun; solve_dom.
-        { admit. }
-        replace (Var "i") with ("i" <_ map Var (env_dom Δ) _>)%E by done.
-        iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ _ _ (yield_ty τ)).
+        rewrite [(λ: <>, _)%E]ctx_lambda_env_dom_nil.
+        iApply sem_typed_afun; solve_sidecond. simpl.
+        rewrite ["i" #()]app_mult_env_dom_nil - {2} (app_nil_r []).
+        iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ _ _ (yield_ty τ));
           last (iApply sem_typed_sub_nil; iApply sem_typed_var).
-          iApply (sem_typed_SApp _ _ _ (yield_sig τ) (λ ρ, ( τ -{ ρ }-> ()) -{ ρ }-∘ ())).
-          iApply sem_typed_sub_nil. 
-          iApply sem_typed_var.
+        iApply (sem_typed_SApp _ _ _ (yield_sig τ) (λ ρ, ( τ -{ ρ }-> ()) -{ ρ }-∘ ())).
+        iApply sem_typed_sub_nil. 
+        iApply sem_typed_var.
       + set Γ₁ :=[("cont", cont_ty)]; rewrite -(app_nil_r Γ₁). 
         set in_cont_ty := (() -{ yield_sig τ }-∘ ()).
+        rewrite [(λ: <>, _)%E]ctx_lambda_env_dom_nil.
         iApply sem_typed_sufun; solve_sidecond.
         iApply (sem_typed_let _ [("cont", Ref Moved)] _ _ _ _ in_cont_ty); solve_sidecond.
         { iApply sem_typed_sub_nil. iApply sem_typed_load. }
@@ -105,7 +133,8 @@ Section typing.
                       [("cont", Ref Moved)]
                       "w" "k" _ _ _ τ () (Option τ) ()) as "Hhand"; solve_sidecond.
         rewrite /Γ₁. iApply "Hhand"; iClear "Hhand".
-        * iApply sem_typed_app; iApply sem_typed_sub_nil;
+        * rewrite [Var "comp"]app_mult_env_dom_nil - {3} (app_nil_r []).
+          iApply sem_typed_app; iApply sem_typed_sub_nil;
             [iApply sem_typed_var|iApply sem_typed_unit]. 
         * iApply (sem_typed_swap_third).
           iApply sem_typed_seq.
@@ -118,8 +147,8 @@ Section typing.
         * iApply sem_typed_weaken.
           iApply sem_typed_seq. 
           iApply sem_typed_store.
-          { rewrite -(app_nil_l [("cont", Ref Moved)]). 
-            iApply (sem_typed_afun _ _ _ _ () (yield_sig τ) ()); solve_sidecond.
+          { rewrite -(app_nil_l [("cont", Ref Moved)]) [(λ: <>, _)%E]ctx_lambda_env_dom_nil.
+            iApply (sem_typed_afun _ _ [] [] _ _ () (yield_sig τ) ()); solve_sidecond.
             iApply sem_typed_sub_nil.
             iApply sem_typed_unit. }
           iApply sem_typed_none.
@@ -129,24 +158,32 @@ Section typing.
     ⊢ ⊨ᵥ iterate : (generator_ty τ → iter_ty τ).
   Proof.
     iIntros. iApply sem_typed_closure. rewrite /iter_ty.
-    rewrite {1}(symmetry (app_nil_r [("g", _)])). 
+    rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_SLam. iIntros (ρ).
-    rewrite {1}(symmetry (app_nil_r [("g", _)])). 
-    iApply sem_typed_sub_nil. iApply sem_typed_afun; solve_sidecond.
-    iApply sem_typed_app; 
+    rewrite - {1}(app_nil_r [("g", _)]). 
+    iApply sem_typed_sub_nil. 
+    rewrite [(λ: "f", _)%E]ctx_lambda_env_dom_nil.
+    iApply (sem_typed_afun _ _ [] []); solve_sidecond.
+    rewrite [(rec*: "go", [], "g", _)%E]app_mult_env_dom_nil -(app_nil_l []).
+    iApply (sem_typed_app _ _ [] []);
       [|iApply sem_typed_sub_nil; iApply sem_typed_swap_second; iApply sem_typed_var].
-    rewrite {1}(symmetry (app_nil_r [("f", _)])). 
+      rewrite - {1}((app_nil_r [("f", _)])). 
     iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
-    iApply sem_typed_sub_nil. iApply sem_typed_ufun; solve_sidecond.
+    rewrite - (@env_dom_nil Σ).
+    iApply (sem_typed_ufun _ _ [] []); solve_sidecond.
     set Γ₂ := [("g", generator_ty τ); ("go", generator_ty τ -{ ρ }-> () ); ("f", τ -{ ρ }-> ())].
     iApply (sem_typed_match_option _ Γ₂ _ _ _ _ _ () _ τ); solve_sidecond.
-    - iApply sem_typed_sub_nil. iApply sem_typed_suapp. iApply sem_typed_unit.
+    - iApply sem_typed_sub_nil. 
+      rewrite [Var "g"]app_mult_env_dom_nil.
+      iApply (sem_typed_suapp _ _ [] []). iApply sem_typed_unit.
     - iApply sem_typed_sub_nil. do 3 (iApply sem_typed_weaken). iApply sem_typed_unit.
     - iApply sem_typed_seq.
-      + iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
+      + rewrite [Var "f"]app_mult_env_dom_nil.
+        iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_swap_third. 
         iApply sem_typed_sub_ty; [apply ty_le_u2aarr|]. iApply sem_typed_var.
-      + iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
+      + rewrite [Var "go"]app_mult_env_dom_nil - {6} (app_nil_l []).
+        iApply (sem_typed_app _ _ [] []); [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
         iApply sem_typed_var.
   Qed.
@@ -229,8 +266,9 @@ Section verification.
           represents v u -∗ I us -∗ EWP f v <| Ψ |> {{ _, I (us ++ [u]) }}) -∗
     isGen g T uus -∗
     I uus -∗
-    EWP (rec: "go" "g" :=
-          match: "g" #() with InjL <> => #() | InjR "x" => f "x";; "go" "g" end)%V g 
+    EWP (rec: "go" "g" <> :=
+          let: "go" := (λ: "go" "g", "go" "g" #())%V "go" in
+          match: "g" #() with InjL <> => #() | InjR "x" => f "x";; "go" "g" end)%V g #()
           <| Ψ |> {{ _, ∃ us : list A, ⌜complete T us⌝ ∗ I us }}.
   Proof. 
     iIntros "#Hf Hgen HI".
@@ -246,7 +284,7 @@ Section verification.
       iDestruct "Hv" as "(%u & Hrepr & Hperm & Hgen)".
       iApply (ewp_mono with "[Hf Hperm Hrepr HI]").
       { iApply ("Hf" $! uus with "Hperm Hrepr HI"). }
-      iIntros (w) "HI !> /=". do 3 ewp_value_or_step.
+      iIntros (w) "HI !> /=". do 4 ewp_value_or_step.
       iApply ("IH" $! (uus ++ [u]) with "Hgen HI").
   Qed.
 
@@ -255,7 +293,8 @@ Section verification.
   Proof.
     iIntros "Hgen". rewrite /iterate. ewp_pure_steps.
     rewrite /isIter. iIntros (Ψ f I) "#Hf HI". 
-    do 6 ewp_value_or_step.
+    do 6 ewp_value_or_step. rewrite /lambdas_norm /=.
+    do 4 ewp_value_or_step.
     iApply (iterate_spec_helper [] with "Hf Hgen HI").
   Qed.
 

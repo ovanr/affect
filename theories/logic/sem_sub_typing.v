@@ -333,6 +333,9 @@ Section sub_typing.
 End sub_typing.
 
 Global Ltac solve_copy :=
+  repeat intros ?;
+  try rewrite !env_sem_typed_empty;
+  try rewrite !env_sem_typed_cons;
   repeat (intros ? ||
           apply bi.emp_persistent ||
           apply bi.sep_persistent ||
@@ -408,7 +411,7 @@ Section copyable_types.
   Qed.
 
   Lemma copy_env_nil : copy_env [].
-  Proof. intros ?. rewrite env_sem_typed_empty. solve_copy. Qed.
+  Proof. solve_copy. Qed.
   
   Lemma copy_env_cons Γ x τ : 
     copy_env Γ →
