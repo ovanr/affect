@@ -40,6 +40,14 @@ Proof.
   intros ?. apply IHes.
 Qed.
 
+Lemma ctx_lambda_env_dom_nil {Σ} e :
+  e = (λ*: env_dom ([] : env Σ), e)%E.
+Proof. by rewrite env_dom_nil. Qed.
+
+Lemma app_mult_env_dom_nil {Σ} e :
+  e = (e <_ map Var (env_dom ([] : env Σ)) _>)%E.
+Proof. by rewrite env_dom_nil. Qed.
+
 Lemma map_subst_map_singleton_ne Γ x v :
   x ∉ Γ → map (subst_map {[x:=v]} ∘ Var) Γ = map Var Γ.
 Proof.

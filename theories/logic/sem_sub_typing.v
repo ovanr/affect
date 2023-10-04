@@ -18,6 +18,7 @@ From program_logic Require Import weakest_precondition
 From affine_tes.lang Require Import hazel.
 From affine_tes.lang Require Import subst_map.
 From affine_tes.logic Require Import sem_def.
+From affine_tes.logic Require Import tactics.
 From affine_tes.logic Require Import sem_types.
 From affine_tes.logic Require Import sem_env.
 
@@ -62,20 +63,21 @@ Section sub_typing.
     ⟨⟩ ≤R ρ.
   Proof. iApply iEff_le_bottom. Qed.
   
-  Lemma sig_le_eff (ι₁ ι₂ κ₁ κ₂ : sem_ty Σ) :
+  Lemma sig_le_eff_non_rec (ι₁ ι₂ κ₁ κ₂ : sem_ty Σ) :
     ι₁ ≤T ι₂ →
     κ₂ ≤T κ₁ →
-    ((ι₁ ⇒ κ₁) ≤R (ι₂ ⇒ κ₂)).
+    (μS: _, ι₁ ⇒ κ₁) ≤R (μS: _, ι₂ ⇒ κ₂).
   Proof.
-    iIntros (Hι₁₂ Hκ₂₁ v) "%Φ !#".
-    rewrite !sem_sig_eff_eq.
-    iIntros "(%a & -> & Hι₁ & HκΦ₁)".
-    iExists v. iSplit; first done. iSplitL "Hι₁".
-    { by iApply Hι₁₂. }
+    iIntros (Hι₁₂ Hκ₂₁ v Φ) "!#".
+    rewrite !sem_sig_eff_rec_eq.
+    iIntros "(%w & -> & Hι₁ & HκΦ₁)".
+    iExists v; iSplitR; first done.
+    iSplitL "Hι₁".
+    { iNext. by iApply Hι₁₂. }
     iIntros (b) "Hκ₂". iApply "HκΦ₁".
-    by iApply Hκ₂₁.
+    iNext. by iApply Hκ₂₁.
   Qed.
-  
+
   Lemma ty_le_refl (τ : sem_ty Σ) : τ ≤T τ.
   Proof. done. Qed.
   
@@ -332,24 +334,6 @@ Section sub_typing.
 
 End sub_typing.
 
-Global Ltac solve_copy :=
-  repeat intros ?;
-  try rewrite !env_sem_typed_empty;
-  try rewrite !env_sem_typed_cons;
-  repeat (intros ? ||
-          apply bi.emp_persistent ||
-          apply bi.sep_persistent ||
-          apply bi.and_persistent ||
-          apply bi.or_persistent ||
-          apply bi.forall_persistent ||
-          apply bi.exist_persistent ||
-          apply bi.pure_persistent ||
-          apply plainly_persistent ||
-          apply bi.later_persistent ||
-          apply bi.persistently_persistent ||
-          apply bi.intuitionistically_persistent ||
-          apply inv_persistent).
-
 Section copyable_types.
   
   Context `{!heapGS Σ}.
@@ -386,7 +370,7 @@ Section copyable_types.
   Proof. solve_copy. apply H. Qed.
 
   Lemma copy_ty_rec τ `{NonExpansive τ}: 
-    (∀ α, copy_ty (τ α)) → copy_ty (μ: α, τ α).
+    (∀ α, copy_ty (τ α)) → copy_ty (μT: α, τ α).
   Proof. iIntros (H v). rewrite sem_ty_rec_unfold.
          solve_copy. apply H. 
   Qed.

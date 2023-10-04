@@ -73,6 +73,12 @@ Notation "'unfold:' e" := (rec_unfold e%E)
   (at level 200, e at level 200,
    format "'[' 'unfold:'  e ']'") : expr_scope.
 
+Definition rec_perform : val := (λ: "x", "x")%V.
+
+Notation "'perform:' e" := (rec_perform (Do OS e%E))%E
+  (at level 200, e at level 200,
+   format "'[' 'perform:'  e ']'") : expr_scope.
+
 (** Notations for lists. *)
 Notation NIL := (InjL #()) (only parsing).
 Notation NILV := (InjLV #()) (only parsing).

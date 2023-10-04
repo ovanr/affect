@@ -2,8 +2,7 @@ open Effect
 open Effect.Deep
 open Printf
 
-type queue = Queue of (queue -> queue) list ref and
-    job 
+type queue = Queue of (queue -> queue) list ref
 
 type promiseId = int
 
@@ -43,21 +42,23 @@ let rec runner (type a) (main : unit -> unit) : unit =
         match !q' with
             [] -> q' := []; None
         | (j :: js) -> q' := js; Some(j) in
-    (* let resume_task k = Queue.add (fun () -> k ()) q in *)
-    (* let modifyPromise : promiseId -> (promise -> unit) -> unit = fun pid f -> () in *)
-    (* let isPromiseDone : promiseId -> bool option = fun pid -> Some true in *)
-    (* let nextPromId () = 0 in *)
+    let resume_task k = () in
+    let modifyPromise : promiseId -> (promise -> unit) -> unit = fun pid f -> () in
+    let isPromiseDone : promiseId -> bool option = fun pid -> Some true in
+    let nextPromId () = 0 in
 
-    let rec fulfill : promiseId -> (unit -> unit) -> queue -> queue = fun p e ->
+    let rec fulfill : promiseId -> (unit -> unit) -> queue -> queue = fun p e q ->
         match_with e () {
-            retc = (fun v -> 
+            retc = (fun v q -> 
                 modifyPromise p (fun st ->
                         match !st with
                             Done -> ()
                         |   Wait(ws) ->
                                 st := Done; 
                                 List.iter resume_task (List.rev ws));
-                next ()
+                match next () with 
+                    None -> q
+                |   Some(job) -> job q
             );
             exnc = raise;
             effc = fun (type a) (eff : a Effect.t) ->

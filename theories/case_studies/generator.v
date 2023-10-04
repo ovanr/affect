@@ -7,6 +7,7 @@ From program_logic Require Import weakest_precondition
                                   state_reasoning.
 
 (* Local imports *)
+From affine_tes.lib Require Import logic.
 From affine_tes.lang Require Import hazel.
 From affine_tes.case_studies Require Import representable.
 From affine_tes.logic Require Import sem_types.
@@ -44,8 +45,8 @@ Section generator.
     intros ?????. rewrite /isGen_pre. intros ??.
     apply ewp_contractive; try done. intros ?. destruct n; first done.
     simpl in *. f_equiv. 
-    { do 3 f_equiv. by apply discrete_fun_app3. }
-    do 4 f_equiv; by apply discrete_fun_app3. 
+    { do 3 f_equiv. by apply non_dep_fun_dist3. }
+    do 4 f_equiv; by apply non_dep_fun_dist3. 
   Qed.
   
   Definition isGen : val -d> G A -d> list A -d> iPropO Σ := fixpoint isGen_pre.

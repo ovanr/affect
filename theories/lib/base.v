@@ -4,6 +4,9 @@ From Coq Require Import String.
 
 From language Require Export eff_lang.
 
+Lemma app_singletons {A} (x y : A) : [x;y] = [x] ++ [y].
+Proof. done. Qed.
+
 Global Instance elem_binder_string : (ElemOf binder (list string)) | 10 := 
   (λ b xs, match b with
               BAnon => False%type

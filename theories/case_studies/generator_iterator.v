@@ -17,8 +17,10 @@ From affine_tes.lang Require Import hazel.
 From affine_tes.logic Require Import sem_def.
 From affine_tes.logic Require Import sem_env.
 From affine_tes.logic Require Import sem_types.
+From affine_tes.logic Require Import reasoning.
 From affine_tes.logic Require Import sem_sub_typing.
 From affine_tes.logic Require Import sem_operators.
+From affine_tes.logic Require Import tactics.
 From affine_tes.logic Require Import compatibility.
 
 From affine_tes.case_studies Require Import representable.
@@ -26,7 +28,7 @@ From affine_tes.case_studies Require Import iterator.
 From affine_tes.case_studies Require Import generator.
 From affine_tes.case_studies Require Import ghost.
 
-Definition yield := (λ: "x", do: "x")%V.
+Definition yield := (λ: "x", perform: "x")%V.
 Definition generate :=
   (λ: "i", let: "yield" := yield in
            let: "cont" := ref (λ: <>, "i" <_> "yield") in
@@ -50,62 +52,18 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition yield_sig (τ : sem_ty Σ) := (τ ⇒ ())%R.
+  Definition yield_sig (τ : sem_ty Σ) := (μS: _, τ ⇒ ())%R.
   Definition yield_ty τ := τ -{ yield_sig τ }-> ().
   Definition iter_ty τ := (∀S: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() >-∘ Option τ)%T.
   
-  Ltac solve_dom := 
-      try rewrite !env_dom_nil;
-      try rewrite !env_dom_cons; 
-      repeat (
-        (by apply not_elem_of_nil) ||
-        (by apply not_elem_of_cons; split; solve_dom) || 
-          (intros ?; match goal with
-            | H : (BAnon ∈ _) |- _ => destruct H
-            end) ||
-      done).
-  
-  Ltac solve_disjoint := 
-      repeat (
-        apply disjoint_empty ||
-        apply disjoint_cons_inv ||
-        done
-      ).
-
-
-  Ltac solve_copy' :=
-  repeat intros ?;
-  repeat (
-    rewrite !env_sem_typed_empty ||
-    rewrite !env_sem_typed_cons ||
-    solve_copy).
-
-  Ltac solve_sidecond := 
-      try rewrite !env_dom_nil;
-      try rewrite !env_dom_cons;
-      solve_dom; 
-      solve_disjoint;
-      solve_copy'.
-
-  Lemma app_singletons {A} (x y : A) : [x;y] = [x] ++ [y].
-  Proof. done. Qed.
-  
-  Lemma ctx_lambda_env_dom_nil e :
-    e = (λ*: env_dom ([] : env Σ), e)%E.
-  Proof. by rewrite env_dom_nil. Qed.
-
-  Lemma app_mult_env_dom_nil e :
-    e = (e <_ map Var (env_dom ([] : env Σ)) _>)%E.
-  Proof. by rewrite env_dom_nil. Qed.
-
   Lemma sem_typed_generate τ :
     ⊢ ⊨ᵥ generate : (iter_ty τ → generator_ty τ).
   Proof.
     iIntros "". iApply sem_typed_closure.
     iApply (sem_typed_let _ [("i", iter_ty τ)] _ _ _ _ (yield_ty τ)); solve_sidecond. 
     - iApply sem_typed_val. iApply sem_typed_closure.
-      iApply sem_typed_do. 
+      iApply (sem_typed_perform with "[]"). 
       iApply sem_typed_sub_nil.
       iApply sem_typed_var.
     - set cont_ty := Ref (() -{ yield_sig τ }-∘ ()). 
@@ -113,9 +71,9 @@ Section typing.
       + set Γ₁ :=[("yield", yield_ty τ); ("i", iter_ty τ)].
         iApply sem_typed_alloc.
         rewrite -(app_nil_r Γ₁).
-        rewrite [(λ: <>, _)%E]ctx_lambda_env_dom_nil.
+        rewrite [(λ: <>, _)%E](@ctx_lambda_env_dom_nil Σ).
         iApply sem_typed_afun; solve_sidecond. simpl.
-        rewrite ["i" #()]app_mult_env_dom_nil - {2} (app_nil_r []).
+        rewrite ["i" #()](@app_mult_env_dom_nil Σ) - {2} (app_nil_r []).
         iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ _ _ (yield_ty τ));
           last (iApply sem_typed_sub_nil; iApply sem_typed_var).
         iApply (sem_typed_SApp _ _ _ (yield_sig τ) (λ ρ, ( τ -{ ρ }-> ()) -{ ρ }-∘ ())).
@@ -123,7 +81,7 @@ Section typing.
         iApply sem_typed_var.
       + set Γ₁ :=[("cont", cont_ty)]; rewrite -(app_nil_r Γ₁). 
         set in_cont_ty := (() -{ yield_sig τ }-∘ ()).
-        rewrite [(λ: <>, _)%E]ctx_lambda_env_dom_nil.
+        rewrite [(λ: <>, _)%E](@ctx_lambda_env_dom_nil Σ).
         iApply sem_typed_sufun; solve_sidecond.
         iApply (sem_typed_let _ [("cont", Ref Moved)] _ _ _ _ in_cont_ty); solve_sidecond.
         { iApply sem_typed_sub_nil. iApply sem_typed_load. }
@@ -131,9 +89,9 @@ Section typing.
         iPoseProof (sem_typed_shallow_try 
                       [("comp", in_cont_ty)] [] [("cont", cont_ty)] 
                       [("cont", Ref Moved)]
-                      "w" "k" _ _ _ τ () (Option τ) ()) as "Hhand"; solve_sidecond.
+                      "w" "k" _ _ _ (λ _, τ) (λ _, ()) (Option τ) ()) as "Hhand"; solve_sidecond.
         rewrite /Γ₁. iApply "Hhand"; iClear "Hhand".
-        * rewrite [Var "comp"]app_mult_env_dom_nil - {3} (app_nil_r []).
+        * rewrite [Var "comp"](@app_mult_env_dom_nil Σ) - {3} (app_nil_r []).
           iApply sem_typed_app; iApply sem_typed_sub_nil;
             [iApply sem_typed_var|iApply sem_typed_unit]. 
         * iApply (sem_typed_swap_third).
@@ -147,7 +105,8 @@ Section typing.
         * iApply sem_typed_weaken.
           iApply sem_typed_seq. 
           iApply sem_typed_store.
-          { rewrite -(app_nil_l [("cont", Ref Moved)]) [(λ: <>, _)%E]ctx_lambda_env_dom_nil.
+          { rewrite -(app_nil_l [("cont", Ref Moved)]) 
+                    [(λ: <>, _)%E](@ctx_lambda_env_dom_nil Σ).
             iApply (sem_typed_afun _ _ [] [] _ _ () (yield_sig τ) ()); solve_sidecond.
             iApply sem_typed_sub_nil.
             iApply sem_typed_unit. }
@@ -157,14 +116,14 @@ Section typing.
   Lemma sem_typed_iterate τ :
     ⊢ ⊨ᵥ iterate : (generator_ty τ → iter_ty τ).
   Proof.
-    iIntros. iApply sem_typed_closure. rewrite /iter_ty.
+    iIntros. iApply sem_typed_closure. rewrite /iter_ty /=.
     rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_SLam. iIntros (ρ).
     rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_sub_nil. 
-    rewrite [(λ: "f", _)%E]ctx_lambda_env_dom_nil.
+    rewrite [(λ: "f", _)%E](@ctx_lambda_env_dom_nil Σ).
     iApply (sem_typed_afun _ _ [] []); solve_sidecond.
-    rewrite [(rec*: "go", [], "g", _)%E]app_mult_env_dom_nil -(app_nil_l []).
+    rewrite [(rec*: "go", [], "g", _)%E](@app_mult_env_dom_nil Σ) -(app_nil_l []).
     iApply (sem_typed_app _ _ [] []);
       [|iApply sem_typed_sub_nil; iApply sem_typed_swap_second; iApply sem_typed_var].
       rewrite - {1}((app_nil_r [("f", _)])). 
@@ -174,15 +133,15 @@ Section typing.
     set Γ₂ := [("g", generator_ty τ); ("go", generator_ty τ -{ ρ }-> () ); ("f", τ -{ ρ }-> ())].
     iApply (sem_typed_match_option _ Γ₂ _ _ _ _ _ () _ τ); solve_sidecond.
     - iApply sem_typed_sub_nil. 
-      rewrite [Var "g"]app_mult_env_dom_nil.
+      rewrite [Var "g"](@app_mult_env_dom_nil Σ).
       iApply (sem_typed_suapp _ _ [] []). iApply sem_typed_unit.
     - iApply sem_typed_sub_nil. do 3 (iApply sem_typed_weaken). iApply sem_typed_unit.
     - iApply sem_typed_seq.
-      + rewrite [Var "f"]app_mult_env_dom_nil.
+      + rewrite [Var "f"](@app_mult_env_dom_nil Σ).
         iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_swap_third. 
         iApply sem_typed_sub_ty; [apply ty_le_u2aarr|]. iApply sem_typed_var.
-      + rewrite [Var "go"]app_mult_env_dom_nil - {6} (app_nil_l []).
+      + rewrite [Var "go"](@app_mult_env_dom_nil Σ) - {6} (app_nil_l []).
         iApply (sem_typed_app _ _ [] []); [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
         iApply sem_typed_var.
@@ -248,16 +207,16 @@ Section verification.
     iIntros "!>". ewp_pure_steps.
     iAssert (isIterCont l γ [] T) with "[Hl Hi Hhand Hiter]" as "H";
     last (by iApply generate_spec_iter_cont).
-    rewrite /isIterCont. iExists (λ: <>, i #() (λ: "x", do:"x")%V)%V.
+    rewrite /isIterCont. iExists (λ: <>, i #() (λ: "x", perform:"x")%V)%V.
     iFrame. rewrite /isIter.
     set I := (iterView γ).
     iSpecialize ("Hi" $! (YIELD I T) yield I). rewrite /I.
     ewp_pure_steps. rewrite -/yield. iApply ("Hi" with "[] Hiter").
     iIntros "!# %us %u %v %Hperm Hrepr Hiter".
-    rewrite /yield. ewp_pure_steps. iApply ewp_do_os.
+    rewrite /yield /rec_perform. ewp_pure_steps. iApply ewp_do_os.
     rewrite upcl_yield. iExists us,u,v. iSplitR; first done.
     iFrame. iSplitR; first done. 
-    iIntros "Hiter {$Hiter}".
+    iIntros "Hiter". by ewp_pure_steps.
   Qed.
 
   Lemma iterate_spec_helper uus g (f : val) Ψ I (T : G A) :

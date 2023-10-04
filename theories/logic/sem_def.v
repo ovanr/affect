@@ -40,21 +40,6 @@ Declare Scope sem_sig_scope.
 Bind Scope ieff_scope with sem_sig.
 Delimit Scope sem_sig_scope with R.
 
-Lemma sem_ty_equiv {Σ} v (τ τ' : sem_ty Σ) : 
-  τ ≡ τ' → τ v ≡ τ' v.
-Proof.
-  intros Hτ. unfold equiv, ofe_equiv in Hτ. 
-  simpl in Hτ. unfold discrete_fun_equiv in Hτ.
-  by apply Hτ.
-Qed.
-
-Lemma sem_ty_dist {Σ} v (τ τ' : sem_ty Σ) n : 
-  dist n τ τ' → dist n (τ v) (τ' v).
-Proof.
-  intros Hττ'. unfold dist, ofe_dist in Hττ'.
-  simpl in Hττ'. unfold discrete_fun_dist in Hττ'.
-  by apply Hττ'.
-Qed.
 
 (** The Type Environment
 
