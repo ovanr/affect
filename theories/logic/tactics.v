@@ -58,9 +58,9 @@ Global Ltac solve_copy :=
     apply bi.intuitionistically_persistent ||
     apply inv_persistent).
 
-  Ltac solve_sidecond := 
-      try rewrite !env_dom_nil;
-      try rewrite !env_dom_cons;
-      solve_dom; 
-      solve_disjoint;
-      solve_copy.
+Ltac solve_sidecond := 
+    try rewrite !env_dom_nil;
+    try rewrite !env_dom_cons;
+    solve_dom; 
+    solve_disjoint;
+    solve_copy.

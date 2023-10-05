@@ -76,13 +76,11 @@ Section typing.
     ⊢ ⊨ᵥ yield : ( () -{ asig }-> () ).
   Proof.
     iIntros "". iApply sem_typed_closure. simpl.
-    rewrite [Val await](@app_mult_env_dom_nil Σ) - {3} (app_nil_r []).
-    iApply (sem_typed_app _ [] _ _ _ _ _ prom_id).
+    iApply sem_typed_app.
     { iApply sem_typed_sub_nil.
       iApply sem_typed_val.
       iApply await_typed. }
-    rewrite [Val async](@app_mult_env_dom_nil Σ).
-    iApply (sem_typed_app _ [] _ _ _ _ _ _).
+    iApply sem_typed_app.
     { iApply sem_typed_sub_nil.
       iApply sem_typed_val.
       iApply async_typed. }

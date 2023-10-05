@@ -239,10 +239,10 @@ Proof.
   simpl in H. by do 4 f_equiv.
 Qed.
 
-Definition sem_sig_eff_rec {Σ} (τ κ : sem_sig Σ -d> sem_ty Σ) : sem_sig Σ :=
+Definition sem_sig_eff_rec {Σ} (τ κ : sem_sig Σ → sem_ty Σ) : sem_sig Σ :=
   fixpoint (sem_sig_eff_rec_pre τ κ).
 
-Lemma sem_sig_eff_rec_unfold {Σ} (τ κ : sem_sig Σ -d> sem_ty Σ) `{ NonExpansive τ, NonExpansive κ } :
+Lemma sem_sig_eff_rec_unfold {Σ} (τ κ : sem_sig Σ → sem_ty Σ) `{ NonExpansive τ, NonExpansive κ } :
   (sem_sig_eff_rec τ κ) ≡ 
     (>> (a : val) >> ! a {{ ▷ (τ (sem_sig_eff_rec τ κ) a) }}; 
      << (b : val) << ? b {{ ▷ (κ (sem_sig_eff_rec τ κ) b) }} @OS)%ieff .
@@ -251,14 +251,10 @@ Proof.
   do 4 f_equiv. 
   - iSplit. 
     + iIntros "[% [#Hfix Hτ]]". 
-      set Ψ := λ ρ, τ ρ a.
-      replace (τ rec' a) with (Ψ rec') by done.
-      replace (τ (sem_sig_eff_rec τ κ) a) with (Ψ (sem_sig_eff_rec τ κ)) by done.
-      unfold sem_sig_eff_rec.
-      iApply (internal_eq_rewrite rec' (sem_sig_eff_rec τ κ)).
-      { intros ????. unfold Ψ. apply non_dep_fun_dist. by rewrite H. }
-      { by iApply internal_eq_sym. }
-      iApply "Hτ".
+      rewrite /sem_sig_eff_rec.
+      iAssert (τ rec' ≡ τ (fixpoint (sem_sig_eff_rec_pre τ κ) ))%I as "#H".
+      { by iRewrite "Hfix". }
+      rewrite discrete_fun_equivI. by iRewrite - ("H" $! a).
     + iIntros "Hτ //=". iExists (sem_sig_eff_rec τ κ).
       by iFrame. 
   - intros ?. rewrite iEffPost_base_eq /iEffPost_base_def.

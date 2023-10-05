@@ -386,7 +386,7 @@ Section compatibility.
         by iApply env_sem_typed_difference_delete.
   Qed.
 
-  Lemma sem_typed_sufun Γ₁ Γ₂ Δ₁ Δ₂ x e τ ρ κ:
+  Lemma sem_typed_sufun_mult Γ₁ Γ₂ Δ₁ Δ₂ x e τ ρ κ:
     x ∉ (env_dom Γ₁) → x ∉ (env_dom Δ₁) → x ∉ (env_dom Γ₂) →
     env_dom Δ₂ ⊆ env_dom Δ₁ →
     env_dom Γ₁ ## env_dom Δ₁ →
@@ -459,7 +459,16 @@ Section compatibility.
         by iApply env_sem_typed_delete_disjoint.
   Qed.
 
-  Lemma sem_typed_app Γ₁ Γ₂ Γ₃ Δ₁ Δ₂ e₁ e₂ τ ρ κ: 
+  (* Lemma sem_typed_sufun Γ₁ Γ₂ x e τ ρ κ: *)
+  (*   x ∉ (env_dom Γ₁) → x ∉ (env_dom Γ₂) → *)
+  (*   (x, τ) ::? Γ₁ ⊨ e : ρ : κ ⊨ Γ₁ -∗ *)
+  (*   Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⟨⟩ : (τ >-{ ρ }-∘ κ) ⊨ Γ₂. *)
+  (* Proof. *)
+  (*   intros ??. *)
+  (*   rewrite [(λ: x, _)%E](@ctx_lambda_env_dom_nil Σ). *)
+  (*   iApply (sem_typed_sufun_mult _ _ [] []). *)
+
+  Lemma sem_typed_app_mult Γ₁ Γ₂ Γ₃ Δ₁ Δ₂ e₁ e₂ τ ρ κ: 
     Γ₂ ⊨ e₁ : ρ : (τ -{ ρ ; Δ₁ ; Δ₂ }-∘ κ) ⊨ Γ₃ -∗
     Γ₁ ⊨ e₂ : ρ : τ ⊨ Δ₁ ++ Γ₂ -∗
     Γ₁ ⊨ (e₁ <_ map Var (env_dom Δ₁) _> e₂) : ρ : κ ⊨ Δ₂ ++ Γ₃.
@@ -483,7 +492,16 @@ Section compatibility.
     iIntros (u) "[Hκ HΔ₂] !>". iApply "HΦ". rewrite env_sem_typed_app. iFrame.
   Qed.
   
-  Lemma sem_typed_suapp Γ₁ Γ₂ Δ₁ Δ₂ f e₂ τ ρ κ: 
+  Lemma sem_typed_app Γ₁ Γ₂ Γ₃ e₁ e₂ τ ρ κ: 
+    Γ₂ ⊨ e₁ : ρ : (τ -{ ρ }-∘ κ) ⊨ Γ₃ -∗
+    Γ₁ ⊨ e₂ : ρ : τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ Γ₃.
+  Proof.
+    rewrite {2} [e₁](@app_mult_env_dom_nil Σ) - {2} (app_nil_l Γ₃).
+    iApply sem_typed_app_mult.
+  Qed.
+
+  Lemma sem_typed_suapp_mult Γ₁ Γ₂ Δ₁ Δ₂ f e₂ τ ρ κ: 
     Γ₁ ⊨ e₂ : ρ : τ ⊨ (f, τ >-{ ρ ; Δ₁ ; Δ₂ }-∘ κ) :: Δ₁ ++ Γ₂ -∗
     Γ₁ ⊨ (f <_ map Var (env_dom Δ₁) _> e₂) : ρ : κ ⊨ (f, τ >-{ ρ ; Δ₁ ; Δ₂  }-∘ κ) :: Δ₂ ++ Γ₂. 
   Proof.
@@ -499,6 +517,14 @@ Section compatibility.
       rewrite -map_map. iApply "Hw". 
     - iIntros (u) "[Hκ [HΔ₂ Hw]] !>". iApply "HΦ". iFrame.
       iExists w. rewrite env_sem_typed_app. by iFrame.
+  Qed.
+
+  Lemma sem_typed_suapp Γ₁ Γ₂ f e₂ τ ρ κ: 
+    Γ₁ ⊨ e₂ : ρ : τ ⊨ (f, τ >-{ ρ }-∘ κ) :: Γ₂ -∗
+    Γ₁ ⊨ (f e₂) : ρ : κ ⊨ (f, τ >-{ ρ }-∘ κ) :: Γ₂. 
+  Proof.
+    rewrite [Var f](@app_mult_env_dom_nil Σ) - {2} (app_nil_l Γ₂).
+    iApply sem_typed_suapp_mult.
   Qed.
 
   Lemma sem_typed_let Γ₁ Γ₂ Γ₃ x e₁ e₂ τ ρ κ: 

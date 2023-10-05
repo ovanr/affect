@@ -73,8 +73,7 @@ Section typing.
         rewrite -(app_nil_r Γ₁).
         rewrite [(λ: <>, _)%E](@ctx_lambda_env_dom_nil Σ).
         iApply sem_typed_afun; solve_sidecond. simpl.
-        rewrite ["i" #()](@app_mult_env_dom_nil Σ) - {2} (app_nil_r []).
-        iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ _ _ (yield_ty τ));
+        iApply (sem_typed_app _ [("i", iter_ty τ)]);
           last (iApply sem_typed_sub_nil; iApply sem_typed_var).
         iApply (sem_typed_SApp _ _ _ (yield_sig τ) (λ ρ, ( τ -{ ρ }-> ()) -{ ρ }-∘ ())).
         iApply sem_typed_sub_nil. 
@@ -82,7 +81,7 @@ Section typing.
       + set Γ₁ :=[("cont", cont_ty)]; rewrite -(app_nil_r Γ₁). 
         set in_cont_ty := (() -{ yield_sig τ }-∘ ()).
         rewrite [(λ: <>, _)%E](@ctx_lambda_env_dom_nil Σ).
-        iApply sem_typed_sufun; solve_sidecond.
+        iApply sem_typed_sufun_mult; solve_sidecond.
         iApply (sem_typed_let _ [("cont", Ref Moved)] _ _ _ _ in_cont_ty); solve_sidecond.
         { iApply sem_typed_sub_nil. iApply sem_typed_load. }
         rewrite app_singletons.
@@ -123,8 +122,7 @@ Section typing.
     iApply sem_typed_sub_nil. 
     rewrite [(λ: "f", _)%E](@ctx_lambda_env_dom_nil Σ).
     iApply (sem_typed_afun _ _ [] []); solve_sidecond.
-    rewrite [(rec*: "go", [], "g", _)%E](@app_mult_env_dom_nil Σ) -(app_nil_l []).
-    iApply (sem_typed_app _ _ [] []);
+    iApply sem_typed_app;
       [|iApply sem_typed_sub_nil; iApply sem_typed_swap_second; iApply sem_typed_var].
       rewrite - {1}((app_nil_r [("f", _)])). 
     iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
@@ -133,16 +131,14 @@ Section typing.
     set Γ₂ := [("g", generator_ty τ); ("go", generator_ty τ -{ ρ }-> () ); ("f", τ -{ ρ }-> ())].
     iApply (sem_typed_match_option _ Γ₂ _ _ _ _ _ () _ τ); solve_sidecond.
     - iApply sem_typed_sub_nil. 
-      rewrite [Var "g"](@app_mult_env_dom_nil Σ).
-      iApply (sem_typed_suapp _ _ [] []). iApply sem_typed_unit.
+      iApply sem_typed_suapp. iApply sem_typed_unit.
     - iApply sem_typed_sub_nil. do 3 (iApply sem_typed_weaken). iApply sem_typed_unit.
     - iApply sem_typed_seq.
       + rewrite [Var "f"](@app_mult_env_dom_nil Σ).
         iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_swap_third. 
         iApply sem_typed_sub_ty; [apply ty_le_u2aarr|]. iApply sem_typed_var.
-      + rewrite [Var "go"](@app_mult_env_dom_nil Σ) - {6} (app_nil_l []).
-        iApply (sem_typed_app _ _ [] []); [|iApply sem_typed_sub_nil; iApply sem_typed_var].
+      + iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
         iApply sem_typed_var.
   Qed.
