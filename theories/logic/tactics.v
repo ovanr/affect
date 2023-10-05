@@ -19,12 +19,17 @@ From affine_tes.logic Require Import sem_types.
 From affine_tes.logic Require Import sem_env.
 
 
-Ltac ewp_bottom := iApply ewp_os_prot_mono; 
-                   [by iApply iEff_le_bottom|].
+Ltac ewp_bottom := iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|].
+
+Ltac destruct_binder_in_not_elem_goal :=
+  match goal with 
+    | |- context[(@elem_of binder _ _ ?X [])] => destruct X
+  end.
 
 Ltac solve_dom := 
     try rewrite !env_dom_nil;
     try rewrite !env_dom_cons; 
+    try destruct_binder_in_not_elem_goal;
     repeat (
       (by apply not_elem_of_nil) ||
       (by apply not_elem_of_cons; split; solve_dom) || 

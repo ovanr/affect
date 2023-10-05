@@ -85,12 +85,10 @@ Section typing.
       iApply sem_typed_val.
       iApply async_typed. }
     iApply sem_typed_sub_nil.
-    rewrite [(λ: <>, _)%E](@ctx_lambda_env_dom_nil Σ).
     rewrite -(app_nil_r []).
-    iApply (sem_typed_afun _ _ [] []); solve_sidecond. simpl.
+    iApply sem_typed_afun; solve_sidecond. simpl.
     iApply sem_typed_sub_nil.
     iApply sem_typed_unit.
   Qed.
-
 
 End typing.

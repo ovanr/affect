@@ -177,7 +177,7 @@ Section compatibility.
 
   (* λ-calculus rules *)
 
-  Lemma sem_typed_afun Γ₁ Γ₂ Δ₁ Δ₂ x e τ ρ κ: 
+  Lemma sem_typed_afun_mult Γ₁ Γ₂ Δ₁ Δ₂ x e τ ρ κ: 
     x ∉ (env_dom Γ₁) → x ∉ (env_dom Δ₁) → x ∉ (env_dom Γ₂) →
     env_dom Δ₂ ⊆ env_dom Δ₁ →
     env_dom Γ₁ ## env_dom Δ₁ →
@@ -236,6 +236,15 @@ Section compatibility.
         rewrite -(env_sem_typed_difference_delete Δ₂ Δ₁); last done. iFrame. 
   Qed.
 
+  Lemma sem_typed_afun Γ₁ Γ₂ x e τ ρ κ: 
+    x ∉ (env_dom Γ₁) → x ∉ (env_dom Γ₂) →
+    (x,τ) ::? Γ₁ ⊨ e : ρ : κ ⊨ [] -∗
+    Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-∘ κ) ⊨ Γ₂.
+  Proof.
+    intros ??.
+    rewrite [(λ: x, _)%E](@ctx_lambda_env_dom_nil Σ).
+    iApply (sem_typed_afun_mult _ _ [] []); solve_sidecond.
+  Qed.
 
   Lemma sem_typed_lambdas_norm Γ Γ' Δ₁ Δ₂ f x ρ e τ κ :
     env_dom Δ₂ ⊆ env_dom Δ₁ →
@@ -295,8 +304,7 @@ Section compatibility.
       Unshelve. apply empty.
   Qed.
 
-
-  Lemma sem_typed_ufun Γ₁ Γ₂ Δ₁ Δ₂ f x e τ ρ κ:
+  Lemma sem_typed_ufun_mult Γ₁ Γ₂ Δ₁ Δ₂ f x e τ ρ κ:
     x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → f ∉ (env_dom Δ₁) → x ∉ (env_dom Δ₁) →
     env_dom Δ₂ ⊆ env_dom Δ₁ →
     env_dom Γ₁ ## env_dom Δ₁ →
@@ -386,6 +394,38 @@ Section compatibility.
         by iApply env_sem_typed_difference_delete.
   Qed.
 
+  Lemma sem_typed_ufun Γ₁ Γ₂ f x e τ ρ κ:
+    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → x ≠ f →
+    copy_env Γ₁ →
+    (x, τ) ::? (f, τ -{ ρ }-> κ) ::? Γ₁ ⊨ e : ρ : κ ⊨ [] -∗
+    Γ₁ ++ Γ₂ ⊨ (rec: f x :=  e) : ρ : (τ -{ ρ }-> κ) ⊨ Γ₂.
+  Proof.
+    iIntros (??? HcpyΓ₁) "#He !# %Φ %vs HΓ₁₂ HΦ //=".
+    ewp_pure_steps.
+    rewrite env_sem_typed_app. iApply "HΦ". 
+    iDestruct "HΓ₁₂" as "[HΓ₁ $]".
+    rewrite HcpyΓ₁. iDestruct "HΓ₁" as "#HΓ₁".
+    iLöb as "IH".
+    iIntros (w ws) "!# _ Hτ". rewrite env_dom_nil /=. 
+    ewp_pure_steps. destruct f; destruct x; simpl.
+    - iApply ("He" with "HΓ₁ []").
+      iIntros (v) "[Hκ _] {$Hκ}".
+    - rewrite -subst_map_insert. 
+      iApply ("He" with "[HΓ₁ Hτ] []"); first solve_env. 
+      iIntros (v) "//= [$ _]".
+    - rewrite -subst_map_insert.
+      iApply ("He" with "[HΓ₁ Hτ] []"); first solve_env.
+      iIntros (v) "//= [$ _]".
+    - assert (s ≠ s0) by (intros ?; simplify_eq).
+      rewrite subst_subst_ne; last done.
+      rewrite -subst_map_insert.
+      rewrite -delete_insert_ne; last done. 
+      rewrite -subst_map_insert.
+      iApply ("He" with "[Hτ] []"); first solve_env.
+      + by do 2 (rewrite -env_sem_typed_insert; last done).
+      + iIntros (v) "[$ _]". 
+  Qed.
+
   Lemma sem_typed_sufun_mult Γ₁ Γ₂ Δ₁ Δ₂ x e τ ρ κ:
     x ∉ (env_dom Γ₁) → x ∉ (env_dom Δ₁) → x ∉ (env_dom Γ₂) →
     env_dom Δ₂ ⊆ env_dom Δ₁ →
@@ -459,14 +499,15 @@ Section compatibility.
         by iApply env_sem_typed_delete_disjoint.
   Qed.
 
-  (* Lemma sem_typed_sufun Γ₁ Γ₂ x e τ ρ κ: *)
-  (*   x ∉ (env_dom Γ₁) → x ∉ (env_dom Γ₂) → *)
-  (*   (x, τ) ::? Γ₁ ⊨ e : ρ : κ ⊨ Γ₁ -∗ *)
-  (*   Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⟨⟩ : (τ >-{ ρ }-∘ κ) ⊨ Γ₂. *)
-  (* Proof. *)
-  (*   intros ??. *)
-  (*   rewrite [(λ: x, _)%E](@ctx_lambda_env_dom_nil Σ). *)
-  (*   iApply (sem_typed_sufun_mult _ _ [] []). *)
+  Lemma sem_typed_sufun Γ₁ Γ₂ x e τ ρ κ:
+    x ∉ (env_dom Γ₁) → x ∉ (env_dom Γ₂) →
+    (x, τ) ::? Γ₁ ⊨ e : ρ : κ ⊨ Γ₁ -∗
+    Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⟨⟩ : (τ >-{ ρ }-∘ κ) ⊨ Γ₂.
+  Proof.
+    intros ??.
+    rewrite [(λ: x, _)%E](@ctx_lambda_env_dom_nil Σ).
+    iApply (sem_typed_sufun_mult _ _ [] []); solve_sidecond.
+  Qed.
 
   Lemma sem_typed_app_mult Γ₁ Γ₂ Γ₃ Δ₁ Δ₂ e₁ e₂ τ ρ κ: 
     Γ₂ ⊨ e₁ : ρ : (τ -{ ρ ; Δ₁ ; Δ₂ }-∘ κ) ⊨ Γ₃ -∗
