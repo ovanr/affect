@@ -139,3 +139,24 @@ Definition sem_val_typed `{!irisGS eff_lang Σ}
 
 Notation "⊨ᵥ v : A" := (sem_val_typed v%V A%T)
   (at level 20, v, A at next level) : bi_scope.
+
+(* Copyable types *)
+Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) := 
+  ∀ v, Persistent (τ%T v).
+
+(* Copyable environment *)
+Definition copy_env `{!heapGS Σ} Γ :=
+  ∀ vs, Persistent (⟦ Γ ⟧ vs).
+
+(* Sub-typing and relations *)
+
+Definition ty_le {Σ} (A B : sem_ty Σ) := ∀ v, A v ⊢ B v.
+Definition sig_le {Σ} (ρ ρ' : sem_sig Σ) := ⊢ iEff_le ρ ρ'.
+Definition env_le `{!heapGS Σ} Γ₁ Γ₂ :=
+  ∀ vs, ⟦ Γ₁ ⟧ vs ⊢ ⟦ Γ₂ ⟧ vs.
+
+Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).
+Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
+
+Notation "ρ '≤R' ρ'" := (sig_le ρ%R ρ'%R) (at level 98).
+

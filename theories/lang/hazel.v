@@ -19,7 +19,8 @@ From program_logic Require Import weakest_precondition
                                   deep_handler_reasoning
                                   state_reasoning.
 
-From affine_tes.lib Require Import base.
+From affine_tes.lib Require Export base.
+From affine_tes.lib Require Export logic.
 
 Definition pair_elim :=
   (λ: "x", λ: "f", "f" (Fst "x") (Snd "x"))%V.
@@ -173,6 +174,23 @@ Proof.
  destruct k as [|Ki K]; try destruct Ki; try naive_solver.
  - simpl in H0. simpl. simplify_eq. inversion H2.
    by exists (LitV $ LitUnit).
+ - simpl in H0. simpl. simplify_eq.
+   destruct K as [|Ki K]; try destruct Ki; try naive_solver.
+   simpl in H0. simplify_eq. by inversion H2.
+ - simpl in H0. simpl. simplify_eq.
+   destruct K as [|Ki K]; try destruct Ki; try naive_solver.
+   simpl in H1. simplify_eq. by inversion H2.
+Qed.
+
+Global Instance replace_atomic (l : loc) (w : val) :
+  Atomic StronglyAtomic (Replace (Val $ LitV $ LitLoc l) (Val w)).
+Proof.
+ intros ?. simpl. intros ?????. unfold prim_step' in H.
+ destruct κ; [|done].
+ destruct efs; [|done]. inversion H. simplify_eq.
+ destruct k as [|Ki K]; try destruct Ki; try naive_solver.
+ - simpl in H0. simpl. simplify_eq. inversion H2.
+   by exists (w0).
  - simpl in H0. simpl. simplify_eq.
    destruct K as [|Ki K]; try destruct Ki; try naive_solver.
    simpl in H0. simplify_eq. by inversion H2.

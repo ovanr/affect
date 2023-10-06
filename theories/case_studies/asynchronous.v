@@ -23,72 +23,155 @@ From affine_tes.logic Require Import sem_operators.
 From affine_tes.logic Require Import compatibility.
 From affine_tes.logic Require Import tactics.
 
-Definition async : val := (λ: "c", perform: (InjL "c"))%V.
-Definition await : val := (λ: "p", (perform: (InjR "p")) ;; #())%V.
-Definition yield : val := (λ: <>, await (async (λ: <>, #())))%V.
+Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
-Definition async' : val := 
-    (λ: "c", let: "r" := ref NONE
-             in (async (λ: <>, "r" <- SOME ("c" #())), "r"))%V.  
-                                    
+Definition async : val := (Λ: λ: "c", perform: (InjL "c"))%V.
+Definition await : val := (Λ: λ: "p", (perform: (InjR "p")))%V.
+Definition yield : val := 
+  (λ: <>, match: async <_> (λ: <>, #()) with
+            InjL "p" => await <_> "p" ;; #()
+          | InjR <>  => impossible
+          end)%V.
+
+Definition iter  : val:= 
+  (rec: "f" "g" "xs" := 
+    list-match: "xs" with
+        CONS "x" => "xxs" => "g" "x" ;; "f" "xxs"
+      | NIL => #()
+    end)%V.
+
+Definition runner : val :=
+  (λ: "main", 
+    let: "q" := ref NIL in  
+
+    let: "next" := 
+        (λ: <>, list-match: "q" <!- NIL with
+                    CONS "x" => "xs" => "q" <!- "xs" ;; "x" #()
+                  | NIL => #()
+                end)%E in
+    let: "add" := (λ: "f", "q" <!- CONS "f" ("q" <!- NIL))%E in
+    let: "resume_task" := (λ: "v" "k", "add" ("k" "v"))%E in
+
+    let: "fulfill" := 
+      (rec: "fulfill" <> := λ: "promise" "comp",   
+        deep-try: "comp" #() with
+          effect (λ: "x" "k", 
+            match: "x" with 
+              InjL "x" => 
+                (* async effect *) 
+                let: "new_prom" := ref (InjR NIL) in
+                "add" (λ: <>, "fulfill" #() "new_prom" "x") ;;
+                "k" (InjL "new_prom")
+            | InjR "p" =>
+                (* await effect *) 
+                match: "p" <!- (InjR NIL) with
+                  InjL "v" => "p" <!- (InjL "v") ;; "k" "v"
+                | InjR "ks" => "p" <!- InjR (CONS "k" "ks") ;; "next" #()
+                end
+            end
+          )%E
+        | return (λ: "x", 
+            let: "v" := "promise" <- InjR NIL in
+            match: "v" with
+              InjL <> => impossible
+            | InjR "ks" =>
+                "promise" <- InjL "v" ;;
+                iter ("resume_task" "v") "ks" ;;
+                "next" #()
+            end
+          )%E
+        end
+      )%E in
+      let: "pmain" := ref (InjR NIL) in
+      "fulfill" "pmain" "main" ;;
+      match: "pmain" <!- InjR NIL with
+        InjL "v" => "v"
+      | InjR <> => impossible
+      end
+  )%V.
+
 Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition queue_ty := (μT: α, Ref (List (α → α))).
+  Definition Queue := Refᶜ (List (() ⊸ ())).
 
-  Definition prom_id := (@sem_ty_unit Σ).
+  Definition Status τ := τ + List (() ⊸ ()).
 
-  Definition status_ty := (() + (List (queue_ty → queue_ty))).
+  Definition Promise τ := Refᶜ (Status τ).
 
-  Definition promise_ty := (Ref status_ty).
+  Definition asig := (∀μTS: θ, α, ( () -{ θ }-∘ '! α ) + Promise ('! α) ⇒ 
+                                  Promise ('! α)       + '! α)%R. 
 
-  Definition cpromise_ty τ := (prom_id × Ref (Option τ)). 
-
-  Definition asig := (μS: α, ( () -{ α }-∘ () ) + prom_id ⇒ prom_id)%R. 
+  Lemma impossible_typed τ :
+    ⊢ ⊨ impossible : ⟨⟩ : τ.
+  Proof.
+    iIntros. rewrite /impossible.
+    iApply sem_typed_app; last (iApply sem_typed_unit).
+    rewrite - {1} (app_nil_r []).
+    iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_app; last (iApply sem_typed_unit).
+    iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+    iApply sem_typed_var.
+  Qed.
 
   Lemma async_typed :
-    ⊢ ⊨ᵥ async : ( (() -{ asig }-∘ ()) -{ asig }-> prom_id ).
+    ⊢ ⊨ᵥ async : (∀T: α ,, (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α) + '! α).
   Proof.
-    iIntros "". iApply sem_typed_closure.
-    iApply (sem_typed_perform with "[]").
-    { intros ????. by repeat f_equiv. } 
+    rewrite /async. iIntros.
+    iApply sem_typed_Tclosure. iIntros (α).
+    rewrite - {1} (app_nil_r []).
+    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply (sem_typed_perform with "[]");
+      try (rewrite /Promise /Status; intros ???????; by repeat f_equiv).
     iApply sem_typed_left_inj.
     iApply sem_typed_sub_nil.
     iApply sem_typed_var.
   Qed.
 
   Lemma await_typed :
-    ⊢ ⊨ᵥ await : ( prom_id -{ asig }-> () ).
+    ⊢ ⊨ᵥ await : (∀T: α ,, Promise ('! α) -{ asig }-> Promise ('! α) + '! α).
   Proof.
-    iIntros "". iApply sem_typed_closure.
-    iApply sem_typed_seq.
-    - iApply (sem_typed_perform with "[]").
-      { intros ????. by repeat f_equiv. } 
+    rewrite /await. iIntros.
+    iApply sem_typed_Tclosure. iIntros (α).
+    rewrite - {1} (app_nil_r []).
+    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply (sem_typed_perform with "[]");
+      try (rewrite /Promise /Status; intros ???????; by repeat f_equiv).
       iApply sem_typed_sub_nil.
       iApply sem_typed_right_inj.
       iApply sem_typed_var. 
-    - iApply sem_typed_sub_nil.
-      iApply sem_typed_unit.
   Qed.
 
   Lemma yield_typed :
     ⊢ ⊨ᵥ yield : ( () -{ asig }-> () ).
   Proof.
-    iIntros "". iApply sem_typed_closure. simpl.
-    iApply sem_typed_app.
-    { iApply sem_typed_sub_nil.
-      iApply sem_typed_val.
-      iApply await_typed. }
-    iApply sem_typed_app.
-    { iApply sem_typed_sub_nil.
-      iApply sem_typed_val.
-      iApply async_typed. }
-    iApply sem_typed_sub_nil.
-    rewrite -(app_nil_r []).
-    iApply sem_typed_afun; solve_sidecond. simpl.
-    iApply sem_typed_sub_nil.
-    iApply sem_typed_unit.
+    iIntros. iApply sem_typed_closure; try done. simpl.
+    iApply (sem_typed_match [] [] [] _ _ _ _ _ (Promise ( '! () )) _ ('! ())); solve_sidecond.
+    - iApply (sem_typed_app _ [] _ _ _ (() -{ asig }-∘ '! ())).
+      + iApply sem_typed_sub_nil. 
+        iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+        set C := (λ α, (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α) + ('! α)).
+        rewrite -/(C ()). iApply sem_typed_TApp.
+        iApply sem_typed_val. iApply async_typed.
+      + iApply sem_typed_sub_nil.
+        rewrite - {1} (app_nil_r []).
+        iApply sem_typed_afun; solve_sidecond. simpl.
+        iApply sem_typed_sub_nil.
+        iApply sem_typed_sub_ty.
+        { apply ty_le_cpy. solve_copy. }
+        iApply sem_typed_unit.
+    - simpl. iApply sem_typed_seq; [|iApply sem_typed_sub_nil; iApply sem_typed_unit].
+      iApply (sem_typed_app _ [] _ _ _ (Promise ('! ())) _ (Promise ('! ()) + '!())).
+      + iApply sem_typed_sub_nil. 
+        iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+        set C := (λ α, (Promise ('! α)) -{ asig }-> Promise ('! α) + ('! α)).
+        rewrite -/(C ()). iApply sem_typed_TApp.
+        iApply sem_typed_val. iApply await_typed.
+      + iApply sem_typed_sub_nil. iApply sem_typed_var.
+    - simpl. iApply sem_typed_sub_nil. 
+      iApply impossible_typed.
   Qed.
 
 End typing.

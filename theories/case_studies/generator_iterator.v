@@ -51,7 +51,7 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition yield_sig (τ : sem_ty Σ) := (μS: _, τ ⇒ ())%R.
+  Definition yield_sig (τ : sem_ty Σ) := (∀μTS: _, _, τ ⇒ ())%R.
   Definition yield_ty τ := τ -{ yield_sig τ }-> ().
   Definition iter_ty τ := (∀S: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() >-∘ Option τ)%T.
@@ -59,10 +59,10 @@ Section typing.
   Lemma sem_typed_generate τ :
     ⊢ ⊨ᵥ generate : (iter_ty τ → generator_ty τ).
   Proof.
-    iIntros "". iApply sem_typed_closure.
+    iIntros "". iApply sem_typed_closure; first done.
     iApply (sem_typed_let _ [("i", iter_ty τ)] _ _ _ _ (yield_ty τ)); solve_sidecond. 
-    - iApply sem_typed_val. iApply sem_typed_closure.
-      iApply (sem_typed_perform with "[]"). 
+    - iApply sem_typed_val. iApply sem_typed_closure; first done.
+      iApply (sem_typed_perform _ _ _ () with "[]"). 
       iApply sem_typed_sub_nil.
       iApply sem_typed_var.
     - set cont_ty := Ref (() -{ yield_sig τ }-∘ ()). 
@@ -85,11 +85,11 @@ Section typing.
         iPoseProof (sem_typed_shallow_try 
                       [("comp", in_cont_ty)] [] [("cont", cont_ty)] 
                       [("cont", Ref Moved)]
-                      "w" "k" _ _ _ (λ _, τ) (λ _, ()) (Option τ) ()) as "Hhand"; solve_sidecond.
+                      "w" "k" _ _ _ (λ _ _, τ) (λ _ _, ()) (Option τ) ()) as "Hhand"; solve_sidecond.
         rewrite /Γ₁. iApply "Hhand"; iClear "Hhand".
         * iApply sem_typed_app; iApply sem_typed_sub_nil;
             [iApply sem_typed_var|iApply sem_typed_unit]. 
-        * iApply (sem_typed_swap_third).
+        * iIntros (?). iApply sem_typed_swap_third.
           iApply sem_typed_seq.
           { iApply sem_typed_store. 
             iApply sem_typed_swap_third.
@@ -110,7 +110,7 @@ Section typing.
   Lemma sem_typed_iterate τ :
     ⊢ ⊨ᵥ iterate : (generator_ty τ → iter_ty τ).
   Proof.
-    iIntros. iApply sem_typed_closure. rewrite /iter_ty /=.
+    iIntros. iApply sem_typed_closure; first done. rewrite /iter_ty /=.
     rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_SLam. iIntros (ρ).
     rewrite - {1}(app_nil_r [("g", _)]). 
@@ -120,6 +120,7 @@ Section typing.
       [|iApply sem_typed_sub_nil; iApply sem_typed_swap_second; iApply sem_typed_var].
       rewrite - {1}((app_nil_r [("f", _)])). 
     iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+    iApply sem_typed_sub_nil.
     iApply sem_typed_ufun; solve_sidecond.
     set Γ₂ := [("g", generator_ty τ); ("go", generator_ty τ -{ ρ }-> () ); ("f", τ -{ ρ }-> ())].
     iApply (sem_typed_match_option _ Γ₂ _ _ _ _ _ () _ τ); solve_sidecond.

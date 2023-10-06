@@ -6,6 +6,7 @@
 *)
 
 
+From iris.algebra Require Import ofe.
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic.lib Require Import iprop invariants.
 
@@ -22,26 +23,6 @@ From affine_tes.logic Require Import tactics.
 From affine_tes.logic Require Import sem_types.
 From affine_tes.logic Require Import sem_env.
 
-
-(* Copyable types *)
-Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) := 
-  ∀ v, Persistent (τ%T v).
-
-(* Copyable environment *)
-Definition copy_env `{!heapGS Σ} Γ :=
-  ∀ vs, Persistent (⟦ Γ ⟧ vs).
-
-(* Sub-typing and relations *)
-
-Definition ty_le {Σ} (A B : sem_ty Σ) := ∀ v, A v ⊢ B v.
-Definition sig_le {Σ} (ρ ρ' : sem_sig Σ) := ⊢ iEff_le ρ ρ'.
-Definition env_le `{!heapGS Σ} Γ₁ Γ₂ :=
-  ∀ vs, ⟦ Γ₁ ⟧ vs ⊢ ⟦ Γ₂ ⟧ vs.
-
-Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).
-Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
-
-Notation "ρ '≤R' ρ'" := (sig_le ρ%R ρ'%R) (at level 98).
 
 Section sub_typing.
 
@@ -63,15 +44,17 @@ Section sub_typing.
     ⟨⟩ ≤R ρ.
   Proof. iApply iEff_le_bottom. Qed.
   
-  Lemma sig_le_eff_non_rec (ι₁ ι₂ κ₁ κ₂ : sem_ty Σ) :
-    ι₁ ≤T ι₂ →
-    κ₂ ≤T κ₁ →
-    (μS: _, ι₁ ⇒ κ₁) ≤R (μS: _, ι₂ ⇒ κ₂).
+  Lemma sig_le_eff_non_rec (ι₁ ι₂ κ₁ κ₂ : sem_ty Σ -n> sem_ty Σ) :
+    (∀ α, ι₁ α ≤T ι₂ α) →
+    (∀ α, κ₂ α ≤T κ₁ α) →
+    (∀μTS: _ , α , ι₁ α ⇒ κ₁ α) ≤R (∀μTS: _ , α , ι₂ α ⇒ κ₂ α).
   Proof.
     iIntros (Hι₁₂ Hκ₂₁ v Φ) "!#".
-    rewrite !sem_sig_eff_rec_eq.
-    iIntros "(%w & -> & Hι₁ & HκΦ₁)".
-    iExists v; iSplitR; first done.
+    iPoseProof (sem_sig_eff_rec_eq (λ α _, ι₂ α) (λ α _, κ₂ α) v Φ) as "[_ Hrw]".
+    iIntros "Hμ₁". iApply "Hrw".
+    iPoseProof (sem_sig_eff_rec_eq (λ α _, ι₁ α) (λ α _, κ₁ α) v Φ) as "[Hrw' _]".
+    iDestruct ("Hrw'" with "Hμ₁") as "(%α & %w & -> & Hι₁ & HκΦ₁)".
+    iExists α, v; iSplitR; first done.
     iSplitL "Hι₁".
     { iNext. by iApply Hι₁₂. }
     iIntros (b) "Hκ₂". iApply "HκΦ₁".
@@ -107,6 +90,14 @@ Section sub_typing.
     iApply Hτ₂₃. by iApply Hτ₁₂.
   Qed.
   
+  Lemma ty_le_cpy (τ : sem_ty Σ) :
+    copy_ty τ →
+    τ ≤T '! τ.
+  Proof. iIntros (? v). rewrite H. iIntros "#$". Qed.
+
+  Lemma ty_le_cpy_inv (τ : sem_ty Σ) :
+    ('! τ) ≤T τ.
+  Proof. iIntros (v) "#$". Qed.
 
   Lemma ty_le_u2suarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) (Γ₁ Γ₂ : env Σ) :
     (τ -{ ρ ; Γ₁ ; Γ₂ }-> κ) ≤T (τ >-{ ρ ; Γ₁ ; Γ₂ }-∘ κ).
@@ -233,7 +224,7 @@ Section sub_typing.
   Lemma ty_le_forall ρ₁ ρ₂ (τ₁ τ₂ : sem_ty Σ → sem_sig Σ → sem_ty Σ) :
     ρ₁ ≤R ρ₂ →
     (∀ α, τ₁ α ρ₁ ≤T τ₂ α ρ₂) →
-    (∀T: α, { ρ₁ }, τ₁ α ρ₁) ≤T (∀T: α, { ρ₂ }, τ₂ α ρ₂).
+    (∀T: α, { ρ₁ }, τ₁ α ρ₁)%T ≤T (∀T: α, { ρ₂ }, τ₂ α ρ₂).
   Proof.
     iIntros (Hρ₁₂ Hτ₁₂ v) "Hτ₁ %τ". unfold sem_ty_forall.
     iApply ewp_os_prot_mono; [iApply Hρ₁₂|].
@@ -371,6 +362,9 @@ Section copyable_types.
   Lemma copy_ty_moved : copy_ty Moved.
   Proof. solve_copy. Qed.
 
+  Lemma copy_ty_cpy τ : copy_ty ('! τ).
+  Proof. solve_copy. Qed.
+
   Lemma copy_ty_uarr τ ρ κ Γ₁ Γ₂ : copy_ty (τ -{ ρ ; Γ₁ ; Γ₂ }-> κ).
   Proof. solve_copy. Qed.
   
@@ -378,6 +372,9 @@ Section copyable_types.
   Proof. by solve_copy. Qed.
   
   Lemma copy_ty_sum τ κ : copy_ty τ → copy_ty κ → copy_ty (τ + κ).
+  Proof. by solve_copy. Qed.
+
+  Lemma copy_ty_ref τ : copy_ty (Refᶜ τ).
   Proof. by solve_copy. Qed.
 
   Lemma copy_ty_option τ : copy_ty τ → copy_ty (Option τ).

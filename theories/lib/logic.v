@@ -24,3 +24,15 @@ Proof. intros H. apply non_dep_fun_dist3. f_equiv. Qed.
 Lemma non_dep_fun_dist5 A B C D E F x y z z' z'' (f f' : A -d> B -d> C -d> D -d> E -d> F) n : 
   f ≡{n}≡ f' → (f x y z z' z'')≡{n}≡(f' x y z z' z'').
 Proof. intros H. apply non_dep_fun_dist4. f_equiv. Qed.
+
+Global Instance non_expansive2_from_1 {A B C : ofe} (f : B -n> A) :
+  NonExpansive2 (λ (x : B) (_ : C), f x).
+Proof.
+  intros ???????. by f_equiv.
+Qed.
+
+Global Instance non_expansive2_from_constant {A B C : ofe} (c : A) :
+  NonExpansive2 (λ (_ : B) (_ : C), c).
+Proof.
+  intros ???????. done.
+Qed.
