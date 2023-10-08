@@ -226,7 +226,7 @@ Section sub_typing.
     (∀ α, τ₁ α ρ₁ ≤T τ₂ α ρ₂) →
     (∀T: α, { ρ₁ }, τ₁ α ρ₁)%T ≤T (∀T: α, { ρ₂ }, τ₂ α ρ₂).
   Proof.
-    iIntros (Hρ₁₂ Hτ₁₂ v) "Hτ₁ %τ". unfold sem_ty_forall.
+    iIntros (Hρ₁₂ Hτ₁₂ v) "#Hτ₁ %τ !#". unfold sem_ty_forall.
     iApply ewp_os_prot_mono; [iApply Hρ₁₂|].
     iApply (ewp_mono with "[Hτ₁]").
     { iApply "Hτ₁". }
@@ -336,6 +336,13 @@ Section sub_typing.
     by apply H.
   Qed.
 
+  Lemma env_le_swap_fourth Γ x y z z' τ₁ τ₂ τ₃ τ₄: 
+    (z', τ₄) :: (x, τ₁) :: (y, τ₂) :: (z, τ₃) :: Γ ≤E (x, τ₁) :: (y, τ₂) :: (z, τ₃) :: (z', τ₄) :: Γ.
+  Proof.
+    pose proof (env_le_bring_forth_rev ((x, τ₁) :: (y, τ₂) :: (z, τ₃) :: (z', τ₄) :: Γ) 3 z' τ₄).
+    by apply H.
+  Qed.
+
   Lemma env_le_weaken Γ x τ :
     (x, τ) :: Γ ≤E Γ.
   Proof. iIntros (?) "[% (? & ? & $)]". Qed.
@@ -372,6 +379,9 @@ Section copyable_types.
   Proof. by solve_copy. Qed.
   
   Lemma copy_ty_sum τ κ : copy_ty τ → copy_ty κ → copy_ty (τ + κ).
+  Proof. by solve_copy. Qed.
+
+  Lemma copy_ty_forall C ρ : copy_ty (∀T: α, {ρ}, C α).
   Proof. by solve_copy. Qed.
 
   Lemma copy_ty_ref τ : copy_ty (Refᶜ τ).

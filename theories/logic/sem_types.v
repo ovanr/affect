@@ -138,7 +138,7 @@ Qed.
 (* Polymorphic type. *)
 Definition sem_ty_forall `{irisGS eff_lang Σ} 
   (ρ : sem_sig Σ) (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := 
-    (λ v, ∀ τ, EWP (v <_>) <| ρ |> {{ C τ }})%I.
+    (λ v, ∀ τ, □ EWP (v <_>) <| ρ |> {{ C τ }})%I.
 
 (* Polymorphic effect type. *)
 (* why is value restriction also important here? *)
@@ -157,7 +157,7 @@ Definition sem_ty_rec_pre {Σ} (C : sem_ty Σ → sem_ty Σ)
 Global Instance sem_ty_rec_pre_contractive {Σ} (C : sem_ty Σ → sem_ty Σ) :
   Contractive (sem_ty_rec_pre C).
 Proof. solve_contractive. Qed.
-Definition sem_ty_rec {Σ} (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ :=
+Definition sem_ty_rec {Σ} (C : sem_ty Σ -d> sem_ty Σ) : sem_ty Σ :=
   fixpoint (sem_ty_rec_pre C).
 
 
@@ -279,7 +279,7 @@ Notation "'𝔹'" := (sem_ty_bool) : sem_ty_scope.
 Notation "'ℤ'" := (sem_ty_int) : sem_ty_scope.
 Notation "'Moved'" := (sem_ty_moved) : sem_ty_scope.
 Notation "'! τ " := (sem_ty_cpy τ)
-  (at level 120, τ at level 200) : sem_ty_scope.
+  (at level 10) : sem_ty_scope.
 Notation "τ '×' κ" := (sem_ty_prod τ%T κ%T)
   (at level 120, κ at level 200) : sem_ty_scope.
 Infix "+" := (sem_ty_sum) : sem_ty_scope.
@@ -398,16 +398,27 @@ Section types_properties.
   Proof. intros ????. unfold sem_ty_exists; repeat f_equiv. 
          unfold pointwise_relation in H. by apply non_dep_fun_dist. Qed.
 
-  Global Instance sem_ty_rec_ne n :
-    Proper (pointwise_relation _ (dist n) ==> dist n) (@sem_ty_rec Σ).
+  Global Instance sem_ty_rec_ne :
+    NonExpansive (@sem_ty_rec Σ).
   Proof.
-    intros C1 C2 HA. unfold sem_ty_rec. apply fixpoint_ne.
+    intros ????. unfold sem_ty_rec. apply fixpoint_ne.
     intros ??. unfold sem_ty_rec_pre. do 4 f_equiv. 
     by apply non_dep_fun_dist.
   Qed.
 
   Global Instance sem_ty_listF_ne τ : NonExpansive (@ListF Σ τ).
-  Proof. intros ????. unfold ListF; by repeat f_equiv. Qed.
+  Proof. intros ?????. rewrite /ListF. 
+         apply non_dep_fun_dist. by repeat f_equiv.
+  Qed.
+
+  Global Instance sem_ty_listF_ne_2 : NonExpansive2 (@ListF Σ).
+  Proof. intros ???????. unfold ListF; by repeat f_equiv. Qed.
+
+  Global Instance sem_ty_list_ne : NonExpansive (@sem_ty_list Σ).
+  Proof. intros ?????. unfold sem_ty_list. 
+         apply non_dep_fun_dist. f_equiv. 
+         rewrite /ListF. intros ?. by repeat f_equiv.
+  Qed.
 
   Global Instance sem_ty_cpy_proper : Proper ((≡) ==> (≡)) sem_ty_cpy.
   Proof. solve_non_expansive. Qed.

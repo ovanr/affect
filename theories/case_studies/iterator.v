@@ -58,7 +58,7 @@ Section list_iterator.
   Proof.
     iLöb as "IH" forall (l T xs); simpl.
     iIntros "#Hf HIl Hrepr"; destruct T; simpl.
-    - iDestruct "Hrepr" as "->". rewrite /rec_unfold. ewp_pure_steps.
+    - iDestruct "Hrepr" as "->". rewrite /ListMatch /rec_unfold. ewp_pure_steps.
       iExists l. iIntros "{$HIl} !%". by rewrite app_nil_r.
     - iDestruct "Hrepr" as "(%x & %tl & %tlv & Hrepr & -> & Htl & Hrepr')".
       rewrite -{1}/(represents tlv T). 

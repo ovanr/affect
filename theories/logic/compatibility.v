@@ -105,10 +105,22 @@ Section compatibility.
     (∀ α, ⊨ e : ρ : τ α) -∗ 
     ⊨ᵥ (Λ: e) : (∀T: α, { ρ }, τ α).
   Proof.
-    iIntros "#He !# %u". ewp_pure_steps.
+    iIntros "#He !# %u !#". ewp_pure_steps.
     rewrite - {2} [e]subst_map_empty.
     iSpecialize ("He" $! u (τ u) ∅).
     iApply "He"; first done. iIntros (?) "[$ _]".
+  Qed.
+
+  (* Signature abstraction and application *)
+  Lemma sem_typed_Sclosure e C : 
+    (∀ θ, ⊨ e : θ : C θ) -∗
+    ⊨ᵥ (Λ: e) : (∀S: θ , C θ)%T.
+  Proof.
+    iIntros "#He !# %ρ /=".
+    ewp_pure_steps. rewrite - {2} [e]subst_map_empty. 
+    iApply (ewp_mono with "[He]").
+    { iApply "He"; [done|iIntros (?) "[H _]"; iApply "H"].  }
+    iIntros (v) "$ //".
   Qed.
 
   Lemma sem_typed_closure_to_unrestricted x e τ ρ κ Γ₁ Γ₂ :
@@ -186,6 +198,26 @@ Section compatibility.
     iIntros "He".
     iApply sem_typed_sub_env; [|iApply "He"].
     eapply env_le_trans; apply env_le_swap_third.
+  Qed.
+
+  Lemma sem_typed_swap_fourth Γ₁ Γ₂ x y z z' e ρ τ₁ τ₂ τ₃ τ₄ κ :
+    ((z', τ₄) :: (x, τ₁) :: (y, τ₂) :: (z, τ₃) :: Γ₁ ⊨ e : ρ : κ ⊨ Γ₂) -∗ 
+    ((x, τ₁) :: (y, τ₂) :: (z, τ₃) :: (z', τ₄) :: Γ₁ ⊨ e : ρ : κ ⊨ Γ₂).
+  Proof.
+    iIntros "He".
+    iApply sem_typed_sub_env; [|iApply "He"].
+    do 2 (eapply env_le_trans; [apply env_le_swap_fourth|]).
+    apply env_le_swap_fourth.
+  Qed.
+
+  Lemma sem_typed_contraction Γ₁ Γ₂ x e ρ τ κ :
+    copy_ty τ →
+    (x, τ) :: (x, τ) :: Γ₁ ⊨ e : ρ : κ ⊨ Γ₂ -∗ 
+    (x, τ) :: Γ₁ ⊨ e : ρ : κ ⊨ Γ₂.
+  Proof.
+    iIntros (?) "He".
+    iApply sem_typed_sub_env; 
+      [by apply env_le_copy_contraction|iApply "He"].
   Qed.
 
   Lemma sem_typed_weaken Γ₁ Γ₂ x e ρ τ κ :
@@ -415,7 +447,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_ufun Γ₁ Γ₂ f x e τ ρ κ:
-    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → x ≠ f →
+    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → match f with BNamed f => BNamed f ≠ x | BAnnon => True end →
     copy_env Γ₁ →
     (x, τ) ::? (f, τ -{ ρ }-> κ) ::? Γ₁ ⊨ e : ρ : κ ⊨ [] -∗
     Γ₁ ++ Γ₂ ⊨ (rec: f x :=  e) : ⟨⟩ : (τ -{ ρ }-> κ) ⊨ Γ₂.
@@ -447,7 +479,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_ufun_poly_rec Γ₁ Γ₂ f x e τ ρ κ:
-    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → x ≠ f →
+    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → match x with BNamed x => BNamed x ≠ f | BAnnon => True end →
     copy_env Γ₁ →
     (∀ ι, (x, τ ι) ::? (f, ∀T: α,, τ α -{ ρ α }-> κ α) ::? Γ₁ ⊨ e : ρ ι : κ ι ⊨ []) -∗
     Γ₁ ++ Γ₂ ⊨ (rec: f <> := λ: x, e) : ⟨⟩ : (∀T: α,, τ α -{ ρ α }-> κ α) ⊨ Γ₂.
@@ -458,7 +490,7 @@ Section compatibility.
     iDestruct "HΓ₁₂" as "[HΓ₁ $]".
     rewrite HcpyΓ₁. iDestruct "HΓ₁" as "#HΓ₁".
     iLöb as "IH".
-    iIntros (α). ewp_pure_steps.
+    iIntros (α) "!#". ewp_pure_steps.
     destruct f; destruct x; simpl; 
     ewp_pure_steps; iIntros (v ?) "!# _ Hτ";
     rewrite env_dom_nil /=; ewp_pure_steps.
@@ -813,13 +845,15 @@ Section compatibility.
   
   (* Type abstraction and application *)
   Lemma sem_typed_TLam Γ₁ Γ₂ ρ e C : 
+    copy_env Γ₁ →
     (∀ α, Γ₁ ⊨ e : ρ : C α ⊨ []) -∗
     Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀T: α , { ρ } , C α)%T ⊨ Γ₂.
   Proof.
-    iIntros "#He !# %Φ %vs HΓ₁₂ HΦ //=".
+    iIntros (Hcpy) "#He !# %Φ %vs HΓ₁₂ HΦ //=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
+    rewrite Hcpy. iDestruct "HΓ₁" as "#HΓ₁".
     ewp_pure_steps. iApply "HΦ". 
-    iIntros "{$HΓ₂} %α //=". ewp_pure_steps.
+    iIntros "{$HΓ₂} %α //= !#". ewp_pure_steps.
     iApply ("He" with "HΓ₁ []"). 
     iIntros (w) "[HC _] {$HC}".
   Qed.

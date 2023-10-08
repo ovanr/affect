@@ -83,7 +83,7 @@ Section list_generator.
               end)%V T us.
   Proof.
     iLöb as "IH" forall (xs us T).
-    iIntros "(%zs & %Hperm) [Hl Hrepr]". rewrite isGen_unfold /isGen_pre. 
+    iIntros "(%zs & %Hperm) [Hl Hrepr]". rewrite isGen_unfold /isGen_pre /ListMatch.
     ewp_pure_steps. ewp_bind_rule. iApply (ewp_load with "Hl").
     iIntros "!> Hl !> /=". rewrite /rec_unfold. destruct zs.
     - rewrite app_nil_r in Hperm. subst. rewrite drop_all.

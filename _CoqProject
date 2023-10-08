@@ -21,3 +21,4 @@ theories/case_studies/ghost.v
 theories/case_studies/iterator.v
 theories/case_studies/generator.v
 theories/case_studies/generator_iterator.v
+theories/case_studies/asynchronous.v
