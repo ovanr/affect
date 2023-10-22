@@ -227,6 +227,15 @@ Section compatibility.
     iApply sem_typed_sub_env; [apply env_le_weaken|iApply "He"].
   Qed.
 
+  Lemma sem_typed_frame Γ₁ e ρ x τ κ Γ₂:
+    Γ₁ ⊨ e : ρ : κ ⊨ Γ₂ -∗
+    (x, τ) :: Γ₁ ⊨ e : ρ : κ ⊨ (x, τ) :: Γ₂.
+  Proof.
+    iIntros "#He %Φ %vs !# (%v & %Hrw & Hτ & HΓ₁) HΦ".
+    iApply ("He" with "HΓ₁"). iIntros (w) "[Hκ HΓ₂]".
+    iApply "HΦ". solve_env.
+  Qed.
+
   (* λ-calculus rules *)
 
   Lemma sem_typed_afun_mult Γ₁ Γ₂ Δ₁ Δ₂ x e τ ρ κ: 
@@ -1028,22 +1037,6 @@ Section compatibility.
     iApply ewp_alloc. iIntros "!> %l Hl !>". iApply "HΦ"; solve_env.
   Qed.
   
-  Lemma sem_typed_alloc_cpy Γ₁ Γ₂ e ρ τ: 
-    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    Γ₁ ⊨ ref e : ρ : Refᶜ  τ ⊨ Γ₂.
-  Proof.
-    iIntros "#He !# %Φ %vs HΓ₁ HΦ //=".
-    iApply (ewp_bind [AllocCtx]); first done. simpl.
-    iApply ("He" with "HΓ₁").
-    iIntros (v) "[Hτ HΓ₂]".
-    iApply ewp_alloc. iIntros "!> %l Hl". 
-    iApply "HΦ". iFrame.
-    iMod (inv_alloc (tyN.@l) _
-       (∃ w, l ↦ w ∗ τ w)%I with "[Hl Hτ]") as "#Hinv".
-    { iExists v. by iFrame. }
-    iModIntro. iExists l. by auto.
-  Qed.
-
   Lemma sem_typed_load Γ x τ: 
     ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⊨ (x, Ref Moved) :: Γ).
   Proof.
@@ -1060,6 +1053,74 @@ Section compatibility.
     rewrite Hrw. iApply (ewp_load with "Hl").
     rewrite Hcpy. iDestruct "Hτ" as "#Hτ".
     iIntros "!> Hl !>". iApply "HΦ". solve_env.
+  Qed.
+
+  Lemma sem_typed_store Γ₁ Γ₂ x e ρ τ κ ι: 
+    (x, Ref τ) :: Γ₁ ⊨ e : ρ : ι ⊨ (x, Ref κ) :: Γ₂ -∗
+    (x, Ref τ) :: Γ₁ ⊨ (x <- e) : ρ : () ⊨ (x, Ref ι) :: Γ₂.
+  Proof.
+    iIntros "#He !# %Φ %vs //= HΓ₁' HΦ //=".
+    iApply (ewp_bind [StoreRCtx _]); first done. simpl.
+    iApply ("He" with "HΓ₁'").
+    iIntros (w) "[Hι [%v (%Hrw & (%l & -> & (% & Hl & Hκ)) & HΓ₂)]] /=". 
+    rewrite Hrw. iApply (ewp_store with "Hl"). 
+    iIntros "!> Hl !>". iApply "HΦ"; solve_env. 
+  Qed.
+
+  Lemma sem_typed_alloc_cpy Γ₁ Γ₂ e ρ τ: 
+    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ ref e : ρ : Refᶜ  τ ⊨ Γ₂.
+  Proof.
+    iIntros "#He !# %Φ %vs HΓ₁ HΦ //=".
+    iApply (ewp_bind [AllocCtx]); first done. simpl.
+    iApply ("He" with "HΓ₁").
+    iIntros (v) "[Hτ HΓ₂]".
+    iApply ewp_alloc. iIntros "!> %l Hl". 
+    iApply "HΦ". iFrame.
+    iMod (inv_alloc (tyN.@l) _
+       (∃ w, l ↦ w ∗ τ w)%I with "[Hl Hτ]") as "#Hinv".
+    { iExists v. by iFrame. }
+    iModIntro. iExists l. by auto.
+  Qed.
+
+  Lemma sem_typed_load_cpy Γ₁ Γ₂ e ρ τ: 
+    copy_ty τ →
+    Γ₁ ⊨ e : ρ : Refᶜ τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ !e : ρ : τ ⊨ Γ₂.
+  Proof.
+    iIntros (Hcpy) "#He %Φ %vs !# //= HΓ₁ HΦ".
+    iApply (ewp_bind [LoadCtx]); first done.
+    iApply ("He" with "HΓ₁").
+    iIntros (v) "[(%l & -> & Hinv) HΓ₂] /=".
+    iApply (ewp_atomic _ (⊤ ∖ ↑tyN.@l)).
+    iMod (inv_acc _ (tyN.@l) with "Hinv") as "[(%u & >Hl & Hτ) Hclose]"; first done.
+    iModIntro. iApply (ewp_load with "Hl").
+    iIntros "!> Hl !>". 
+    rewrite Hcpy. iDestruct "Hτ" as "#Hτ".
+    iMod ("Hclose" with "[Hl]"); solve_env.
+    iModIntro. iApply "HΦ". iFrame "∗#".
+  Qed.
+
+  Lemma sem_typed_store_cpy Γ₁ Γ₂ Γ₃ e₁ e₂ ρ τ: 
+    copy_ty τ →
+    Γ₂ ⊨ e₁ : ρ : Refᶜ τ ⊨ Γ₃ -∗
+    Γ₁ ⊨ e₂ : ρ : τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ (e₁ <- e₂) : ρ : () ⊨ Γ₃.
+  Proof.
+    iIntros (Hcpy) "#He₁ #He₂ %Φ %vs !# /= HΓ₁ HΦ /=".
+    iApply (ewp_bind [StoreRCtx _]); first done. simpl.
+    iApply ("He₂" with "HΓ₁").
+    iIntros (w) "[Hτ HΓ₂]". 
+    iApply (ewp_bind [StoreLCtx _]); first done. simpl.
+    iApply ("He₁" with "HΓ₂").
+    iIntros (u) "[(%l & -> & Hinv) HΓ₃]".
+    iApply (ewp_atomic _ (⊤ ∖ ↑tyN.@l)).
+    iMod (inv_acc _ (tyN.@l) with "Hinv") as "[(%u & >Hl & Hu) Hclose]"; first done.
+    iModIntro. iApply (ewp_store with "Hl"). 
+    iIntros "!> Hl !>".  
+    rewrite Hcpy. iDestruct "Hτ" as "#Hτ".
+    iMod ("Hclose" with "[Hl Hτ]"); solve_env.
+    iIntros "!>". iApply "HΦ"; solve_env.
   Qed.
 
   Lemma sem_typed_replace_cpy Γ₁ Γ₂ Γ₃ e₁ e₂ ρ τ: 
@@ -1081,18 +1142,6 @@ Section compatibility.
     iMod ("Hclose" with "[Hl Hτ]").
     { iExists w. iFrame. } 
     iIntros "!>". iApply "HΦ"; solve_env.
-  Qed.
-
-  Lemma sem_typed_store Γ₁ Γ₂ x e ρ τ κ ι: 
-    (x, Ref τ) :: Γ₁ ⊨ e : ρ : ι ⊨ (x, Ref κ) :: Γ₂ -∗
-    (x, Ref τ) :: Γ₁ ⊨ (x <- e) : ρ : () ⊨ (x, Ref ι) :: Γ₂.
-  Proof.
-    iIntros "#He !# %Φ %vs //= HΓ₁' HΦ //=".
-    iApply (ewp_bind [StoreRCtx _]); first done. simpl.
-    iApply ("He" with "HΓ₁'").
-    iIntros (w) "[Hι [%v (%Hrw & (%l & -> & (% & Hl & Hκ)) & HΓ₂)]] /=". 
-    rewrite Hrw. iApply (ewp_store with "Hl"). 
-    iIntros "!> Hl !>". iApply "HΦ"; solve_env. 
   Qed.
   
   (* Effect handling rules *)

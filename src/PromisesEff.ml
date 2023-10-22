@@ -11,10 +11,11 @@ type 'a promise = 'a status ref
 type _ Effect.t += 
         Async: (unit -> 'a) -> ('a promise) Effect.t
     |   Await: 'a promise -> 'a Effect.t
+    |   Yield: unit Effect.t
 
 let async (type a) (comp : unit -> a) : a promise = perform (Async comp)
 let await (type a) (prom : a promise) : a = perform (Await prom)
-let yield () : unit = await (async (fun () -> ()))
+let yield () : unit = perform Yield 
 
 let rec runner (type a) (main : unit -> a) : a =
 
@@ -45,6 +46,11 @@ let rec runner (type a) (main : unit -> a) : a =
                                 Done(x)  -> continue k x
                             |   Wait(ws) -> prom := Wait (k :: ws); next ()
                     )
+                |   Yield -> Some(
+                        fun (k: (a, _) continuation) ->
+                            Queue.add (continue k) q;
+                            next ()
+                    )
                 | _        -> None
         } in 
     let pmain = ref (Wait []) in
@@ -57,4 +63,11 @@ let sonnet18 () : unit =
     let prom3 = async (fun () -> await prom1; printf "summer's day ") in
     await prom2; await prom3
 
-let _ = runner sonnet18
+let sonnet18' () : unit = 
+    let prom1 = async (fun () -> printf "Shall I "; yield (); printf "compare thee ") in
+    let prom2 = async (fun () -> await prom1; printf "summer's day ") in
+    await prom1;
+    printf "to a ";
+    await prom2
+
+let _ = runner sonnet18'
