@@ -2,9 +2,9 @@
 From iris.proofmode Require Import base tactics.
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  tactics 
-                                  state_reasoning.
+From hazel.program_logic Require Import weakest_precondition 
+                                        tactics 
+                                        state_reasoning.
 
 (* Local imports *)
 From affine_tes.lib Require Import logic.
@@ -43,10 +43,12 @@ Section generator.
   Global Instance isGen_contractive : Contractive isGen_pre.
   Proof.
     intros ?????. rewrite /isGen_pre. intros ??.
-    apply ewp_contractive; try done. intros ?. destruct n; first done.
+    apply ewp_contractive; try done. intros ?. destruct n; [apply dist_later_0|]. 
     simpl in *. f_equiv. 
-    { do 3 f_equiv. by apply non_dep_fun_dist3. }
-    do 4 f_equiv; by apply non_dep_fun_dist3. 
+    { do 2 f_equiv. apply dist_later_S. f_equiv.
+      apply non_dep_fun_dist3. by rewrite -dist_later_S in H2. }
+    apply dist_later_S. do 4 f_equiv. apply non_dep_fun_dist3. 
+    by rewrite -dist_later_S in H2.
   Qed.
   
   Definition isGen : val -d> G A -d> list A -d> iPropO Σ := fixpoint isGen_pre.
@@ -90,7 +92,7 @@ Section list_generator.
       iDestruct "Hrepr" as "->". ewp_pure_steps. iSplitR "Hl"; first done.
       iApply "IH"; [iPureIntro; exists []; by rewrite app_nil_r|].
       iIntros "{$Hl} /=". by rewrite drop_all.
-    - subst. rewrite drop_app. ewp_pure_steps.
+    - subst. rewrite drop_app_length. ewp_pure_steps.
       iDestruct "Hrepr" as "(%x & %tl & %tlv & Hrepr & -> & Htl & Hgen)".
       rewrite -/(represents tlv).
       ewp_pure_steps. ewp_bind_rule. iApply (ewp_load with "Htl").
@@ -101,7 +103,7 @@ Section list_generator.
       iApply ("IH" with "[]").
       { iPureIntro. exists zs. by rewrite -app_assoc. }
       iIntros "{$Hl}". replace (us ++ a :: zs) with (us ++ [a] ++ zs) by done.
-      rewrite app_assoc. rewrite drop_app. iFrame.
+      rewrite app_assoc. rewrite drop_app_length. iFrame.
   Qed.
 
   Lemma list_gen_isGen `{Representable Σ A} (T : list A) xs :

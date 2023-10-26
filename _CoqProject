@@ -4,8 +4,10 @@
 
 theories/lib/base.v
 theories/lib/logic.v
+
 theories/lang/hazel.v
 theories/lang/subst_map.v
+
 theories/logic/iEff.v
 theories/logic/sem_def.v
 theories/logic/sem_types.v
@@ -16,9 +18,11 @@ theories/logic/tactics.v
 theories/logic/reasoning.v
 theories/logic/compatibility.v
 theories/logic/adequacy.v
+
 theories/case_studies/representable.v
 theories/case_studies/ghost.v
 theories/case_studies/iterator.v
 theories/case_studies/generator.v
 theories/case_studies/generator_iterator.v
 theories/case_studies/asynchronous.v
+theories/case_studies/state.v

@@ -10,11 +10,11 @@ From iris.proofmode Require Import base tactics.
 From iris.base_logic.lib Require Import iprop invariants.
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  tactics 
-                                  shallow_handler_reasoning 
-                                  deep_handler_reasoning 
-                                  state_reasoning.
+From hazel.program_logic Require Import weakest_precondition 
+                                        tactics 
+                                        shallow_handler_reasoning 
+                                        deep_handler_reasoning 
+                                        state_reasoning.
 
 (* Local imports *)
 From affine_tes.lib Require Import base.
@@ -78,7 +78,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_closure f x e τ ρ κ :
-    match f with BNamed f => BNamed f ≠ x | BAnnon => True end →
+    match f with BNamed f => BNamed f ≠ x | BAnon => True end →
     (x, τ) ::? (f, τ -{ ρ }-> κ) ::? [] ⊨ e : ρ : κ ⊨ [] -∗ 
     ⊨ᵥ (rec: f x := e) : (τ -{ ρ }-> κ).
   Proof.
@@ -456,7 +456,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_ufun Γ₁ Γ₂ f x e τ ρ κ:
-    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → match f with BNamed f => BNamed f ≠ x | BAnnon => True end →
+    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → match f with BNamed f => BNamed f ≠ x | BAnon => True end →
     copy_env Γ₁ →
     (x, τ) ::? (f, τ -{ ρ }-> κ) ::? Γ₁ ⊨ e : ρ : κ ⊨ [] -∗
     Γ₁ ++ Γ₂ ⊨ (rec: f x :=  e) : ⟨⟩ : (τ -{ ρ }-> κ) ⊨ Γ₂.
@@ -488,7 +488,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_ufun_poly_rec Γ₁ Γ₂ f x e τ ρ κ:
-    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → match x with BNamed x => BNamed x ≠ f | BAnnon => True end →
+    x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → match x with BNamed x => BNamed x ≠ f | BAnon => True end →
     copy_env Γ₁ →
     (∀ ι, (x, τ ι) ::? (f, ∀T: α,, τ α -{ ρ α }-> κ α) ::? Γ₁ ⊨ e : ρ ι : κ ι ⊨ []) -∗
     Γ₁ ++ Γ₂ ⊨ (rec: f <> := λ: x, e) : ⟨⟩ : (∀T: α,, τ α -{ ρ α }-> κ α) ⊨ Γ₂.
@@ -1152,7 +1152,7 @@ Section compatibility.
     Γ₁ ⊨ e : ρ : A τ ρ ⊨ Γ₂ -∗
     Γ₁ ⊨ (perform: e) : ρ : B τ ρ ⊨ Γ₂.
   Proof.
-    iIntros "#He !# %Φ %vs HΓ₁ HΦ //=". rewrite /rec_perform.
+    iIntros (ρ) "#He !# %Φ %vs HΓ₁ HΦ //=". rewrite /rec_perform.
     iApply (ewp_bind [AppRCtx _; DoCtx OS]); first done.
     iApply ("He" with "HΓ₁").
     iIntros (v) "[Hι HΓ₂] //=".
@@ -1263,7 +1263,7 @@ Section compatibility.
                                 effect k => w => h 
                               | return w => r end) : ρ' : τ' ⊨ Γ₃. 
   Proof.
-    iIntros (???????) "#He #Hh #Hr %Φ !# %vs HΓ₁Δ HΦ /=".
+    iIntros (???????) "%ρ #He #Hh #Hr %Φ !# %vs HΓ₁Δ HΦ /=".
     iDestruct (env_sem_typed_app with "HΓ₁Δ") as "[HΓ₁ HΔ]".
     rewrite subst_map_app_mult.
     iDestruct (subst_map_var with "HΔ") as "[%ws %Hrw]". 

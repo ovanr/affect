@@ -5,11 +5,11 @@ From iris.algebra Require Import excl_auth.
 
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  tactics 
-                                  shallow_handler_reasoning 
-                                  deep_handler_reasoning 
-                                  state_reasoning.
+From hazel.program_logic Require Import weakest_precondition 
+                                        tactics 
+                                        shallow_handler_reasoning 
+                                        deep_handler_reasoning 
+                                        state_reasoning.
 
 (* Local imports *)
 From affine_tes.lib Require Import base.
@@ -158,7 +158,7 @@ Section verification.
                 end)%V in
       isIterCont l γ us T -∗ isGen e T us.
     Proof. 
-      iLöb as "IH" forall (us).
+      simpl. iLöb as "IH" forall (us).
       iIntros "(%k & Hl & Hhand & Hk)".
       rewrite isGen_unfold /isGen_pre.
       ewp_pure_steps. ewp_bind_rule. iApply (ewp_load with "Hl").

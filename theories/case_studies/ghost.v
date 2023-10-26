@@ -1,7 +1,7 @@
 From stdpp Require Import list.
 
 (* Hazel Reasoning *)
-From program_logic Require Import state_reasoning.
+From hazel.program_logic Require Import state_reasoning.
 
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import excl_auth.

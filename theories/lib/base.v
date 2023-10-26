@@ -2,7 +2,7 @@
 From stdpp Require Import base gmap.
 From Coq Require Import String.
 
-From language Require Export eff_lang.
+From hazel.language Require Export eff_lang.
 
 Lemma app_singletons {A} (x y : A) : [x;y] = [x] ++ [y].
 Proof. done. Qed.
@@ -151,7 +151,7 @@ Proof.
   rewrite delete_list_cons. 
   specialize (IHxs H1).
   destruct (vs !! x) eqn:H'.
-  { by rewrite lookup_union_l. }
+  { by apply lookup_union_Some_l. }
   apply lookup_union_None; split; first done.
   rewrite -lookup_difference_delete_ne; last done.
   erewrite lookup_union_None in IHxs. tauto.

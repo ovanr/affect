@@ -2,7 +2,7 @@
 From iris.proofmode  Require Import tactics.
 From iris.base_logic Require Export lib.iprop.
 
-From program_logic Require Export protocols.
+From hazel.program_logic Require Export protocols.
 From affine_tes.lang Require Import hazel.
 
 

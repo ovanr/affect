@@ -2,8 +2,8 @@
 From iris.proofmode Require Import base tactics.
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  state_reasoning.
+From hazel.program_logic Require Import weakest_precondition 
+                                        state_reasoning.
 (* Local imports *)
 From affine_tes.lang Require Import hazel.
 

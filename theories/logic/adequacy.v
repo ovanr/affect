@@ -5,9 +5,9 @@ From stdpp Require Export gmap. (* Representation of the heap. *)
 
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  state_reasoning
-                                  tactics.
+From hazel.program_logic Require Import weakest_precondition 
+                                        state_reasoning
+                                        tactics.
 (* Local imports *)
 From affine_tes.lang Require Import hazel.
 From affine_tes.lang Require Import subst_map.
@@ -35,31 +35,32 @@ Proof.
   - rewrite ewp_unfold /ewp_pre wp_unfold /wp_pre /= Heqo Heqo0.
     iIntros "Hewp" (σ ns k ks nt) "Hs".
     iMod ("Hewp" $! σ ns k ks nt with "Hs") as "[$ H]". iModIntro.
-    iIntros (e2 σ2 efs Hstep).
+    iIntros (e2 σ2 efs Hstep) "Hcred".
     case k   as [|??]; [|done].
     case efs as [|??]; [|done].
     simpl in Hstep.
-    iMod ("H" with "[//]") as "H". iIntros "!> !>".
+    iMod ("H" with "[//] Hcred") as "H". iIntros "!> !>".
     simpl. iMod "H". iModIntro.
     iApply (step_fupdN_wand with "[H]"); first by iApply "H".
     iIntros "H". iMod "H" as "[$ Hewp]". iModIntro.
     by iSplit; [iApply "IH"|].
 Qed.
 
-Lemma eff_heap_adequacy s e σ φ :
+Lemma eff_heap_adequacy `{!heapGpreS Σ} s e σ φ :
   (∀ `{!heapGS Σ}, ⊢ WP e @ s; ⊤ {{ v, ⌜φ v⌝ }}) →
   adequate s e σ (λ v _, φ v).
 Proof.
-  intros Hwp; eapply (wp_adequacy _ _); iIntros (??) "".
+  intros Hwp; eapply (@wp_adequacy Σ _ _). 
+  intros ??. simpl.
   iMod (gen_heap_init σ.(heap)) as (?) "[Hh _]".
   iMod (inv_heap_init loc val) as (?) ">Hi".
-  iModIntro. iExists
+  iExists
       (λ σ κs, gen_heap_interp σ.(heap)),
       (λ _, True%I).
     iFrame. iApply (Hwp (HeapGS _ _ _ _)).
   Qed.
 
-Lemma eff_adequacy e σ φ :
+Lemma eff_adequacy `{!heapGpreS Σ} e σ φ :
   (∀ `{!heapGS Σ}, ⊢ EWP e <| ⊥ |> {{ v, ⌜φ v⌝ }}) →
   adequate NotStuck e σ (λ v _, φ v).
 Proof.
@@ -69,7 +70,7 @@ Proof.
   iApply ewp_imp_wp. iApply Hwp.
 Qed.
 
-Lemma eff_adequate_not_stuck e σ Φ :
+Lemma eff_adequate_not_stuck `{!heapGpreS Σ} e σ Φ :
   (∀ `{!heapGS Σ}, ⊢ EWP e <| ⊥ |> {{ Φ }}) →
   ∀ e' σ', rtc erased_step ([e], σ) ([e'], σ') → 
            not_stuck e' σ'.
@@ -100,7 +101,7 @@ Proof.
   iApply "He".
 Qed.
 
-Lemma sem_typed_adequacy e τ σ :
+Lemma sem_typed_adequacy `{!heapGpreS Σ} e τ σ :
   (∀ `{!heapGS Σ}, ⊢ ⊨ e : ⊥ : τ) →
   ∀ e' σ', rtc erased_step ([e], σ) ([e'], σ') → 
            not_stuck e' σ'.

@@ -3,11 +3,11 @@ From iris.proofmode Require Import base tactics.
 From iris.base_logic.lib Require Import iprop invariants.
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  tactics 
-                                  shallow_handler_reasoning 
-                                  deep_handler_reasoning 
-                                  state_reasoning.
+From hazel.program_logic Require Import weakest_precondition 
+                                        tactics 
+                                        shallow_handler_reasoning 
+                                        deep_handler_reasoning 
+                                        state_reasoning.
 
 (* Local imports *)
 From affine_tes.lib Require Import base.
@@ -122,7 +122,7 @@ Lemma ewp_app_mult' `{heapGS Σ} (z : string) κ ρ (Γ' : env Σ) vs e Φ :
   (EWP (subst_map (vs ∖ (delete (env_dom Γ) vs)) e) <| ρ |> {{ Φ }}) -∗
   EWP (λλ*: z, env_dom Γ', e)%V <_ map (subst_map vs ∘ Var) (env_dom Γ) _> <| ρ |> {{ Φ }}.
 Proof.
-  iIntros "#HΓ He". iInduction Γ' as [|[y τ] Γ''] "IH" forall (z e κ).
+  iIntros "/= #HΓ He". iInduction Γ' as [|[y τ] Γ''] "IH" forall (z e κ).
   - rewrite env_dom_cons /=. iDestruct "HΓ" as "[%m (%Hrw & _ & _)] /=". 
     rewrite Hrw delete_list_delete /= (difference_delete _ _ _ m); last done.
     rewrite map_difference_diag insert_empty env_dom_nil /=.
@@ -152,8 +152,8 @@ Proof.
         apply elem_of_cons. auto.
       * rewrite delete_list_singleton_ne; last done.
         apply map_eq. intros ?. destruct (decide (i = z)).
-        { subst. rewrite lookup_union_l; [|eapply mk_is_Some; apply lookup_singleton].
-          by rewrite lookup_singleton lookup_difference_delete. }
+        { subst. rewrite (lookup_union_Some_l _ _ _ m); last (apply lookup_insert).
+          symmetry. by rewrite lookup_difference_delete. }
         rewrite lookup_union_r; last (by eapply lookup_singleton_ne). 
         rewrite (lookup_difference_delete_ne z i vs (delete (y :: env_dom Γ'') vs)); auto.
 Qed.

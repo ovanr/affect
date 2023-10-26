@@ -13,8 +13,8 @@ From stdpp Require Import base gmap.
 
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  state_reasoning.
+From hazel.program_logic Require Import weakest_precondition 
+                                        state_reasoning.
 
 (* Local imports *)
 From affine_tes.lib Require Import base.

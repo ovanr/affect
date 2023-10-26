@@ -5,8 +5,8 @@ From iris.program_logic Require Import weakestpre.
 From stdpp Require Import base gmap.
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  state_reasoning.
+From hazel.program_logic Require Import weakest_precondition 
+                                        state_reasoning.
 
 (* Local imports *)
 From affine_tes.lib Require Import base.
@@ -123,7 +123,7 @@ Proof.
   rewrite -/env_sem_typed. 
   iSplitL "Hx"; [|by iApply "IH"].
   iExists m; iFrame; iPureIntro.
-  by rewrite lookup_union_l.
+  by apply lookup_union_Some_l.
 Qed.
 
 Lemma env_sem_typed_delete_union `{irisGS eff_lang Σ} Γ (Δ : env Σ) ws vs :

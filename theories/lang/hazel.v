@@ -9,15 +9,14 @@ From iris.algebra Require Import ofe.
 From iris.base_logic Require Export lib.iprop .
 From iris.program_logic Require Export language.
 From iris.proofmode Require Import base tactics classes.
-From program_logic Require Import weakest_precondition.
-From iris.heap_lang     Require Export locations.
+From iris.heap_lang Require Export locations.
 
 (* Hazel language *)
-From language Require Export eff_lang.
-From program_logic Require Import weakest_precondition 
-                                  basic_reasoning_rules
-                                  deep_handler_reasoning
-                                  state_reasoning.
+From hazel.language Require Export eff_lang.
+From hazel.program_logic Require Import weakest_precondition 
+                                        basic_reasoning_rules
+                                        deep_handler_reasoning
+                                        state_reasoning.
 
 From affine_tes.lib Require Export base.
 From affine_tes.lib Require Export logic.
@@ -210,7 +209,7 @@ Proof.
   intros Hval Heff Φ₁ Φ₂ HΦ. rewrite !ewp_unfold /ewp_pre /=.
   destruct (to_val e) eqn:?; [inversion Hval|].
   destruct (to_eff e) eqn:?; [inversion Heff|].
-  do 24 (f_contractive || f_equiv).
+  do 25 (f_contractive || f_equiv).
   apply HΦ.
 Qed.
 
@@ -231,8 +230,8 @@ Proof.
   - rewrite ewp_unfold {1}/ewp_pre Heqo Heqo0.
     iIntros (σ₁ ns κ κs nt) "Hσ₁". 
     iMod ("Hewp" $! σ₁ ns κ κs nt with "Hσ₁") as "[Hred Hewp]".
-    iIntros "!> {$Hred} %e₂ %σ₂ Hprim /=".
-    iSpecialize ("Hewp" $! e₂ σ₂ with "Hprim").
+    iIntros "!> {$Hred} %e₂ %σ₂ Hprim Hcred /=".
+    iSpecialize ("Hewp" $! e₂ σ₂ with "Hprim Hcred").
     iMod "Hewp" as "Hewp". iIntros "!> !>".
     iMod "Hewp" as "Hewp". iIntros "!>".
     iInduction (num_laters_per_step) as [|] "IH";

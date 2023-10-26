@@ -10,9 +10,9 @@ From iris.algebra Require Import ofe list.
 From iris.base_logic Require Export iprop upred invariants.
 
 (* Hazel Reasoning *)
-From program_logic Require Import weakest_precondition 
-                                  state_reasoning
-                                  protocols.
+From hazel.program_logic Require Import weakest_precondition 
+                                        state_reasoning
+                                        protocols.
 
 (* Local imports *)
 From affine_tes.lib Require Import logic.
@@ -101,7 +101,7 @@ Proof.
   rewrite (Hunfold x) (Hunfold y). clear Hunfold. rewrite /ewp_pre.
   destruct (to_val) eqn:Hval; first done. 
   destruct (to_eff) eqn:Heff; first done. rewrite -/ewp_pre. simpl.
-  do 21 (f_contractive || f_equiv).
+  do 22 (f_contractive || f_equiv).
   induction num_laters_per_step as [|k IHk]; simpl; last (by rewrite IHk).
   do 2 f_equiv. rewrite -/ewp_def.
   do 2 f_equiv. intros ?. do 2 f_equiv. by apply non_dep_fun_dist.
