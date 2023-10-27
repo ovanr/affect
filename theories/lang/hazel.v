@@ -75,9 +75,13 @@ Notation "'unfold:' e" := (rec_unfold e%E)
 
 Definition rec_perform : val := (λ: "x", "x")%V.
 
-Notation "'perform:' e" := (rec_perform (Do OS e%E))%E
+Notation "'perform:' e" := (rec_perform (Do OS (InjL e%E)))%E
   (at level 200, e at level 200,
    format "'[' 'perform:'  e ']'") : expr_scope.
+
+Notation "'performₘ:' e" := (rec_perform (Do MS (InjR e%E)))%E
+  (at level 200, e at level 200,
+   format "'[' 'performₘ:'  e ']'") : expr_scope.
 
 (** Notations for lists. *)
 Notation NIL := (InjL #()) (only parsing).
@@ -92,64 +96,32 @@ Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
   (e1, x, xs, e2, e1 at level 200,
    format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
 
-Fixpoint ctx_lambda (domΓ : list string) (e : expr) : expr := 
-  match domΓ with 
-    [] => e
-  | y :: domΓ' => (λ: y, ctx_lambda domΓ' e)%E 
-  end.
-
-Fixpoint ctx_lambda_val (domΓ : list string) (v : val) : val := 
-  match domΓ with 
-    [] => v
-  | y :: domΓ' => (λ: y, ctx_lambda_val domΓ' v)%V 
-  end.
-
-Notation "λ*: Γ , e" := (ctx_lambda Γ e)%E (at level 200) : expr_scope.
-Notation "λ*: Γ , v" := (ctx_lambda_val Γ v)%V (at level 200) : val_scope.
-
-Notation "λλ*: x , Γ , e" := (λ: x, (λ*: Γ, e))%E (at level 200) : expr_scope.
-Notation "λλ*: x , Γ , e" := (λ: x, (λ*: Γ, e) )%V (at level 200) : val_scope.
-
-Notation "λ*λ: Γ , x , e" := (λ*: Γ, (λ: x, e))%E (at level 200) : expr_scope.
-Notation "λ*λ: Γ , x , e" := (λ*: Γ, (λ: x, e))%V (at level 200) : val_scope.
-
-Notation "λλ*λ: x , Γ , y , e" := (λ: x, (λ*λ: Γ, y, e))%E (at level 200) : expr_scope.
-Notation "λλ*λ: x , Γ , y , e" := (λ: x, (λ*λ: Γ, y, e) )%V (at level 200) : val_scope.
-
-Fixpoint app_mult (e : expr) (es : list expr) : expr :=
-  match es with 
-    [] => e
-  | e' :: ees => app_mult (App e e') ees
-  end.
-
-(* Use the <_> notation to denote hidden argument application *)
-Notation "e '<_' es '_>'" := (app_mult e es)%E (at level 10) : expr_scope.
-
 Definition from_binder (b : binder) (e : expr) : expr :=
   match b with
     BAnon => e
   | BNamed x => Var x
   end.
 
-(* Transforms a function f of type `τ -{ ρ }-∘ () -{ ρ ; Γ₁; Γ₂ }-∘ κ`
-   to a function of type `τ -{ ρ ; Γ₁; Γ₂ }-∘ κ` *)
-Definition lambdas_norm (f x : string) (Γ : list string) : val :=
-   (λλ*λ: f, Γ, x, f x <_ map Var Γ _> #())%V.
+Definition select_on_sum : val := 
+  (λ: "e₁" "e₂" "v", 
+          match: "v" with
+            InjL "v" => "e₁" "v"
+          | InjR "v" => "e₂" "v"
+          end)%V.
 
-Definition RecStar f x Γ e := 
-  ((lambdas_norm f x Γ)
-    (rec: f x := λ*λ: Γ, <>, let: f := (lambdas_norm f x Γ) f in e%E))%E. 
+Definition ShallowTryDual e hos hms r :=
+  (TryWith e (select_on_sum hos hms) r)%E.
 
-Notation "rec*: f , Γ , x , e" := (RecStar f x Γ e) (at level 200) : expr_scope.
+Notation "'shallow-try-dual:' e 'effect' hos '|' 'effectₘ' hms '|' 'return' r 'end'" :=
+  (ShallowTryDual e hos hms r)
+  (e, hos, hms, r at level 200) : expr_scope.
 
-Definition DeepTryWithAlt e x k xs h y r :=
-  (DeepTryWith e
-      (λ: (BNamed x) (BNamed k), 
-        let: k := (lambdas_norm k x xs) k in h) (λ: y, r) <_ map Var xs _> #())%E.
+Definition DeepTryDual e hos hms r :=
+  (DeepTryWith e (select_on_sum hos hms) r)%E.
 
-Notation "'deep-try-alt:' e 'thread' xs 'with' 'effect' k => x => h '|' 'return' y => r 'end'" :=
-  (DeepTryWithAlt e x k xs h y r)
-  (e, h, k, x, y, r at level 200) : expr_scope.
+Notation "'deep-try-dual:' e 'effect' hos '|' 'effectₘ' hms '|' 'return' r 'end'" :=
+  (DeepTryDual e hos hms r)
+  (e, hos, hms, r at level 200) : expr_scope.
 
 Global Instance load_atomic (l : loc) :
   Atomic StronglyAtomic (Load $ Val $ LitV $ LitLoc l).

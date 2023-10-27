@@ -11,9 +11,8 @@ From iris.program_logic Require Import weakestpre.
 
 From stdpp Require Import base gmap.
 
-
 (* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
+From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
@@ -34,7 +33,8 @@ Delimit Scope sem_ty_scope with T.
 
 (** * Semantic Effect Signature. *)
 
-Notation sem_sig Σ := (iEff Σ).
+Notation sem_sig Σ := (iEff Σ)%type.
+Notation sem_sigs Σ := (sem_sig Σ * sem_sig Σ)%type.
 
 Declare Scope sem_sig_scope.
 Bind Scope ieff_scope with sem_sig.
@@ -65,7 +65,7 @@ the same variable occurs twice in Γ we get that:
   Then `vs` would still have only 1 value for the variable `l` so
   it would be impossible to provide env_typed proof.
 
-*) 
+*)
 
 Canonical Structure stringO := leibnizO string.
 
@@ -108,27 +108,26 @@ Global Opaque env_sem_typed.
  * from the environment Γ.
  *)
 Definition sem_typed `{!irisGS eff_lang Σ}
-  (Γ₁  : env Σ)
-  (e  : expr)
-  (ρ  : sem_sig Σ)
-  (τ  : sem_ty Σ) 
-  (Γ₂  : env Σ) : iProp Σ :=
-    tc_opaque( □ (∀ Φ (vs : gmap string val),
+  (Γ₁ : env Σ)
+  (e : expr)
+  (ρs : sem_sigs Σ)
+  (τ : sem_ty Σ) 
+  (Γ₂ : env Σ) : iProp Σ :=
+    tc_opaque (□ (∀ (vs : gmap string val),
                     env_sem_typed Γ₁ vs -∗ 
-                    (∀ v, τ v ∗ env_sem_typed Γ₂ vs -∗ Φ v) -∗ 
-                    EWP (subst_map vs e) <| ρ |> {{ v, Φ v }}))%I.
+                    EWP (subst_map vs e) <| fst ρs |> {| snd ρs |} {{ v, τ v ∗ env_sem_typed Γ₂ vs }}))%I.
 
-Global Instance sem_typed_persistent `{!irisGS eff_lang Σ} (Γ Γ' : env Σ) e ρ τ :
-  Persistent (sem_typed Γ e ρ τ Γ').
+Global Instance sem_typed_persistent `{!irisGS eff_lang Σ} (Γ Γ' : env Σ) e ρs τ :
+  Persistent (sem_typed Γ e ρs τ Γ').
 Proof.
   unfold sem_typed, tc_opaque. apply _.
 Qed.
 
-Notation "Γ₁ ⊨ e : ρ : α ⊨ Γ₂" := (sem_typed Γ₁ e%E ρ%R α%T Γ₂)
-  (at level 74, e, ρ, α at next level) : bi_scope.
+Notation "Γ₁ ⊨ e : ρs : α ⊨ Γ₂" := (sem_typed Γ₁ e%E ρs%R α%T Γ₂)
+  (at level 74, e, ρs, α at next level) : bi_scope.
 
-Notation "⊨ e : ρ : α" := (sem_typed [] e%E ρ%R α%T [])
-  (at level 74, e, ρ, α at next level) : bi_scope.
+Notation "⊨ e : ρs : α" := (sem_typed [] e%E ρs%R α%T [])
+  (at level 74, e, ρs, α at next level) : bi_scope.
 
 (* The value semantic typing judgement is also defined
  * to be persistent, so only persistent values hold for it.
@@ -160,3 +159,4 @@ Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
 
 Notation "ρ '≤R' ρ'" := (sig_le ρ%R ρ'%R) (at level 98).
 
+Notation "ρs '≤Rs' ρs'" := (sig_le (fst ρs%R) (fst ρs'%R) ∧ sig_le (snd ρs%R) (snd ρs'%R)) (at level 98).

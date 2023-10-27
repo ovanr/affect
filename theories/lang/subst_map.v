@@ -140,26 +140,6 @@ Proof.
   destruct H0. by exists x.
 Qed.
 
-Lemma subst_map_ctx_lambda domΓ e vs :
-  subst_map vs (λ*: domΓ, e)%E = (λ*: domΓ, subst_map (delete domΓ vs) e)%E. 
-Proof.
-  revert vs. induction domΓ; simpl; first done.
-  intros vs. f_equal.
-  specialize (IHdomΓ (delete a vs)). 
-  by rewrite -delete_list_commute in IHdomΓ.
-Qed.
-
-Lemma subst_map_app_mult e es vs :
-  subst_map vs (e <_ es _>)%E = ((subst_map vs e) <_ (map (subst_map vs) es) _>)%E.
-Proof.
-  revert e. induction es; first done.
-  intros e. simpl. apply (IHes (e a)).
-Qed.
-
-Corollary subst_map_app_mult_val (v : val) es vs :
-  subst_map vs (v <_ es _>)%E = (v <_ map (subst_map vs) es _>)%E.
-Proof. apply subst_map_app_mult. Qed.
-
 Lemma subst_map_union vs ws e :
   subst_map ws (subst_map vs e) = subst_map (vs ∪ ws) e.
 Proof.

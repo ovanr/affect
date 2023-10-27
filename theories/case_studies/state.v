@@ -17,7 +17,6 @@ From affine_tes.lang Require Import hazel.
 From affine_tes.logic Require Import sem_def.
 From affine_tes.logic Require Import sem_env.
 From affine_tes.logic Require Import sem_types.
-From affine_tes.logic Require Import reasoning.
 From affine_tes.logic Require Import sem_sub_typing.
 From affine_tes.logic Require Import sem_operators.
 From affine_tes.logic Require Import compatibility.

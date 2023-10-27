@@ -40,24 +40,57 @@ Section sub_typing.
     iApply iEff_le_trans; [iApply Hρ₁₂|iApply Hρ₂₃]. 
   Qed.
   
+  Lemma sigs_le_refl (ρs : sem_sigs Σ) :
+    ρs ≤Rs ρs.
+  Proof. destruct ρs. split; apply sig_le_refl. Qed.
+
+  Lemma sigs_le_trans (ρs₁ ρs₂ ρs₃ : sem_sigs Σ) :
+      ρs₁ ≤Rs ρs₂ →
+      ρs₂ ≤Rs ρs₃ →
+      ρs₁ ≤Rs ρs₃. 
+  Proof. 
+    intros Hρs₁₂ Hρs₂₃.
+    destruct ρs₁, ρs₂, ρs₃, Hρs₁₂, Hρs₂₃. split; by eapply sig_le_trans.
+  Qed.
+
   Lemma sig_le_nil (ρ : sem_sig Σ) :
-    ⟨⟩ ≤R ρ.
-  Proof. iApply iEff_le_bottom. Qed.
+    sem_sig_nil ≤R ρ.
+  Proof. apply iEff_le_bottom. Qed.
+
+  Lemma sigs_le_nil (ρs : sem_sigs Σ) :
+    (⟨⟩ : sem_sigs Σ) ≤Rs ρs.
+  Proof. split; apply sig_le_nil. Qed.
   
+  Lemma sigs_le_comp (ρ₁ ρ₂ ρ₁' ρ₂' : sem_sig Σ) :
+    ρ₁ ≤R ρ₁' →
+    ρ₂ ≤R ρ₂' →
+    ⟨ ρ₁, ρ₂ ⟩ ≤Rs ⟨ ρ₁', ρ₂' ⟩.
+  Proof. intros ??. auto. Qed.
+
+  Lemma sigs_le_os (ρ ρ' : sem_sig Σ) :
+    ρ ≤R ρ' →
+    (⟨ ρ , ⟩ : sem_sigs Σ) ≤Rs (⟨ ρ', ⟩ : sem_sigs Σ).
+  Proof. intros ?. split; first auto. apply sig_le_nil. Qed.
+
+  Lemma sigs_le_ms (ρ ρ' : sem_sig Σ) :
+    ρ ≤R ρ' →
+    (⟨ , ρ ⟩ : sem_sigs Σ) ≤Rs (⟨ , ρ' ⟩ : sem_sigs Σ).
+  Proof. intros ?. split; last auto. apply sig_le_nil. Qed.
+
   Lemma sig_le_eff_non_rec (ι₁ ι₂ κ₁ κ₂ : sem_ty Σ -n> sem_ty Σ) :
     (∀ α, ι₁ α ≤T ι₂ α) →
     (∀ α, κ₂ α ≤T κ₁ α) →
     (∀μTS: _ , α , ι₁ α ⇒ κ₁ α) ≤R (∀μTS: _ , α , ι₂ α ⇒ κ₂ α).
   Proof.
     iIntros (Hι₁₂ Hκ₂₁ v Φ) "!#".
-    iPoseProof (sem_sig_eff_rec_eq (λ α _, ι₂ α) (λ α _, κ₂ α) v Φ) as "[_ Hrw]".
+    iPoseProof (sem_sig_eff_rec_eq OS (λ α _, ι₂ α) (λ α _, κ₂ α) v Φ) as "[_ Hrw]".
     iIntros "Hμ₁". iApply "Hrw".
-    iPoseProof (sem_sig_eff_rec_eq (λ α _, ι₁ α) (λ α _, κ₁ α) v Φ) as "[Hrw' _]".
-    iDestruct ("Hrw'" with "Hμ₁") as "(%α & %w & -> & Hι₁ & HκΦ₁)".
-    iExists α, v; iSplitR; first done.
+    iPoseProof (sem_sig_eff_rec_eq OS (λ α _, ι₁ α) (λ α _, κ₁ α) v Φ) as "[Hrw' _]".
+    iDestruct ("Hrw'" with "Hμ₁") as "(%α & %w & <- & Hι₁ & HκΦ₁)".
+    iExists α, w; iSplitR; first done.
     iSplitL "Hι₁".
     { iNext. by iApply Hι₁₂. }
-    iIntros (b) "Hκ₂". iApply "HκΦ₁".
+    simpl. iIntros (b) "Hκ₂". iApply "HκΦ₁".
     iNext. by iApply Hκ₂₁.
   Qed.
 
@@ -90,6 +123,10 @@ Section sub_typing.
     iApply Hτ₂₃. by iApply Hτ₁₂.
   Qed.
   
+  Lemma ty_le_bot (τ : sem_ty Σ) :
+    ⊥ ≤T τ.
+  Proof. iIntros (?) "[]". Qed.
+
   Lemma ty_le_cpy (τ : sem_ty Σ) :
     copy_ty τ →
     τ ≤T '! τ.
@@ -99,93 +136,42 @@ Section sub_typing.
     ('! τ) ≤T τ.
   Proof. iIntros (v) "#$". Qed.
 
-  Lemma ty_le_u2suarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) (Γ₁ Γ₂ : env Σ) :
-    (τ -{ ρ ; Γ₁ ; Γ₂ }-> κ) ≤T (τ >-{ ρ ; Γ₁ ; Γ₂ }-∘ κ).
+  Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (ρs : sem_sigs Σ) :
+    (τ -{ ρs }-> κ) ≤T (τ -{ ρs }-∘ κ).
   Proof.
-    iIntros (v) "#Hτκ".
-    iLöb as "IH".
-    rewrite {2}sem_ty_suarr_unfold.
-    iIntros (w vs) "HΓ₁ Hτ /=".
-    iApply (ewp_mono _ _ (λ v0, (κ v0 ∗ ⟦ Γ₂ ⟧ vs) ∗ (τ >-{ ρ; Γ₁; Γ₂ }-∘ κ)%T v)%I  with "[HΓ₁ Hτ]");
-      last (iIntros (?) "[[$ $] $] !> //").
-    iApply (ewp_frame_later_r with "[Hτ HΓ₁ Hτκ]").
-    { iApply ("Hτκ" with "HΓ₁ Hτ"). }
-    iIntros "!> {$IH}". 
+    iIntros (v) "#Hτκ". iIntros (w) "Hτ /=".
+    iApply (ewp_pers_mono with "[Hτ Hτκ]"); [by iApply "Hτκ"|].
+    iIntros "!# % $ //=".
   Qed.
 
-  Lemma ty_le_su2aarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) (Γ₁ Γ₂ : env Σ) :
-    (τ >-{ ρ; Γ₁; Γ₂ }-∘ κ) ≤T (τ -{ ρ; Γ₁; Γ₂ }-∘ κ).
-  Proof.
-    iIntros "%v Hτκ %w %vs HΓ₁ Hτ". 
-    rewrite sem_ty_suarr_unfold.
-    iApply (ewp_mono with "[Hτκ HΓ₁ Hτ]").
-    { iApply ("Hτκ" $! w vs with "HΓ₁ Hτ"). }
-    iIntros "%u /= [$ [$ _]] !> //".
-  Qed.
-  
-  Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (ρ : sem_sig Σ) (Γ₁ Γ₂ : env Σ) :
-    (τ -{ ρ ; Γ₁; Γ₂ }-> κ) ≤T (τ -{ ρ ; Γ₁; Γ₂ }-∘ κ).
-  Proof.
-    eapply ty_le_trans; [apply ty_le_u2suarr|apply ty_le_su2aarr].
-  Qed.
-
-  Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_sig Σ) (Γ₁ Γ₂ Γ₁' Γ₂' : env Σ) :
-    ρ ≤R ρ' →
+  Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρs ρs' : sem_sigs Σ) :
+    ρs ≤Rs ρs' →
     τ₂ ≤T τ₁ →
     κ₁ ≤T κ₂ →
-    Γ₁' ≤E Γ₁ →
-    Γ₂ ≤E Γ₂' →
-    env_dom Γ₁ = env_dom Γ₁' →
-    (τ₁ -{ ρ ; Γ₁ ; Γ₂ }-∘ κ₁) ≤T (τ₂ -{ ρ' ; Γ₁' ; Γ₂' }-∘ κ₂).
+    (τ₁ -{ ρs }-∘ κ₁) ≤T (τ₂ -{ ρs' }-∘ κ₂).
   Proof.
-    iIntros (Hρ Hτ₂₁ Hκ₁₂ HΓ₁'Γ₁ HΓ₂Γ₂' Heq v) "Hτκ₁ %w %vs HΓ₁' Hτ".
-    iApply ewp_os_prot_mono; [iApply Hρ|].
-    rewrite -Heq HΓ₁'Γ₁ Hτ₂₁.
-    iApply (ewp_mono with "[Hτκ₁ Hτ HΓ₁']").
-    { iApply ("Hτκ₁" $! w vs with "HΓ₁' Hτ"). }
-    iIntros (u) "Hu !>". by rewrite Hκ₁₂ HΓ₂Γ₂'.
+    iIntros ([Hρ₁ Hρ₂] Hτ₂₁ Hκ₁₂ v) "Hτκ₁ %w Hτ".
+    iApply ewp_os_prot_mono; [iApply Hρ₁|].
+    iApply ewp_ms_prot_mono; [iApply Hρ₂|].
+    iApply (ewp_pers_mono with "[Hτκ₁ Hτ]").
+    { iApply ("Hτκ₁" with "[Hτ]"); by rewrite Hτ₂₁. }
+    iIntros "!# % Hκ !>". by rewrite Hκ₁₂.
   Qed.
   
-  Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_sig Σ) (Γ₁ Γ₂ Γ₁' Γ₂' : env Σ) :
-    ρ ≤R ρ' →
+  Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρs ρs' : sem_sigs Σ) :
+    ρs ≤Rs ρs' →
     τ₂ ≤T τ₁ →
     κ₁ ≤T κ₂ →
-    Γ₁' ≤E Γ₁ → 
-    Γ₂ ≤E Γ₂' →
-    env_dom Γ₁ = env_dom Γ₁' →
-    (τ₁ -{ ρ ; Γ₁ ; Γ₂ }-> κ₁) ≤T (τ₂ -{ ρ' ; Γ₁' ; Γ₂' }-> κ₂).
+    (τ₁ -{ ρs }-> κ₁) ≤T (τ₂ -{ ρs' }-> κ₂).
   Proof.
-    iIntros (Hρ Hτ₂₁ Hκ₁₂ HΓ₁'Γ₁ HΓ₂Γ₂' Heq v) "#Hτκ₁ %w !# %ws HΓ₁' Hτ₂".
-    iApply ewp_os_prot_mono; [iApply Hρ|].
-    rewrite -!Heq !HΓ₁'Γ₁ Hτ₂₁.
-    iApply (ewp_mono with "[Hτκ₁ HΓ₁' Hτ₂]").
-    { iApply ("Hτκ₁" with "HΓ₁' Hτ₂"). }
-    iIntros (u) "[Hκ₁ HΓ₂] !>". rewrite HΓ₂Γ₂' -Hκ₁₂. iFrame.
+    iIntros ([Hρ₁ Hρ₂] Hτ₂₁ Hκ₁₂ v) "#Hτκ₁ %w !# Hτ₂".
+    iApply ewp_os_prot_mono; [iApply Hρ₁|].
+    iApply ewp_ms_prot_mono; [iApply Hρ₂|].
+    iApply (ewp_pers_mono with "[Hτκ₁ Hτ₂]").
+    { iApply ("Hτκ₁" with "[Hτ₂]"); by rewrite Hτ₂₁. }
+    iIntros "!# % Hκ !>". by rewrite Hκ₁₂.
   Qed.
   
-  Lemma ty_le_suarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_sig Σ) (Γ₁ Γ₂ Γ₁' Γ₂' : env Σ) :
-    ρ ≤R ρ' →
-    τ₂ ≤T τ₁ →
-    κ₁ ≤T κ₂ →
-    Γ₁' ≤E Γ₁ → 
-    Γ₂ ≤E Γ₂' →
-    env_dom Γ₁ = env_dom Γ₁' →
-    (τ₁ >-{ ρ ; Γ₁ ; Γ₂  }-∘ κ₁) ≤T (τ₂ >-{ ρ' ; Γ₁' ; Γ₂' }-∘ κ₂).
-  Proof.
-    iIntros (Hρ Hτ₂₁ Hκ₁₂ HΓ₁'Γ₁ HΓ₂Γ₂' ? v) "Hτκ₁". 
-    iLöb as "IH".
-    iApply sem_ty_suarr_unfold.
-    simpl. iIntros (w vs) "HΓ₁' Hτ₂ /=". 
-    iApply ewp_os_prot_mono; [iApply Hρ|]. 
-    rewrite HΓ₁'Γ₁ Hτ₂₁. rewrite -H.
-    iApply (ewp_mono with "[Hτκ₁ HΓ₁' Hτ₂]").
-    - rewrite {2}sem_ty_suarr_unfold /=.
-      iSpecialize ("Hτκ₁" $! w vs with "HΓ₁' Hτ₂").
-      iApply (ewp_frame_later_r with "Hτκ₁ IH").
-    - iIntros (u) "[(Hκ₁ & HΓ₂ & Hτκ₁) Hτκ₂] !>".
-      rewrite Hκ₁₂ HΓ₂Γ₂'. iFrame. by iApply "Hτκ₂".
-  Qed.
-
   Lemma ty_le_ref (τ₁ τ₂ : sem_ty Σ) :
     τ₁ ≤T τ₂ →
     (Ref τ₁) ≤T (Ref τ₂).
@@ -221,25 +207,25 @@ Section sub_typing.
     (Option τ₁) ≤T (Option τ₂).
   Proof. intros ?. by apply ty_le_sum. Qed.
 
-  Lemma ty_le_forall ρ₁ ρ₂ (τ₁ τ₂ : sem_ty Σ → sem_sig Σ → sem_ty Σ) :
-    ρ₁ ≤R ρ₂ →
-    (∀ α, τ₁ α ρ₁ ≤T τ₂ α ρ₂) →
-    (∀T: α, { ρ₁ }, τ₁ α ρ₁)%T ≤T (∀T: α, { ρ₂ }, τ₂ α ρ₂).
+  Lemma ty_le_forall ρs₁ ρs₂ (τ₁ τ₂ : sem_ty Σ → sem_sigs Σ → sem_ty Σ) :
+    ρs₁ ≤Rs ρs₂ →
+    (∀ α, τ₁ α ρs₁ ≤T τ₂ α ρs₂) →
+    (∀T: α, ρs₁ , τ₁ α ρs₁)%T ≤T (∀T: α, ρs₂ , τ₂ α ρs₂).
   Proof.
-    iIntros (Hρ₁₂ Hτ₁₂ v) "#Hτ₁ %τ !#". unfold sem_ty_forall.
-    iApply ewp_os_prot_mono; [iApply Hρ₁₂|].
-    iApply (ewp_mono with "[Hτ₁]").
-    { iApply "Hτ₁". }
-    iIntros (w) "Hw !>". by iApply Hτ₁₂.
+    iIntros ([Hρ₁ Hρ₂] Hτ₁₂ v) "#Hτ₁ %τ !#". unfold sem_ty_forall.
+    iApply ewp_os_prot_mono; [iApply Hρ₁|].
+    iApply ewp_ms_prot_mono; [iApply Hρ₂|].
+    iApply (ewp_pers_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
+    iIntros "!# % Hτ !>". by iApply Hτ₁₂.
   Qed.
 
-  Lemma ty_le_sig_forall (τ₁ τ₂ : sem_sig Σ → sem_ty Σ) :
+  Lemma ty_le_sig_forall (τ₁ τ₂ : sem_sigs Σ → sem_ty Σ) :
     (∀ θ, τ₁ θ ≤T τ₂ θ) →
     (∀S: θ, τ₁ θ) ≤T (∀S: θ, τ₂ θ).
   Proof.
     iIntros (Hτ₁₂ v) "Hτ₁ %ρ".
-    iApply (ewp_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
-    iIntros (u) "Hτ₁ !>".
+    iApply (ewp_pers_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
+    iIntros "!# % Hτ₁ !>".
     iApply (Hτ₁₂ ρ with "Hτ₁").
   Qed.
 
@@ -343,6 +329,17 @@ Section sub_typing.
     by apply H.
   Qed.
 
+  Lemma env_le_swap_env_singl Γ x τ : 
+    (x, τ) :: Γ ≤E Γ ++ [(x, τ)].
+  Proof.
+    induction Γ as [|[y κ] Γ'].
+    { solve_env. }
+    rewrite -app_comm_cons.
+    eapply env_le_trans; [apply env_le_swap_second|].
+    apply env_le_cons; last done.
+    apply IHΓ'.
+  Qed.
+
   Lemma env_le_weaken Γ x τ :
     (x, τ) :: Γ ≤E Γ.
   Proof. iIntros (?) "[% (? & ? & $)]". Qed.
@@ -372,7 +369,7 @@ Section copyable_types.
   Lemma copy_ty_cpy τ : copy_ty ('! τ).
   Proof. solve_copy. Qed.
 
-  Lemma copy_ty_uarr τ ρ κ Γ₁ Γ₂ : copy_ty (τ -{ ρ ; Γ₁ ; Γ₂ }-> κ).
+  Lemma copy_ty_uarr τ ρ κ : copy_ty (τ -{ ρ }-> κ).
   Proof. solve_copy. Qed.
   
   Lemma copy_ty_prod τ κ : copy_ty τ → copy_ty κ → copy_ty (τ × κ).
@@ -381,7 +378,7 @@ Section copyable_types.
   Lemma copy_ty_sum τ κ : copy_ty τ → copy_ty κ → copy_ty (τ + κ).
   Proof. by solve_copy. Qed.
 
-  Lemma copy_ty_forall C ρ : copy_ty (∀T: α, {ρ}, C α).
+  Lemma copy_ty_forall C ρs : copy_ty (∀T: α, ρs , C α).
   Proof. by solve_copy. Qed.
 
   Lemma copy_ty_ref τ : copy_ty (Refᶜ τ).
@@ -395,8 +392,9 @@ Section copyable_types.
 
   Lemma copy_ty_rec τ `{NonExpansive τ}: 
     (∀ α, copy_ty (τ α)) → copy_ty (μT: α, τ α).
-  Proof. iIntros (H v). rewrite sem_ty_rec_unfold.
-         solve_copy. apply H. 
+  Proof. 
+    iIntros (H v). rewrite sem_ty_rec_unfold.
+    solve_copy. apply H. 
   Qed.
 
   Lemma copy_ty_list τ : copy_ty τ → copy_ty (List τ).

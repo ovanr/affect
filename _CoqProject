@@ -15,7 +15,6 @@ theories/logic/sem_env.v
 theories/logic/sem_sub_typing.v
 theories/logic/sem_operators.v
 theories/logic/tactics.v
-theories/logic/reasoning.v
 theories/logic/compatibility.v
 theories/logic/adequacy.v
 
