@@ -30,11 +30,12 @@ From affine_tes.case_studies Require Import ghost.
 Definition yield := (λ: "x", perform: "x")%V.
 Definition generate :=
   (λ: "i", let: "yield" := yield in
-           let: "cont" := ref (λ: <>, "i" <_> "yield") in
+           let: "cont" := refᶜ (λ: <>, "i" <_> "yield") in
            λ: <>, let: "comp" := Load "cont" in 
-             shallow-try: "comp" #() with
+             shallow-try-dual: "comp" #()
                 effect λ: "w" "k", "cont" <- "k" ;; SOME "w"
-             | return λ: "w", "cont" <- (λ: <>,  #()) ;; NONE
+             |  effectₘ λ: "w" "k", "w"
+             |  return λ: "w", "cont" <- (λ: <>,  #()) ;; NONE
              end
   )%V.
 

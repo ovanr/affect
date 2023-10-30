@@ -385,7 +385,7 @@ Section compatibility.
     iIntros "!# % $ !> //=".
   Qed.
 
-  Lemma sem_typed_app_alt Γ₁ Γ₂ Γ₃ (x₁ x₂ : string) e₁ e₂ τ ρs κ: 
+  Lemma sem_typed_app_ms Γ₁ Γ₂ Γ₃ (x₁ x₂ : string) e₁ e₂ τ ρs κ: 
     x₂ ∉ env_dom Γ₂ → x₂ ∉ env_dom Γ₃ → 
     x₁ ∉ env_dom Γ₃ → x₁ ≠ x₂ →
     copy_ty τ → copy_env Γ₃ →
@@ -646,6 +646,14 @@ Section compatibility.
     rewrite {1}Hcpy. iDestruct "HΓ₂" as "#HΓ₂".
     iIntros "!# % HC !>". iFrame "#∗".
   Qed.
+
+  Lemma sem_typed_TApp_os Γ₁ Γ₂ (x : string) e ρ τ C :
+    x ∉ env_dom Γ₂ → 
+    Γ₁ ⊨ e : ⟨ρ,⟩ : (∀T: α , ⟨ρ,⟩ , C α) ⊨ Γ₂ -∗
+    Γ₁ ⊨ e <_> : ⟨ρ,⟩ : C τ ⊨ Γ₂. 
+  Proof.
+    iIntros (?) "#He". 
+    iApply sem_typed_TApp.
 
   Lemma sem_typed_TApp_os Γ₁ Γ₂ (x : string) e ρ τ C :
     x ∉ env_dom Γ₂ → 

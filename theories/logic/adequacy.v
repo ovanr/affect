@@ -21,7 +21,7 @@ From affine_tes.logic Require Import sem_types.
 Context `{!heapGS Σ}.
 
 Lemma ewp_imp_wp `{!irisGS eff_lang Σ} e Φ :
- EWP e <| ⊥ |> {{ v, Φ v }} ⊢ WP e @ NotStuck; ⊤ {{ Φ }}.
+ EWP e {{ v, Φ v }} ⊢ WP e @ NotStuck; ⊤ {{ Φ }}.
 Proof. 
   iLöb as "IH" forall (e).
   destruct (to_val e) as [ v    |] eqn:?; [|
@@ -71,7 +71,7 @@ Proof.
 Qed.
 
 Lemma eff_adequate_not_stuck `{!heapGpreS Σ} e σ Φ :
-  (∀ `{!heapGS Σ}, ⊢ EWP e <| ⊥ |> {{ Φ }}) →
+  (∀ `{!heapGS Σ}, ⊢ EWP e {{ Φ }}) →
   ∀ e' σ', rtc erased_step ([e], σ) ([e'], σ') → 
            not_stuck e' σ'.
 Proof.
@@ -87,8 +87,8 @@ Proof.
   set_solver.
 Qed.
 
-Lemma sem_typed_ewp e τ ρ:
-  (∀ `{heapGS Σ}, ⊨ e : ρ : τ -∗ EWP e <| ρ |> {{ τ }}). 
+Lemma sem_typed_ewp e τ ρs:
+  (∀ `{heapGS Σ}, ⊨ e : ρs : τ -∗ EWP e <| ρs.1 |> {| ρs.2 |} {{ τ }}). 
 Proof.
   iIntros (?) "He". unfold sem_typed. simpl.
   iAssert (emp)%I as "Hemp"; first done.
@@ -96,18 +96,18 @@ Proof.
   { iIntros (?) "[H _] {$H}". }
   pose (@empty (@gmap string string_eq_dec string_countable val)
           (@gmap_empty string string_eq_dec string_countable val)) as Hempty. 
-  iSpecialize ("He" $! τ Hempty with "Hemp Himp"). 
-  rewrite (subst_map_empty e).
-  iApply "He".
+  iSpecialize ("He" $! ∅ with "[]"); first done. 
+  rewrite (subst_map_empty e). 
+  iApply (ewp_pers_mono with "[He]"); [iApply "He"|iIntros "!# % [$ _] //="].
 Qed.
 
 Lemma sem_typed_adequacy `{!heapGpreS Σ} e τ σ :
-  (∀ `{!heapGS Σ}, ⊢ ⊨ e : ⊥ : τ) →
+  (∀ `{!heapGS Σ}, ⊢ ⊨ e : ⟨⟩%R : τ) →
   ∀ e' σ', rtc erased_step ([e], σ) ([e'], σ') → 
            not_stuck e' σ'.
 Proof.
   intros He. 
   apply (eff_adequate_not_stuck _ _ τ).
   iIntros (?) "". 
-  iApply sem_typed_ewp. iApply He.
+  iApply (sem_typed_ewp _ _ ⟨⟩%R). iApply He.
 Qed.

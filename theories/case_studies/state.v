@@ -31,7 +31,7 @@ Definition fact : val :=
 
 Definition fact_ref : val :=
   (λ: "n", let: "store" := ref #1 in
-           deep-try: (fact "n") with
+            deep-try-dual: (fact "n")
               effect (λ: "x" "k",
                 match: "x" with 
                   InjL <> => 
@@ -41,10 +41,11 @@ Definition fact_ref : val :=
                     (* put effect *)
                     "store" <- "s" ;; "k" (Load "store") 
                 end)%E
+            | effectₘ (λ: "x" "k", "x")
             | return (λ: "x", Load "store")%E end)%V.
 
 Definition fact_st : val :=
-  (λ: "n", deep-try: (fact "n") with
+  (λ: "n", deep-try-dual: (fact "n")
               effect (λ: "x" "k",
                 match: "x" with 
                   InjL <> => 
@@ -54,19 +55,20 @@ Definition fact_st : val :=
                     (* put effect *) 
                     (λ: <>, "k" "s" "s")%E
                 end)%E
+            | effectₘ (λ: "x" "k", "x")
             | return (λ: "x", (λ: "y", "y")%V)%E end #1)%V.
 
 Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition stsig := (∀μTS: θ , α, (@sem_ty_unit Σ) + ℤ ⇒ ℤ)%R.  
+  Definition stsig := ⟨∀μTS: θ , α, (@sem_ty_unit Σ) + ℤ ⇒ ℤ, @sem_sig_nil Σ⟩%R.  
 
   Lemma get_typed :
     ⊢ ⊨ᵥ get : (() -{ stsig }-> ℤ).
   Proof.
     iIntros. iApply sem_typed_closure; solve_sidecond.
-    simpl. iApply (sem_typed_perform _ _ _ () with "[]").
+    simpl. iApply (sem_typed_perform_os _ _ _ () with "[]").
     simpl. iApply sem_typed_left_inj. 
     iApply sem_typed_sub_nil. iApply sem_typed_unit.
   Qed.
@@ -77,7 +79,7 @@ Section typing.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. iApply (sem_typed_seq _ []);
       last (iApply sem_typed_sub_nil; iApply sem_typed_unit).
-    iApply (sem_typed_perform _ _ _ () with "[]").
+    iApply (sem_typed_perform_os _ _ _ () with "[]").
     simpl. iApply sem_typed_right_inj. 
     iApply sem_typed_sub_nil. iApply sem_typed_var.
   Qed.
@@ -96,19 +98,19 @@ Section typing.
       iApply sem_typed_var. }
     iApply sem_typed_seq.
     - iApply sem_typed_contraction; solve_sidecond.
-      iApply sem_typed_frame.
+      iApply sem_typed_frame_os.
       iApply sem_typed_swap_second.
-      iApply sem_typed_frame.
-      iApply sem_typed_app.
+      iApply sem_typed_frame_os.
+      iApply (sem_typed_app _ _ []); first solve_sidecond.
       { iApply sem_typed_sub_nil. iApply sem_typed_val. iApply put_typed. }
       iApply sem_typed_bin_op; 
         [constructor| |iApply sem_typed_sub_nil;iApply sem_typed_var].
-      iApply sem_typed_app; 
+      iApply sem_typed_app; first solve_sidecond; 
         last (iApply sem_typed_sub_nil; iApply sem_typed_unit).
       iApply sem_typed_sub_nil; iApply sem_typed_val.
       iApply get_typed.
     - iApply (sem_typed_app _ [("fact", _)]); 
-        [iApply sem_typed_sub_ty; [apply ty_le_u2aarr|];
+        [solve_copy|iApply sem_typed_sub_ty; [apply ty_le_u2aarr|];
          iApply sem_typed_sub_nil; iApply sem_typed_var|].
       iApply sem_typed_sub_nil.
       iApply sem_typed_bin_op; 
@@ -125,15 +127,15 @@ Section typing.
     rewrite app_singletons.
     set A := (λ (α : sem_ty Σ) (θ : sem_sig Σ), (@sem_ty_unit Σ) + ℤ)%T.
     set B := (λ (_ : sem_ty Σ) (_ : sem_sig Σ), @sem_ty_int Σ)%T.
-    iApply (sem_typed_deep_try _ _ [] _ _ _ _ _ _ ⟨⟩%R A B); solve_sidecond.
+    iApply (sem_typed_deep_try_os _ [] _ _ _ _ _ _ _ A B _ ()); solve_sidecond.
     { rewrite /A /B -/stsig. 
-      iApply sem_typed_app; iApply sem_typed_sub_nil; 
+      iApply sem_typed_app; first solve_copy; iApply sem_typed_sub_nil; 
       last (iApply sem_typed_var).
       iApply sem_typed_val. iApply fact_typed. }
     - iIntros (?). rewrite /A /B.
       iApply (sem_typed_match _ [("k", _); ("store", _)]); 
         solve_sidecond; [iApply sem_typed_var| |]; simpl.
-      + iApply sem_typed_app; [iApply sem_typed_var|].
+      + iApply sem_typed_app; first solve_copy; [iApply sem_typed_var|].
         iApply (sem_typed_load_cpy _ _ _ _ ℤ); solve_sidecond.
         iApply sem_typed_swap_second. iApply sem_typed_var.
       + iApply sem_typed_swap_third. iApply sem_typed_contraction; solve_sidecond.
@@ -141,7 +143,7 @@ Section typing.
         iApply (sem_typed_seq _ [("store", _); ("k", _)]). 
         { iApply (sem_typed_store_cpy _ _ _ _ _ _ ℤ); 
             solve_sidecond; iApply sem_typed_var. }
-        iApply sem_typed_app; [iApply sem_typed_var|].
+        iApply sem_typed_app; [solve_copy|iApply sem_typed_var|].
         iApply (sem_typed_load_cpy _ _ _ _ ℤ); solve_sidecond.
         iApply sem_typed_var.
     - simpl. iApply sem_typed_weaken. iApply sem_typed_load_cpy; solve_sidecond.
@@ -152,13 +154,13 @@ Section typing.
     ⊢ ⊨ᵥ fact_st : (ℤ → ℤ).
   Proof.
     iIntros. iApply sem_typed_closure; solve_sidecond.
-    simpl. iApply sem_typed_app; [|iApply sem_typed_int].
+    simpl. iApply sem_typed_app; [solve_copy| |iApply sem_typed_int].
     set A := (λ (α : sem_ty Σ) (θ : sem_sig Σ), (@sem_ty_unit Σ) + ℤ)%T.
     set B := (λ (_ : sem_ty Σ) (_ : sem_sig Σ), @sem_ty_int Σ)%T.
     rewrite - {1} (app_nil_r [("n", ℤ)]).
-    iApply (sem_typed_deep_try _ _ [] _ _ _ _ _ _ ⟨⟩%R A B); solve_sidecond.
+    iApply (sem_typed_deep_try_os _ [] _ _ _ _ _ _ _ A B); solve_sidecond.
     { rewrite /A /B -/stsig. 
-      iApply sem_typed_app; iApply sem_typed_sub_nil; 
+      iApply sem_typed_app; first solve_copy; iApply sem_typed_sub_nil; 
       last (iApply sem_typed_var).
       iApply sem_typed_val. iApply fact_typed. }
     - iIntros (?). rewrite /A /B.
@@ -167,12 +169,12 @@ Section typing.
       + rewrite - {1} (app_nil_r [("k", _)]).
         iApply sem_typed_afun; solve_sidecond. simpl.
         iApply sem_typed_contraction; solve_sidecond.
-        do 2 (iApply sem_typed_app; [|iApply sem_typed_var]).
+        do 2 (iApply sem_typed_app; [solve_copy| |iApply sem_typed_var]).
         iApply sem_typed_var.
       + rewrite - {1} (app_nil_r [("s", _); ("k", _)]).
         iApply sem_typed_afun; solve_sidecond. simpl.
         iApply sem_typed_contraction; solve_sidecond.
-        do 2 (iApply sem_typed_app; [|iApply sem_typed_var]).
+        do 2 (iApply sem_typed_app; [solve_copy| |iApply sem_typed_var]).
         iApply sem_typed_var.
     - simpl. iApply sem_typed_weaken.
       iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
