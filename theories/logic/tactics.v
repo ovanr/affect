@@ -69,3 +69,9 @@ Ltac solve_sidecond :=
     solve_dom; 
     solve_disjoint;
     solve_copy.
+
+Ltac solve_dec := 
+    ((rewrite decide_True; last (done || split; eauto; intros ?; by simplify_eq)) ||
+     (rewrite decide_False; last (done || intros []; by simplify_eq))); 
+    simpl.
+
