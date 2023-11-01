@@ -31,7 +31,7 @@ Definition fact : val :=
 
 Definition fact_ref : val :=
   (λ: "n", let: "store" := ref #1 in
-            deep-try-dual: (fact "n")
+            deep-try-os: (fact "n") with
               effect (λ: "x" "k",
                 match: "x" with 
                   InjL <> => 
@@ -41,11 +41,10 @@ Definition fact_ref : val :=
                     (* put effect *)
                     "store" <- "s" ;; "k" (Load "store") 
                 end)%E
-            | effectₘ (λ: "x" "k", "x")
             | return (λ: "x", Load "store")%E end)%V.
 
 Definition fact_st : val :=
-  (λ: "n", deep-try-dual: (fact "n")
+  (λ: "n", deep-try-os: (fact "n") with
               effect (λ: "x" "k",
                 match: "x" with 
                   InjL <> => 
@@ -55,14 +54,13 @@ Definition fact_st : val :=
                     (* put effect *) 
                     (λ: <>, "k" "s" "s")%E
                 end)%E
-            | effectₘ (λ: "x" "k", "x")
             | return (λ: "x", (λ: "y", "y")%V)%E end #1)%V.
 
 Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition stsig := ⟨∀μTS: θ , α, (@sem_ty_unit Σ) + ℤ ⇒ ℤ, @sem_sig_nil Σ⟩%R.  
+  Definition stsig := ⟨μ∀TS: θ , α, (@sem_ty_unit Σ) + ℤ ⇒ ℤ, @sem_sig_nil Σ⟩%R.  
 
   Lemma get_typed :
     ⊢ ⊨ᵥ get : (() -{ stsig }-> ℤ).
@@ -127,6 +125,7 @@ Section typing.
     rewrite app_singletons.
     set A := (λ (α : sem_ty Σ) (θ : sem_sig Σ), (@sem_ty_unit Σ) + ℤ)%T.
     set B := (λ (_ : sem_ty Σ) (_ : sem_sig Σ), @sem_ty_int Σ)%T.
+
     iApply (sem_typed_deep_try_os _ [] _ _ _ _ _ _ _ A B _ ()); solve_sidecond.
     { rewrite /A /B -/stsig. 
       iApply sem_typed_app; first solve_copy; iApply sem_typed_sub_nil; 

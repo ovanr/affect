@@ -80,7 +80,7 @@ Section sub_typing.
   Lemma sig_le_eff_non_rec (ι₁ ι₂ κ₁ κ₂ : sem_ty Σ -n> sem_ty Σ) :
     (∀ α, ι₁ α ≤T ι₂ α) →
     (∀ α, κ₂ α ≤T κ₁ α) →
-    (∀μTS: _ , α , ι₁ α ⇒ κ₁ α) ≤R (∀μTS: _ , α , ι₂ α ⇒ κ₂ α).
+    (μ∀TS: _ , α , ι₁ α ⇒ κ₁ α) ≤R (μ∀TS: _ , α , ι₂ α ⇒ κ₂ α).
   Proof.
     iIntros (Hι₁₂ Hκ₂₁ v Φ) "!#".
     iPoseProof (sem_sig_eff_rec_eq OS (λ α _, ι₂ α) (λ α _, κ₂ α) v Φ) as "[_ Hrw]".
@@ -93,23 +93,6 @@ Section sub_typing.
     simpl. iIntros (b) "Hκ₂". iApply "HκΦ₁".
     iNext. by iApply Hκ₂₁.
   Qed.
-
-  (* Lemma sig_le_eff_rec (ι₁ ι₂ κ₁ κ₂ : sem_sig Σ -d> sem_ty Σ) *) 
-  (*   `{ NonExpansive ι₁, NonExpansive ι₂, NonExpansive κ₁, NonExpansive κ₂ } : *)
-  (*   (∀ ρ ρ', ρ ≤R ρ' → ι₁ ρ ≤T ι₂ ρ') → *)
-  (*   (∀ ρ ρ', ρ ≤R ρ' → κ₂ ρ' ≤T κ₁ ρ) → *)
-  (*   (μS: α, ι₁ α ⇒ κ₁ α) ≤R (μS: α, ι₂ α ⇒ κ₂ α). *)
-  (* Proof. *)
-  (*   iIntros (Hι₁₂ Hκ₂₁). iLöb as "IH". *)
-  (*   iIntros (v Φ) "!#". *) 
-  (*   rewrite !sem_sig_eff_rec_eq. *)
-  (*   iIntros "(%w & -> & Hι₁ & HκΦ₁)". *)
-  (*   iExists v; iSplitR; first done. *)
-  (*   iSplitL "Hι₁". *)
-  (*   { iNext. admit. iApply Hι₁₂. } *)
-  (*   iIntros (b) "Hκ₂". iApply "HκΦ₁". *)
-  (*   iNext. by iApply Hκ₂₁. *)
-  (* Qed. *)
 
   Lemma ty_le_refl (τ : sem_ty Σ) : τ ≤T τ.
   Proof. done. Qed.

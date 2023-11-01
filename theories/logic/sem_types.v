@@ -227,10 +227,10 @@ Notation "⟨⟩" := (sem_sig_nil, sem_sig_nil) : sem_sig_scope.
 Notation "⟨ ρ , ρ' ⟩" := (ρ%R, ρ'%R) : sem_sig_scope.
 Notation "⟨ ρ , ⟩" := (ρ%R, sem_sig_nil) : sem_sig_scope.
 Notation "⟨ , ρ' ⟩" := (sem_sig_nil, ρ'%R) : sem_sig_scope.
-Notation "'∀μTS:' θ , α , τ ⇒ κ" := (sem_sig_eff_rec OS (λ α θ, τ%T) (λ α θ, κ%T))
+Notation "'μ∀TS:' θ , α , τ ⇒ κ" := (sem_sig_eff_rec OS (λ α θ, τ%T) (λ α θ, κ%T))
   (at level 100, τ, κ at level 200) : sem_sig_scope.
 
-Notation "'∀μTSₘ:' θ , α , τ ⇒ κ" := (sem_sig_eff_rec MS (λ α θ, τ%T) (λ α θ, κ%T))
+Notation "'μ∀TSₘ:' θ , α , τ ⇒ κ" := (sem_sig_eff_rec MS (λ α θ, τ%T) (λ α θ, κ%T))
   (at level 100, τ, κ at level 200) : sem_sig_scope.
 
 Notation "⊥" := sem_ty_void : sem_ty_scope.
