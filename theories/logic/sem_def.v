@@ -150,9 +150,7 @@ Definition copy_env `{!heapGS Σ} Γ :=
 (* Sub-typing and relations *)
 
 Definition ty_le {Σ} (A B : sem_ty Σ) := ∀ v, A v ⊢ B v.
-Definition sig_le `{irisGS eff_lang Σ} (ρ ρ' : sem_sig Σ) :=
-  ⊢ (□ (∀ (v : val) (Φ : val -d> iPropO Σ), (|={⊤}=> iEff_car ρ v Φ) -∗ |={⊤}=> iEff_car ρ' v Φ))%I.
-
+Definition sig_le {Σ} (ρ ρ' : sem_sig Σ) := ⊢ iEff_le ρ ρ'.
 Definition env_le `{!heapGS Σ} Γ₁ Γ₂ :=
   ∀ vs, ⟦ Γ₁ ⟧ vs ⊢ ⟦ Γ₂ ⟧ vs.
 

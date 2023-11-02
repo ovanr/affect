@@ -29,7 +29,7 @@ Section sub_typing.
   Context `{!heapGS Σ}.
 
   Lemma sig_le_refl (ρ : sem_sig Σ) : ρ ≤R ρ.
-  Proof. iIntros "%% !# $ !> //=". Qed.
+  Proof. iApply iEff_le_refl. Qed.
   
   Lemma sig_le_trans (ρ₁ ρ₂ ρ₃: sem_sig Σ) : 
       ρ₁ ≤R ρ₂ →
@@ -37,12 +37,7 @@ Section sub_typing.
       ρ₁ ≤R ρ₃. 
   Proof. 
     intros Hρ₁₂ Hρ₂₃. 
-    iIntros "%% !# Hρ₁".
-    iDestruct Hρ₁₂ as "#Hρ₁₂".
-    iSpecialize ("Hρ₁₂" $! v Φ with "Hρ₁").
-    iMod "Hρ₁₂" as "Hρ₁₂". 
-    iDestruct Hρ₂₃ as "#Hρ₂₃".
-    iSpecialize ("Hρ₂₃" $! v Φ with "Hρ₁₂"). done.
+    iApply iEff_le_trans; [iApply Hρ₁₂|iApply Hρ₂₃]. 
   Qed.
   
   Lemma sigs_le_refl (ρs : sem_sigs Σ) :
@@ -58,19 +53,9 @@ Section sub_typing.
     destruct ρs₁, ρs₂, ρs₃, Hρs₁₂, Hρs₂₃. split; by eapply sig_le_trans.
   Qed.
 
-  Lemma sig_eff_bot_iEff_bot `{!irisGS eff_lang Σ}:
-    (μ∀TS: _ , _ , ⊥ ⇒ ⊥) ≤R iEff_bottom.
-  Proof.
-    iIntros "!# %v %Φ".
-    rewrite sem_sig_eff_rec_eq.
-    iIntros "H". iMod "H" as "(% & % & ? & HPre & HPost) /=".
-    rewrite /sem_ty_void. iMod "HPre" as "HPre".
-    iDestruct "HPre" as ">HPre". iIntros "!> //=".
-  Qed.
-
   Lemma sig_le_nil (ρ : sem_sig Σ) :
     sem_sig_nil ≤R ρ.
-  Proof. iIntros "%% !# H". iMod "H" as "[]". Qed.
+  Proof. apply iEff_le_bottom. Qed.
 
   Lemma sigs_le_nil (ρs : sem_sigs Σ) :
     (⟨⟩ : sem_sigs Σ) ≤Rs ρs.
@@ -101,12 +86,11 @@ Section sub_typing.
     iPoseProof (sem_sig_eff_rec_eq OS (λ α _, ι₂ α) (λ α _, κ₂ α) v Φ) as "[_ Hrw]".
     iIntros "Hμ₁". iApply "Hrw".
     iPoseProof (sem_sig_eff_rec_eq OS (λ α _, ι₁ α) (λ α _, κ₁ α) v Φ) as "[Hrw' _]".
-    iMod "Hμ₁" as "Hμ₁".
     iDestruct ("Hrw'" with "Hμ₁") as "(%α & %w & <- & Hι₁ & HκΦ₁)".
     iExists α, w; iSplitR; first done.
     iSplitL "Hι₁".
-    { iMod "Hι₁" as "Hι₁". iIntros "!>!>". by iApply Hι₁₂. }
-    simpl. iIntros "!>". iIntros (b) "Hκ₂". iApply "HκΦ₁".
+    { iNext. by iApply Hι₁₂. }
+    simpl. iIntros (b) "Hκ₂". iApply "HκΦ₁".
     iNext. by iApply Hκ₂₁.
   Qed.
 
@@ -143,57 +127,15 @@ Section sub_typing.
     iIntros "!# % $ //=".
   Qed.
 
-  Lemma sig_le_upcl m ρ₁ ρ₂ : (ρ₁ ≤R ρ₂ → (upcl m ρ₁) ≤R (upcl m ρ₂))%ieff.
-  Proof.
-    iIntros (Hρ₁₂ v Φ) "!# H". iMod "H" as "[%Φ' [HΨ1 HΦ']]".
-    iExists Φ'. iDestruct Hρ₁₂ as "#Hρ₁₂".
-    iSpecialize ("Hρ₁₂" $! v Φ').
-    iSplitL "HΨ1"; [by iApply "Hρ₁₂"|].
-    by iApply (bi.intuitionistically_if_mono with "HΦ'").
-  Qed.
-
-  Lemma ewp_pers_smono_r ρs₁ ρs₂ Φ Φ' e :
-      (ρs₁ ≤Rs ρs₂)%R →
-      (|={⊤}=> EWP e <| ρs₁.1 |> {| ρs₁.2 |} {{ Φ }}) -∗
-                   □ (∀ v, Φ v ={⊤}=∗ Φ' v) -∗
-      |={⊤}=> EWP e <| ρs₂.1 |> {| ρs₂.2 |} {{ Φ' }}.
-  Proof. 
-      iIntros ([Hρ₁ Hρ₂]) "He #HΦ".
-      iLöb as "IH" forall (e).
-      destruct (to_val e) as [ v         |] eqn:?;
-    [|destruct (to_eff e) as [((m, v), k)|] eqn:?].
-    - rewrite !ewp_unfold /ewp_pre Heqo.
-      iApply ("HΦ" with "[> -]"). iMod "He". done. 
-    - rewrite -(of_to_eff _ _ _ _ Heqo0).
-      destruct m; [rewrite -!ewp_eff_os_eq|rewrite -!ewp_eff_ms_eq]; 
-      [iApply sig_le_upcl; first (apply Hρ₁)|iApply sig_le_upcl; first (apply Hρ₂)].
-      { iApply (monotonic_prot with "[HΦ] He").
-      [iApply (monotonic_prot with "[HΦ] He")| iApply (pers_monotonic_prot with "[] He"); iModIntro];
-      iIntros (w) "Hk"; iNext. 
-      { iApply 
-
-      iApply ("IH" with "[Hk]").
-    - rewrite !ewp_unfold /ewp_pre Heqo Heqo0.
-      iIntros (σ₁ ns k ks nt) "Hσ".
-      iMod (fupd_mask_subseteq E) as "Hclose"; first done.
-      iMod ("He" with "[$]") as "[$ H]".
-      iModIntro. iIntros (e₂ σ₂ Hstep) "Hcred".
-      iMod ("H" with "[//] Hcred") as "H". iIntros "!> !>".
-      iMod "H". iModIntro.
-      iApply (step_fupdN_wand with "[H]"); first by iApply "H".
-      iIntros ">($ & H)". iMod "Hclose" as "_". iModIntro.
-      iApply ("IH" with "H").
-  Qed.
-
   Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρs ρs' : sem_sigs Σ) :
     ρs ≤Rs ρs' →
     τ₂ ≤T τ₁ →
     κ₁ ≤T κ₂ →
     (τ₁ -{ ρs }-∘ κ₁) ≤T (τ₂ -{ ρs' }-∘ κ₂).
   Proof.
-    iIntros (Hρsle Hτ₂₁ Hκ₁₂ v) "Hτκ₁ %w Hτ".
-    iApply fupd_ewp. 
-    iApply (ewp_pers_smono_r with "[Hτκ₁ Hτ]"); [apply Hρsle| |iIntros "!# % H //= $H"].
+    iIntros ([Hρ₁ Hρ₂] Hτ₂₁ Hκ₁₂ v) "Hτκ₁ %w Hτ".
+    iApply ewp_os_prot_mono; [iApply Hρ₁|].
+    iApply ewp_ms_prot_mono; [iApply Hρ₂|].
     iApply (ewp_pers_mono with "[Hτκ₁ Hτ]").
     { iApply ("Hτκ₁" with "[Hτ]"); by rewrite Hτ₂₁. }
     iIntros "!# % Hκ !>". by rewrite Hκ₁₂.
@@ -205,9 +147,9 @@ Section sub_typing.
     κ₁ ≤T κ₂ →
     (τ₁ -{ ρs }-> κ₁) ≤T (τ₂ -{ ρs' }-> κ₂).
   Proof.
-    iIntros (Hρsle Hτ₂₁ Hκ₁₂ v) "#Hτκ₁ %w !# Hτ₂".
-    iApply fupd_ewp. 
-    iApply (ewp_pers_smono_r with "[Hτκ₁ Hτ₂]"); [apply Hρsle| |iIntros "!# % H //= $H"].
+    iIntros ([Hρ₁ Hρ₂] Hτ₂₁ Hκ₁₂ v) "#Hτκ₁ %w !# Hτ₂".
+    iApply ewp_os_prot_mono; [iApply Hρ₁|].
+    iApply ewp_ms_prot_mono; [iApply Hρ₂|].
     iApply (ewp_pers_mono with "[Hτκ₁ Hτ₂]").
     { iApply ("Hτκ₁" with "[Hτ₂]"); by rewrite Hτ₂₁. }
     iIntros "!# % Hκ !>". by rewrite Hκ₁₂.
@@ -253,9 +195,9 @@ Section sub_typing.
     (∀ α, τ₁ α ρs₁ ≤T τ₂ α ρs₂) →
     (∀T: α, ρs₁ , τ₁ α ρs₁)%T ≤T (∀T: α, ρs₂ , τ₂ α ρs₂).
   Proof.
-    iIntros (Hρsle Hτ₁₂ v) "#Hτ₁ %τ !#". unfold sem_ty_forall.
-    iApply fupd_ewp. 
-    iApply (ewp_pers_smono_r with "[Hτ₁]"); [apply Hρsle| |iIntros "!# % H //= $H"].
+    iIntros ([Hρ₁ Hρ₂] Hτ₁₂ v) "#Hτ₁ %τ !#". unfold sem_ty_forall.
+    iApply ewp_os_prot_mono; [iApply Hρ₁|].
+    iApply ewp_ms_prot_mono; [iApply Hρ₂|].
     iApply (ewp_pers_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
     iIntros "!# % Hτ !>". by iApply Hτ₁₂.
   Qed.
