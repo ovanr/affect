@@ -60,7 +60,7 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition stsig := ⟨μ∀TS: θ , α, (@sem_ty_unit Σ) + ℤ ⇒ ℤ, @sem_sig_nil Σ⟩%R.  
+  Definition stsig := ⟨μ∀TS: _ , _, (@sem_ty_unit Σ) + ℤ ⇒ ℤ, @sem_sig_nil Σ⟩%R.  
 
   Lemma get_typed :
     ⊢ ⊨ᵥ get : (() -{ stsig }-> ℤ).
@@ -123,10 +123,10 @@ Section typing.
     { iApply sem_typed_alloc_cpy. iApply sem_typed_int. }
     iApply sem_typed_swap_second.
     rewrite app_singletons.
-    set A := (λ (α : sem_ty Σ) (θ : sem_sig Σ), (@sem_ty_unit Σ) + ℤ)%T.
-    set B := (λ (_ : sem_ty Σ) (_ : sem_sig Σ), @sem_ty_int Σ)%T.
-
-    iApply (sem_typed_deep_try_os _ [] _ _ _ _ _ _ _ A B _ ()); solve_sidecond.
+    set A := (λ (_ : sem_sig Σ) (_ : sem_ty Σ), (@sem_ty_unit Σ) + ℤ)%T.
+    set B := (λ (_ : sem_sig Σ) (_ : sem_ty Σ), @sem_ty_int Σ)%T.
+    iApply sem_typed_sub_env_final; [apply env_le_weaken|].
+    iApply (sem_typed_deep_try_os' _ [] _ "x" _ _ _ _ A B ℤ _ (@sem_sig_nil Σ) with "[] [] []"); solve_sidecond.
     { rewrite /A /B -/stsig. 
       iApply sem_typed_app; first solve_copy; iApply sem_typed_sub_nil; 
       last (iApply sem_typed_var).
@@ -136,7 +136,11 @@ Section typing.
         solve_sidecond; [iApply sem_typed_var| |]; simpl.
       + iApply sem_typed_app; first solve_copy; [iApply sem_typed_var|].
         iApply (sem_typed_load_cpy _ _ _ _ ℤ); solve_sidecond.
-        iApply sem_typed_swap_second. iApply sem_typed_var.
+        iApply sem_typed_swap_second. 
+        iApply sem_typed_contraction; solve_sidecond.
+        iApply sem_typed_swap_third. 
+        iApply sem_typed_swap_second. 
+        iApply sem_typed_var.
       + iApply sem_typed_swap_third. iApply sem_typed_contraction; solve_sidecond.
         iApply sem_typed_swap_third.
         iApply (sem_typed_seq _ [("store", _); ("k", _)]). 
@@ -144,8 +148,12 @@ Section typing.
             solve_sidecond; iApply sem_typed_var. }
         iApply sem_typed_app; [solve_copy|iApply sem_typed_var|].
         iApply (sem_typed_load_cpy _ _ _ _ ℤ); solve_sidecond.
+        iApply sem_typed_contraction; solve_sidecond.
+        iApply sem_typed_swap_third. 
+        iApply sem_typed_swap_second. 
         iApply sem_typed_var.
     - simpl. iApply sem_typed_weaken. iApply sem_typed_load_cpy; solve_sidecond.
+      iApply sem_typed_contraction; solve_sidecond.
       iApply sem_typed_var.
   Qed.
 
@@ -154,10 +162,10 @@ Section typing.
   Proof.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. iApply sem_typed_app; [solve_copy| |iApply sem_typed_int].
-    set A := (λ (α : sem_ty Σ) (θ : sem_sig Σ), (@sem_ty_unit Σ) + ℤ)%T.
-    set B := (λ (_ : sem_ty Σ) (_ : sem_sig Σ), @sem_ty_int Σ)%T.
+    set A := (λ (_ : sem_sig Σ) (_ : sem_ty Σ), (@sem_ty_unit Σ) + ℤ)%T.
+    set B := (λ (_ : sem_sig Σ) (_ : sem_ty Σ), @sem_ty_int Σ)%T.
     rewrite - {1} (app_nil_r [("n", ℤ)]).
-    iApply (sem_typed_deep_try_os _ [] _ _ _ _ _ _ _ A B); solve_sidecond.
+    iApply (sem_typed_deep_try_os' _ [] _ _ _ _ _ _ A B); solve_sidecond.
     { rewrite /A /B -/stsig. 
       iApply sem_typed_app; first solve_copy; iApply sem_typed_sub_nil; 
       last (iApply sem_typed_var).

@@ -31,6 +31,13 @@ Proof.
   intros ???????. by f_equiv.
 Qed.
 
+Global Instance non_expansive2_from_1' {A B C : ofe} (f : C -n> A) :
+  NonExpansive2 (λ (_ : B) (x : C), f x).
+Proof.
+  intros ???????. by f_equiv.
+Qed.
+
+
 Global Instance non_expansive2_from_constant {A B C : ofe} (c : A) :
   NonExpansive2 (λ (_ : B) (_ : C), c).
 Proof.

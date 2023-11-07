@@ -185,6 +185,15 @@ Section compatibility.
       (apply sigs_le_refl || apply env_le_refl || apply ty_le_refl || done).
   Qed.
 
+  Lemma sem_typed_sub_env_final Γ₁ Γ₂ Γ₂' e ρs τ :
+    Γ₂' ≤E Γ₂ →
+    (Γ₁ ⊨ e : ρs : τ ⊨ Γ₂') -∗ Γ₁ ⊨ e : ρs : τ ⊨ Γ₂.
+  Proof.
+    iIntros (HΓ₂).
+    iApply (sem_typed_sub Γ₁ Γ₁ Γ₂ Γ₂' _ ρs ρs τ τ);
+      (apply sigs_le_refl || apply env_le_refl || apply ty_le_refl || done).
+  Qed.
+
   Lemma sem_typed_swap_second Γ₁ Γ₂ x y e ρs τ₁ τ₂ κ :
     ((y, τ₂) :: (x, τ₁) :: Γ₁ ⊨ e : ρs : κ ⊨ Γ₂) -∗ 
     ((x, τ₁) :: (y, τ₂) :: Γ₁ ⊨ e : ρs : κ ⊨ Γ₂).
@@ -953,11 +962,11 @@ Section compatibility.
   
   (* Effect handling rules *)
   
-  Lemma sem_typed_perform_os Γ₁ Γ₂ e τ ρ' (A B : sem_ty Σ → sem_sig Σ → sem_ty Σ) 
+  Lemma sem_typed_perform_os Γ₁ Γ₂ e τ ρ' (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) 
     `{ NonExpansive2 A, NonExpansive2 B } :
-    let ρ := (μ∀TS: θ, α, A α θ ⇒ B α θ)%R in
-    Γ₁ ⊨ e : ⟨ρ, ρ'⟩ : A τ ρ ⊨ Γ₂ -∗
-    Γ₁ ⊨ (perform: e) : ⟨ρ, ρ'⟩ : B τ ρ ⊨ Γ₂.
+    let ρ := (μ∀TS: θ, α, A θ α ⇒ B θ α)%R in
+    Γ₁ ⊨ e : ⟨ρ, ρ'⟩ : A ρ τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ (perform: e) : ⟨ρ, ρ'⟩ : B ρ τ ⊨ Γ₂.
   Proof.
     iIntros (ρ) "#He !# %vs HΓ₁ //=". rewrite /rec_perform.
     iApply (ewp_bind [AppRCtx _; DoCtx OS; InjLCtx]); first done.
@@ -968,12 +977,12 @@ Section compatibility.
     iIntros (b) "Hκ". ewp_pure_steps. iFrame.
   Qed.
 
-  Lemma sem_typed_perform_ms Γ₁ Γ₂ e τ ρ (A B : sem_ty Σ → sem_sig Σ → sem_ty Σ) 
+  Lemma sem_typed_perform_ms Γ₁ Γ₂ e τ ρ (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) 
     `{ NonExpansive2 A, NonExpansive2 B } :
     copy_env Γ₂ →
-    let ρ' := (μ∀TSₘ: θ, α, A α θ ⇒ B α θ)%R in
-    Γ₁ ⊨ e : ⟨ρ, ρ'⟩ : A τ ρ' ⊨ Γ₂ -∗
-    Γ₁ ⊨ (performₘ: e) : ⟨ρ, ρ'⟩ : B τ ρ' ⊨ Γ₂.
+    let ρ' := (μ∀TSₘ: θ, α, A θ α ⇒ B θ α)%R in
+    Γ₁ ⊨ e : ⟨ρ, ρ'⟩ : A ρ' τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ (performₘ: e) : ⟨ρ, ρ'⟩ : B ρ' τ ⊨ Γ₂.
   Proof.
     iIntros (Hcpy ρ') "#He !# %vs HΓ₁ //=". rewrite /rec_perform.
     iApply (ewp_bind [AppRCtx _; DoCtx MS; InjRCtx]); first done.
@@ -989,11 +998,11 @@ Section compatibility.
         `{NonExpansive2 A₁, NonExpansive2 B₁, NonExpansive2 A₂, NonExpansive2 B₂}:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' →
     x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → x ≠ k →
-    let ρ₁ := (μ∀TS: θ, α, A₁ α θ ⇒ B₁ α θ)%R in
-    let ρ₂ := (μ∀TSₘ: θ, α, A₂ α θ ⇒ B₂ α θ)%R in
+    let ρ₁ := (μ∀TS: θ, α, A₁ θ α ⇒ B₁ θ α)%R in
+    let ρ₂ := (μ∀TSₘ: θ, α, A₂ θ α ⇒ B₂ θ α)%R in
     Γ₁ ⊨ e : ⟨ρ₁, ρ₂⟩ : τ' ⊨ Γ₂ -∗
-    (∀ α, (x, A₁ α ρ₁) :: (k, B₁ α ρ₁ -{ ⟨ρ₁, ρ₂⟩ }-∘ τ') :: Γ' ⊨ hos : ρs : τ ⊨ Γ₃) -∗
-    (∀ α, (x, A₂ α ρ₂) :: (k, B₂ α ρ₂ -{ ⟨ρ₁, ρ₂⟩ }-> τ') :: Γ' ⊨ hms : ρs : τ ⊨ Γ₃) -∗
+    (∀ α, (x, A₁ ρ₁ α) :: (k, B₁ ρ₁ α -{ ⟨ρ₁, ρ₂⟩ }-∘ τ') :: Γ' ⊨ hos : ρs : τ ⊨ Γ₃) -∗
+    (∀ α, (x, A₂ ρ₂ α) :: (k, B₂ ρ₂ α -{ ⟨ρ₁, ρ₂⟩ }-> τ') :: Γ' ⊨ hms : ρs : τ ⊨ Γ₃) -∗
     (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (shallow-try-dual: e with
                   effect  (λ: x k, hos) 
@@ -1044,11 +1053,11 @@ Section compatibility.
   Lemma sem_typed_shallow_try_os Γ₁ Γ₂ Γ' x k e h r A₁ B₁ A₂ B₂ τ τ' ρ₁' 
         `{NonExpansive2 A₁, NonExpansive2 B₁, NonExpansive2 A₂, NonExpansive2 B₂}:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' → x ≠ k → copy_env Γ' →
-    let ρ₁ := (μ∀TS: θ, α, A₁ α θ ⇒ B₁ α θ)%R in
-    let ρ₂ := (μ∀TSₘ: θ, α, A₂ α θ ⇒ B₂ α θ)%R in
+    let ρ₁ := (μ∀TS: θ, α, A₁ θ α ⇒ B₁ θ α)%R in
+    let ρ₂ := (μ∀TSₘ: θ, α, A₂ θ α ⇒ B₂ θ α)%R in
     let ρs := ⟨ ρ₁', ρ₂ ⟩%R in
     Γ₁ ⊨ e : ⟨ρ₁, ρ₂⟩ : τ' ⊨ Γ₂ -∗
-    (∀ α, (x, A₁ α ρ₁) :: (k, B₁ α ρ₁ -{ ⟨ρ₁, ρ₂⟩ }-∘ τ') :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
+    (∀ α, (x, A₁ ρ₁ α) :: (k, B₁ ρ₁ α -{ ⟨ρ₁, ρ₂⟩ }-∘ τ') :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
     (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ' -∗
     Γ₁ ++ Γ' ⊨ (shallow-try-os: e with
                   effect  (λ: x k, h)
@@ -1093,11 +1102,11 @@ Section compatibility.
   Lemma sem_typed_shallow_try_ms Γ₁ Γ₂ Γ' x k e h r A₁ B₁ A₂ B₂ τ τ' ρ₂' 
         `{NonExpansive2 A₁, NonExpansive2 B₁, NonExpansive2 A₂, NonExpansive2 B₂}:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' → x ≠ k → 
-    let ρ₁ := (μ∀TS: θ, α, A₁ α θ ⇒ B₁ α θ)%R in
-    let ρ₂ := (μ∀TSₘ: θ, α, A₂ α θ ⇒ B₂ α θ)%R in
+    let ρ₁ := (μ∀TS: θ, α, A₁ θ α ⇒ B₁ θ α)%R in
+    let ρ₂ := (μ∀TSₘ: θ, α, A₂ θ α ⇒ B₂ θ α)%R in
     let ρs := ⟨ ρ₁, ρ₂' ⟩%R in
     Γ₁ ⊨ e : ⟨ρ₁, ρ₂⟩ : τ' ⊨ Γ₂ -∗
-    (∀ α, (x, A₂ α ρ₂) :: (k, B₂ α ρ₂ -{ ⟨ρ₁, ρ₂⟩ }-> τ') :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
+    (∀ α, (x, A₂ ρ₂ α) :: (k, B₂ ρ₂ α -{ ⟨ρ₁, ρ₂⟩ }-> τ') :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
     (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ' -∗
     Γ₁ ++ Γ' ⊨ (shallow-try-ms: e with
                   effectₘ (λ: x k, h)
@@ -1143,11 +1152,11 @@ Section compatibility.
         `{NonExpansive2 A₁, NonExpansive2 B₁, NonExpansive2 A₂, NonExpansive2 B₂}:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' →
     x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → x ≠ k → copy_env Γ' →
-    let ρ₁ := (μ∀TS: θ, α, A₁ α θ ⇒ B₁ α θ)%R in
-    let ρ₂ := (μ∀TSₘ: θ, α, A₂ α θ ⇒ B₂ α θ)%R in
+    let ρ₁ := (μ∀TS: θ, α, A₁ θ α ⇒ B₁ θ α)%R in
+    let ρ₂ := (μ∀TSₘ: θ, α, A₂ θ α ⇒ B₂ θ α)%R in
     Γ₁ ⊨ e : ⟨ρ₁, ρ₂⟩ : τ' ⊨ Γ₂ -∗
-    (∀ α, (x, A₁ α ρ₁) :: (k, B₁ α ρ₁ -{ ρs }-∘ τ) :: Γ' ⊨ hos : ρs : τ ⊨ Γ₃) -∗
-    (∀ α, (x, A₂ α ρ₂) :: (k, B₂ α ρ₂ -{ ρs }-> τ) :: Γ' ⊨ hms : ρs : τ ⊨ Γ₃) -∗
+    (∀ α, (x, A₁ ρ₁ α) :: (k, B₁ ρ₁ α -{ ρs }-∘ τ) :: Γ' ⊨ hos : ρs : τ ⊨ Γ₃) -∗
+    (∀ α, (x, A₂ ρ₂ α) :: (k, B₂ ρ₂ α -{ ρs }-> τ) :: Γ' ⊨ hms : ρs : τ ⊨ Γ₃) -∗
     (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (deep-try-dual: e with
                   effect  (λ: x k, hos) 
@@ -1201,11 +1210,11 @@ Section compatibility.
   Lemma sem_typed_deep_try_os Γ₁ Γ₂ Γ' x k e h r A₁ B₁ A₂ B₂ τ τ' ρ₁' 
         `{NonExpansive2 A₁, NonExpansive2 B₁, NonExpansive2 A₂, NonExpansive2 B₂}:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' → x ≠ k → copy_env Γ' →
-    let ρ₁ := (μ∀TS: θ, α, A₁ α θ ⇒ B₁ α θ)%R in
-    let ρ₂ := (μ∀TSₘ: θ, α, A₂ α θ ⇒ B₂ α θ)%R in
+    let ρ₁ := (μ∀TS: θ, α, A₁ θ α ⇒ B₁ θ α)%R in
+    let ρ₂ := (μ∀TSₘ: θ, α, A₂ θ α ⇒ B₂ θ α)%R in
     let ρs := ⟨ρ₁', ρ₂⟩%R in
     Γ₁ ⊨ e : ⟨ρ₁, ρ₂⟩ : τ' ⊨ Γ₂ -∗
-    (∀ α, (x, A₁ α ρ₁) :: (k, B₁ α ρ₁ -{ ρs }-∘ τ) :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
+    (∀ α, (x, A₁ ρ₁ α) :: (k, B₁ ρ₁ α -{ ρs }-∘ τ) :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
     (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ' -∗
     Γ₁ ++ Γ' ⊨ (deep-try-os: e with
                   effect  (λ: x k, h) 
@@ -1247,14 +1256,56 @@ Section compatibility.
       iApply ("Hκb" with "HB₁"). iApply "IH".
   Qed.
     
+  Lemma sem_typed_deep_try_os' Γ₁ Γ₂ Γ' x k e h r A₁ B₁ τ τ' ρ₁' 
+        `{NonExpansive2 A₁, NonExpansive2 B₁}:
+    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' → x ≠ k → copy_env Γ' →
+    let ρ₁ := (μ∀TS: θ, α, A₁ θ α ⇒ B₁ θ α)%R in
+    let ρs := ⟨ρ₁',⟩%R in
+    Γ₁ ⊨ e : ⟨ρ₁,⟩ : τ' ⊨ Γ₂ -∗
+    (∀ α, (x, A₁ ρ₁ α) :: (k, B₁ ρ₁ α -{ ρs }-∘ τ) :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
+    (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ' -∗
+    Γ₁ ++ Γ' ⊨ (deep-try-os: e with
+                  effect  (λ: x k, h) 
+                | return  (λ: x, r) end) : ρs : τ ⊨ Γ'.
+  Proof.
+    iIntros (???? Hcpy) "%ρ₁ %ρs #He #Hh #Hr !# %vs HΓ₁Γ' //=".
+    iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ']".
+    rewrite {1} Hcpy. iDestruct "HΓ'" as "#HΓ'".
+    rewrite /select_on_sum. ewp_pure_steps. 
+    iApply (ewp_deep_try_with _ _ _ (λ v, τ' v ∗ env_sem_typed Γ₂ vs) with "[HΓ₁] []").
+    { by iApply "He". }
+    iLöb as "IH". rewrite {2}deep_handler_unfold.
+    iSplit; [|iSplit; iIntros (v c)].
+    - iIntros (v) "[Hv HΓ₂] //=". ewp_pure_steps.
+      rewrite -subst_map_insert.
+      iApply (ewp_pers_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
+      { iExists v. rewrite env_sem_typed_app; solve_env. }
+      iIntros "!# % [Hτ HΓ₃]"; solve_env.
+    - rewrite upcl_sem_sig_rec_eff.
+      iIntros "(%α & %a & <- & Ha & Hκb) //=". ewp_pure_steps.
+      rewrite decide_True; [|split; first done; by injection].
+      rewrite subst_subst_ne; last done.
+      rewrite -subst_map_insert -delete_insert_ne; last done.
+      rewrite -subst_map_insert.
+      iApply (ewp_pers_mono with "[HΓ' Hκb Ha]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
+      + iIntros (b) "Hκ /=".
+        iApply (ewp_pers_mono with "[Hκ Hκb]"); [iApply ("Hκb" with "Hκ IH")|].
+        iIntros "!# % [Hτ' _] !> //=".
+      + by (do 2 (rewrite -env_sem_typed_insert; try done)).
+      + iIntros "!# %u [$ HΓ₃] !>".
+        rewrite -(env_sem_typed_insert _ _ x a); last done.
+        by rewrite -(env_sem_typed_insert _ _ k c).
+    - simpl. iIntros "(% & [] & ?)".
+  Qed.
+
   Lemma sem_typed_deep_try_ms Γ₁ Γ₂ Γ' x k e h r A₁ B₁ A₂ B₂ τ τ' ρ₂' 
         `{NonExpansive2 A₁, NonExpansive2 B₁, NonExpansive2 A₂, NonExpansive2 B₂}:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' → x ≠ k → copy_env Γ' →
-    let ρ₁ := (μ∀TS: θ, α, A₁ α θ ⇒ B₁ α θ)%R in
-    let ρ₂ := (μ∀TSₘ: θ, α, A₂ α θ ⇒ B₂ α θ)%R in
+    let ρ₁ := (μ∀TS: θ, α, A₁ θ α ⇒ B₁ θ α)%R in
+    let ρ₂ := (μ∀TSₘ: θ, α, A₂ θ α ⇒ B₂ θ α)%R in
     let ρs := ⟨ρ₁, ρ₂'⟩%R in
     Γ₁ ⊨ e : ⟨ρ₁, ρ₂⟩ : τ' ⊨ Γ₂ -∗
-    (∀ α, (x, A₂ α ρ₂) :: (k, B₂ α ρ₂ -{ ρs }-> τ) :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
+    (∀ α, (x, A₂ ρ₂ α) :: (k, B₂ ρ₂ α -{ ρs }-> τ) :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
     (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ' -∗
     Γ₁ ++ Γ' ⊨ (deep-try-ms: e with
                   effectₘ (λ: x k, h) 

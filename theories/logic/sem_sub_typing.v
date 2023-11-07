@@ -83,15 +83,35 @@ Section sub_typing.
     (μ∀TS: _ , α , ι₁ α ⇒ κ₁ α) ≤R (μ∀TS: _ , α , ι₂ α ⇒ κ₂ α).
   Proof.
     iIntros (Hι₁₂ Hκ₂₁ v Φ) "!#".
-    iPoseProof (sem_sig_eff_rec_eq OS (λ α _, ι₂ α) (λ α _, κ₂ α) v Φ) as "[_ Hrw]".
+    iPoseProof (sem_sig_eff_rec_eq OS (λ _ α, ι₂ α) (λ _ α, κ₂ α) v Φ) as "[_ Hrw]".
     iIntros "Hμ₁". iApply "Hrw".
-    iPoseProof (sem_sig_eff_rec_eq OS (λ α _, ι₁ α) (λ α _, κ₁ α) v Φ) as "[Hrw' _]".
+    iPoseProof (sem_sig_eff_rec_eq OS (λ _ α, ι₁ α) (λ _ α, κ₁ α) v Φ) as "[Hrw' _]".
     iDestruct ("Hrw'" with "Hμ₁") as "(%α & %w & <- & Hι₁ & HκΦ₁)".
     iExists α, w; iSplitR; first done.
     iSplitL "Hι₁".
     { iNext. by iApply Hι₁₂. }
     simpl. iIntros (b) "Hκ₂". iApply "HκΦ₁".
     iNext. by iApply Hκ₂₁.
+  Qed.
+
+  (* TODO: For the recursive version we need ≤R and ≤T to live in iProp *)
+  Lemma sig_le_eff_rec (ι₁ ι₂ κ₁ κ₂ : sem_sig Σ → sem_ty Σ → sem_ty Σ)
+    `{NonExpansive2 ι₁, NonExpansive2 ι₂, NonExpansive2 κ₁, NonExpansive2 κ₂ } :
+    (∀ α ρ ρ', □ (iEff_le ρ ρ') -∗ □ (∀ v, (ι₁ ρ α) v -∗ (ι₂ ρ' α) v)) →
+    (∀ α ρ ρ', □ (iEff_le ρ ρ') -∗ □ (∀ v, (κ₂ ρ' α) v -∗ (κ₁ ρ α) v)) →
+    (μ∀TS: θ , α , ι₁ θ α ⇒ κ₁ θ α) ≤R (μ∀TS: θ , α , ι₂ θ α ⇒ κ₂ θ α).
+  Proof.
+    iIntros (Hι₁₂ Hκ₂₁). iLöb as "IH".
+    iIntros (v Φ) "!#".
+    iPoseProof (sem_sig_eff_rec_eq OS ι₂ κ₂ v Φ) as "[_ Hrw]".
+    iIntros "Hμ₁". iApply "Hrw".
+    iPoseProof (sem_sig_eff_rec_eq OS ι₁ κ₁ v Φ) as "[Hrw' _]".
+    iDestruct ("Hrw'" with "Hμ₁") as "(%α & %w & <- & Hι₁ & HκΦ₁)".
+    iExists α, w; iSplitR; first done.
+    iSplitL "Hι₁".
+    { iNext. iApply (Hι₁₂ with "IH Hι₁"). }
+    simpl. iIntros (b) "Hκ₂". iApply "HκΦ₁".
+    iNext. iApply (Hκ₂₁ with "IH Hκ₂").
   Qed.
 
   Lemma ty_le_refl (τ : sem_ty Σ) : τ ≤T τ.
@@ -218,6 +238,17 @@ Section sub_typing.
   Proof.
     iIntros (Hτ₁₂ v) "(%α & Hα) //=".
     iExists α. by iApply Hτ₁₂.
+  Qed.
+
+  (* TODO: For recursive type sub-typing we need ≤T to live in iProp *)
+  Lemma ty_le_rec (τ₁ τ₂ : sem_ty Σ -> sem_ty Σ) `{NonExpansive τ₁, NonExpansive τ₂} :
+    (∀ α α', □ (∀ v, α v -∗ α' v) -∗ □ ∀ v, τ₁ α v -∗ τ₂ α' v) →
+    (μT: α, τ₁ α) ≤T (μT: α, τ₂ α).
+  Proof.
+    iIntros (Hτ₁₂). iLöb as "IH". iIntros "%v Hτ₁".
+    iApply sem_ty_rec_unfold.
+    rewrite sem_ty_rec_unfold. iNext.
+    iApply (Hτ₁₂ with "IH Hτ₁").
   Qed.
 
   Lemma ty_le_list (τ₁ τ₂ : sem_ty Σ) :
