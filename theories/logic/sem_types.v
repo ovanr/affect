@@ -77,7 +77,7 @@ Definition sem_ty_forall `{irisGS eff_lang Σ}
 (* example: ∀ θ, ∀ τ, (τ -{ θ }-> ()) -{ θ }-> () *)
 Definition sem_ty_sig_forall `{irisGS eff_lang Σ} 
   (τ : sem_sigs Σ → sem_ty Σ) : sem_ty Σ := 
-    (λ v, ∀ θ, EWP (v <_>) <| fst θ |> {| snd θ |} {{ τ θ }})%I.
+    (λ v, ∀ θ, □ EWP (v <_>) <| fst θ |> {| snd θ |} {{ τ θ }})%I.
 
 (* Existential type. *)
 Definition sem_ty_exists `{irisGS eff_lang Σ} 
@@ -233,7 +233,7 @@ Notation "'μ∀TS:' θ , α , τ ⇒ κ" := (sem_sig_eff_rec OS (λ θ α, τ%T
 Notation "'μ∀TSₘ:' θ , α , τ ⇒ κ" := (sem_sig_eff_rec MS (λ θ α, τ%T) (λ θ α, κ%T))
   (at level 100, τ, κ at level 200) : sem_sig_scope.
 
-Notation "⊥" := sem_ty_void : sem_ty_scope.
+Notation "'Void'" := sem_ty_void : sem_ty_scope.
 Notation "()" := sem_ty_unit : sem_ty_scope.
 Notation "'𝔹'" := (sem_ty_bool) : sem_ty_scope.
 Notation "'ℤ'" := (sem_ty_int) : sem_ty_scope.
@@ -256,7 +256,7 @@ Notation "'∀T:' α , ρs ,  C " := (sem_ty_forall ρs%R (λ α, C%T))
 Notation "'∀T:' α ,, C " := (sem_ty_forall (sem_sig_nil, sem_sig_nil) (λ α, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'∀S:' θ , C " := (sem_ty_sig_forall (λ θ, C%T)) 
+Notation "'∀R:' θ , C " := (sem_ty_sig_forall (λ θ, C%T)) 
   (at level 180) : sem_ty_scope.
 
 Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T)) 

@@ -52,7 +52,7 @@ Section typing.
 
   Definition yield_sig (τ : sem_ty Σ) := (∀μTS: _, _, τ ⇒ ())%R.
   Definition yield_ty τ := τ -{ yield_sig τ }-> ().
-  Definition iter_ty τ := (∀S: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
+  Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() >-∘ Option τ)%T.
   
   Lemma sem_typed_generate τ :

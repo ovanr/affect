@@ -134,29 +134,72 @@ Notation "⊨ e : ρs : α" := (sem_typed [] e%E ρs%R α%T [])
  *) 
 Definition sem_val_typed `{!irisGS eff_lang Σ} 
   (v : val) 
-  (A : sem_ty Σ) : iProp Σ := □ (A v).
+  (A : sem_ty Σ) : iProp Σ := tc_opaque (□ (A v))%I.
 
-Notation "⊨ᵥ v : A" := (sem_val_typed v%V A%T)
-  (at level 20, v, A at next level) : bi_scope.
+Notation "⊨ᵥ v : τ" := (sem_val_typed v%V τ%T)
+  (at level 20, v, τ at next level) : bi_scope.
+Global Instance sem_typed_val_persistent `{!irisGS eff_lang Σ} v τ :
+  Persistent (sem_val_typed v τ).
+Proof.
+  unfold sem_val_typed, tc_opaque. apply _.
+Qed.
 
 (* Copyable types *)
 Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) := 
-  ∀ v, Persistent (τ%T v).
+  tc_opaque (□ (∀ v, τ%T v -∗ □ τ%T v))%I.
+
+Global Instance copy_ty_persistent `{!heapGS Σ} τ :
+  Persistent (copy_ty τ).
+Proof.
+  unfold copy_ty, tc_opaque. apply _.
+Qed.
 
 (* Copyable environment *)
 Definition copy_env `{!heapGS Σ} Γ :=
-  ∀ vs, Persistent (⟦ Γ ⟧ vs).
+  tc_opaque (□ (∀ vs, ⟦ Γ ⟧ vs -∗ □ ⟦ Γ ⟧ vs))%I.
+
+Global Instance copy_env_persistent `{!heapGS Σ} Γ :
+  Persistent (copy_env Γ).
+Proof.
+  unfold copy_env, tc_opaque. apply _.
+Qed.
 
 (* Sub-typing and relations *)
 
-Definition ty_le {Σ} (A B : sem_ty Σ) := ∀ v, A v ⊢ B v.
-Definition sig_le {Σ} (ρ ρ' : sem_sig Σ) := ⊢ iEff_le ρ ρ'.
+Definition ty_le {Σ} (A B : sem_ty Σ) := tc_opaque (□ (∀ v, A v -∗ B v))%I.
+Global Instance ty_le_persistent `{!heapGS Σ} τ τ' :
+  Persistent (@ty_le Σ τ τ').
+Proof.
+  unfold ty_le, tc_opaque. apply _.
+Qed.
+
+Definition sig_le {Σ} (ρ ρ' : sem_sig Σ) := tc_opaque (iEff_le ρ ρ').
+Global Instance sig_le_persistent {Σ} ρ ρ' :
+  Persistent (@sig_le Σ ρ ρ').
+Proof.
+  unfold sig_le, tc_opaque. apply _.
+Qed.
+
 Definition env_le `{!heapGS Σ} Γ₁ Γ₂ :=
-  ∀ vs, ⟦ Γ₁ ⟧ vs ⊢ ⟦ Γ₂ ⟧ vs.
+  tc_opaque (□ (∀ vs, ⟦ Γ₁ ⟧ vs -∗ ⟦ Γ₂ ⟧ vs))%I.
+Global Instance env_le_persistent `{!heapGS Σ} Γ Γ' :
+  Persistent (env_le Γ Γ').
+Proof.
+  unfold env_le, tc_opaque. apply _.
+Qed.
 
 Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).
 Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
 
 Notation "ρ '≤R' ρ'" := (sig_le ρ%R ρ'%R) (at level 98).
 
-Notation "ρs '≤Rs' ρs'" := (sig_le (fst ρs%R) (fst ρs'%R) ∧ sig_le (snd ρs%R) (snd ρs'%R)) (at level 98).
+Definition sigs_le {Σ} (ρs ρs' : sem_sigs Σ) :=
+  (sig_le (fst ρs%R) (fst ρs'%R) ∗ sig_le (snd ρs%R) (snd ρs'%R))%I.
+
+Global Instance sigs_le_persistent {Σ} ρs ρs' :
+  Persistent (@sigs_le Σ ρs ρs').
+Proof.
+  unfold sigs_le. apply bi.sep_persistent; apply sig_le_persistent.
+Qed.
+
+Notation "ρs '≤Rs' ρs'" := (sigs_le ρs%R ρs'%R)%I (at level 98).

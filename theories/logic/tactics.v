@@ -17,6 +17,7 @@ From affine_tes.logic Require Import iEff.
 From affine_tes.logic Require Import sem_def.
 From affine_tes.logic Require Import sem_types.
 From affine_tes.logic Require Import sem_env.
+From affine_tes.logic Require Import sem_sub_typing.
 
 
 Ltac ewp_bottom := iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|].
@@ -49,19 +50,25 @@ Global Ltac solve_copy :=
   repeat (
     rewrite !env_sem_typed_empty ||
     rewrite !env_sem_typed_cons ||
-    intros ? ||
-    apply bi.emp_persistent ||
-    apply bi.sep_persistent ||
-    apply bi.and_persistent ||
-    apply bi.or_persistent ||
-    apply bi.forall_persistent ||
-    apply bi.exist_persistent ||
-    apply bi.pure_persistent ||
-    apply plainly_persistent ||
-    apply bi.later_persistent ||
-    apply bi.persistently_persistent ||
-    apply bi.intuitionistically_persistent ||
-    apply inv_persistent).
+    iIntros "#?" ||
+    iApply copy_ty_void ||
+    iApply copy_ty_unit ||
+    iApply copy_ty_bool ||
+    iApply copy_ty_nat  ||
+    iApply copy_ty_moved ||
+    iApply copy_ty_cpy  ||
+    iApply copy_ty_uarr ||
+    iApply copy_ty_prod ||
+    iApply copy_ty_sum ||
+    iApply copy_ty_forallT || 
+    iApply copy_ty_forallR || 
+    iApply copy_ty_ref  || 
+    iApply copy_ty_exists || 
+    iApply copy_ty_rec || 
+    iApply copy_ty_option || 
+    iApply copy_ty_list || 
+    iApply copy_env_nil || 
+    iApply copy_env_cons).
 
 Ltac solve_sidecond := 
     try rewrite !env_dom_nil;
@@ -74,4 +81,3 @@ Ltac solve_dec :=
     ((rewrite decide_True; last (done || split; eauto; intros ?; by simplify_eq)) ||
      (rewrite decide_False; last (done || intros []; by simplify_eq))); 
     simpl.
-
