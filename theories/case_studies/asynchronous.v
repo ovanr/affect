@@ -61,7 +61,7 @@ Definition runner : val :=
 
     let: "fulfill" := 
       (rec: "fulfill" <> := λ: "promise" "comp",   
-        deep-try: "comp" #() with
+        deep-try-os: "comp" #() with
           effect (λ: "x" "k", 
             match: "x" with 
               InjL "x" => 
@@ -107,10 +107,10 @@ Section typing.
 
   Definition Promise τ := Refᶜ (Status τ).
 
-  Definition asig := ⟨∀μTS: θ, α, ( () -{ ⟨θ,⟩ }-∘ '! α ) + Promise ('! α) ⇒ 
+  Definition asig := ⟨μ∀TS: θ, α, ( () -{ ⟨θ,⟩ }-∘ '! α ) + Promise ('! α) ⇒ 
                                      Promise ('! α)       + '! α, @sem_sig_nil Σ⟩%R. 
 
-  Definition iter_ty τ := (∀S: θ, (τ -{ ⟨θ.1,⟩ }-> ()) → List τ -{ ⟨θ.1,⟩ }-∘ ())%T.
+  Definition iter_ty τ := (∀R: θ, (τ -{ ⟨θ.1,⟩ }-> ()) → List τ -{ ⟨θ.1,⟩ }-∘ ())%T.
   
   Definition next_ty := (() → ())%T.
 
@@ -126,10 +126,10 @@ Section typing.
     iIntros. rewrite /impossible.
     iApply sem_typed_app; first solve_copy; last (iApply sem_typed_unit).
     rewrite - {1} (app_nil_r []).
-    iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+    iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
     iApply sem_typed_ufun; solve_sidecond. simpl.
     iApply sem_typed_app; first solve_copy; last (iApply sem_typed_unit).
-    iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+    iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
     iApply sem_typed_var.
   Qed.
 
@@ -168,7 +168,7 @@ Section typing.
     iApply (sem_typed_match [] [] [] _ _ _ _ _ (Promise ( '! () )) _ ('! ())); solve_sidecond.
     - iApply (sem_typed_app _ [] _ _ _ (() -{ asig }-∘ '! ())); first solve_copy.
       + iApply sem_typed_sub_nil. 
-        iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+        iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
         set C := (λ α, (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α) + ('! α)).
         rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
         iApply sem_typed_val. iApply async_typed.
@@ -177,12 +177,12 @@ Section typing.
         iApply sem_typed_afun; solve_sidecond. simpl.
         iApply sem_typed_sub_nil.
         iApply sem_typed_sub_ty.
-        { apply ty_le_cpy. solve_copy. }
+        { iApply ty_le_cpy. solve_copy. }
         iApply sem_typed_unit.
     - simpl. iApply sem_typed_seq; [|iApply sem_typed_sub_nil; iApply sem_typed_unit].
       iApply (sem_typed_app _ [] _ _ _ (Promise ('! ())) _ (Promise ('! ()) + '!())); first solve_copy.
       + iApply sem_typed_sub_nil. 
-        iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+        iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
         set C := (λ α, (Promise ('! α)) -{ asig }-> Promise ('! α) + ('! α)).
         rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
         iApply sem_typed_val. iApply await_typed.
@@ -194,7 +194,7 @@ Section typing.
   Lemma iter_typed τ :
     ⊢ ⊨ᵥ iter : iter_ty τ.
   Proof.
-    iApply sem_typed_Sclosure. iIntros (ρ).
+    iApply sem_typed_Rclosure. iIntros (ρ).
     iApply sem_typed_sub_nil.
     rewrite - {1} (app_nil_r []). 
     iApply sem_typed_ufun; solve_sidecond. simpl.
@@ -210,24 +210,18 @@ Section typing.
       iApply sem_typed_unit.
     - iApply sem_typed_seq.
       + iApply sem_typed_swap_third. iApply sem_typed_swap_second. 
-        Search cons. 
-        iApply (sem_typed_app _ (("xxs", List τ) :: Γ₂) [] _ _ τ _ ()); first solve_copy.
-        * iApply sem_typed_swap_second. 
-          iApply sem_typed_sub_nil.
-          iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
-          iApply sem_typed_contraction; solve_sidecond.
-          iApply sem_typed_var. 
-        * iApply sem_typed_sub_nil.
-          iApply sem_typed_var. 
+        iApply sem_typed_app_os; last (iApply sem_typed_sub_nil; iApply sem_typed_var).
+        iApply sem_typed_contraction; solve_sidecond.
+        simpl. iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
+        iApply sem_typed_sub_nil; iApply sem_typed_var.
       + iApply sem_typed_swap_second. rewrite -/Γ₂.
-        do 2 (iApply sem_typed_app;
+        do 2 (iApply sem_typed_app_os;
           last (iApply sem_typed_sub_nil; iApply sem_typed_var)).
         iApply sem_typed_sub_nil.
         iApply sem_typed_sub_ty. 
-        { eapply ty_le_trans; [|apply ty_le_u2aarr].
-          apply ty_le_uarr. { apply sig_le_nil. }
-          apply ty_le_refl. apply ty_le_refl.
-          apply env_le_refl. apply env_le_refl. done. }
+        { iApply ty_le_trans; [|iApply ty_le_u2aarr].
+          iApply ty_le_uarr. { simpl. iApply sigs_le_nil. }
+          iApply ty_le_refl. iApply ty_le_refl. }
         iApply sem_typed_var.
   Qed.
 
@@ -269,7 +263,7 @@ Section typing.
       rewrite -/q.
       iApply (sem_typed_seq _ [x]). 
       { iApply sem_typed_replace_cpy; iApply sem_typed_var. }
-      iApply sem_typed_app; [iApply sem_typed_var|iApply sem_typed_unit].
+      iApply sem_typed_app_os; [iApply sem_typed_var|iApply sem_typed_unit].
   Qed.
 
   Definition resume_task_typed :
@@ -285,13 +279,13 @@ Section typing.
     set v := ("v", '! α).
     iApply sem_typed_ufun; solve_sidecond. simpl.
     set k := ("k", '! α ⊸ ()).
-    iApply (sem_typed_app _ [add]). 
-    { iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+    iApply (sem_typed_app_os _ [add]). 
+    { iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       iApply sem_typed_var. }
     replace ([k; v; add]) with ([k;v] ++ [add]) by done.
     iApply sem_typed_afun; solve_sidecond. simpl.
     iApply sem_typed_swap_second.
-    iApply sem_typed_app; iApply sem_typed_var.
+    iApply sem_typed_app_os; iApply sem_typed_var.
   Qed.
 
   Definition runner_typed :
@@ -307,18 +301,21 @@ Section typing.
     iApply sem_typed_contraction; solve_sidecond.
     set q := ("q", Queue).
     iApply (sem_typed_let _ [q; main]); solve_sidecond.
-    { iApply sem_typed_app; [|iApply sem_typed_var].
+    { iApply sem_typed_app_os; [|iApply sem_typed_var].
+      iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       iApply sem_typed_val. iApply add_typed. }
     set add := ("add", add_ty).
     iApply sem_typed_swap_second. 
     iApply (sem_typed_let _ [add; main]); solve_sidecond. 
-    { rewrite /next. iApply sem_typed_app; [|iApply sem_typed_var].
+    { rewrite /next. iApply sem_typed_app_os; [|iApply sem_typed_var].
+      iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       iApply sem_typed_val. iApply next_typed. }
     set next := ("next", next_ty).
     iApply sem_typed_swap_second. 
     iApply sem_typed_contraction; solve_sidecond.
     iApply (sem_typed_let _ [add; next; main]); solve_sidecond.
-    { iApply sem_typed_app; [|iApply sem_typed_var].
+    { iApply sem_typed_app_os; [|iApply sem_typed_var].
+      iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       iApply sem_typed_val. iApply resume_task_typed. }
     set resume_task := ("resume_task", resume_task_ty).
     rewrite -/next -/resume_task -/add.
@@ -335,27 +332,25 @@ Section typing.
      set comp := ("comp", () -{ asig }-∘ '! β)%T.
      replace ([comp; promise; fulfill; resume_task; add;next]) with
              ([comp] ++ [promise; fulfill; resume_task; add;next]) by done.
-     set A := λ α θ, ( () -{ θ }-∘ '! α ) + Promise ('! α).
-     set B := (λ α (θ : sem_sig Σ), Promise ('! α) + '! α).
-     iApply (sem_typed_deep_try _ _ [] _ _ _ _ _ _ ⟨⟩%R A B); solve_sidecond.
-     { rewrite /A /Promise /Status. apply non_dep_fun_dist. by repeat f_equiv. }
-     { rewrite /B /Promise /Status. apply non_dep_fun_dist. by repeat f_equiv. }
-     + iApply sem_typed_app; [iApply sem_typed_sub_nil; iApply sem_typed_var|].
+     set A := λ (θ : sem_sig Σ) α, ( () -{ ⟨ θ, ⟩ }-∘ '! α ) + Promise ('! α).
+     set B := (λ (θ : sem_sig Σ) α, Promise ('! α) + '! α).
+     iApply (sem_typed_deep_try_os' _ [] _ _ _ _ _ _ _ A B _ _ ⊥); solve_sidecond.
+     + iApply sem_typed_app_os; [iApply sem_typed_sub_nil; iApply sem_typed_var|].
        iApply sem_typed_sub_nil. iApply sem_typed_unit. 
      + iIntros (β').
-       set k := ("k", B β' (∀μTS: θ, α0, A α0 θ ⇒ B α0 θ)%R ⊸ ()).
        iApply sem_typed_swap_third. iApply sem_typed_weaken.
        iApply sem_typed_swap_fourth. iApply sem_typed_weaken.
-       rewrite -/k -/fulfill.
-       iApply (sem_typed_match _ [k; fulfill; add; next]); solve_sidecond; [iApply sem_typed_var| |].
-       * simpl. set x := ("x", () -{ ∀μTS: θ, α0, A α0 θ ⇒ B α0 θ }-∘ '! β').
+       set k := ("k", B (μ∀TS: θ, α0, A θ α0 ⇒ B θ α0)%R β' ⊸ ()).
+       rewrite -/k -/fulfill -/add -/next.
+       iApply (sem_typed_match _ [k; fulfill; add; next]); solve_sidecond; first iApply sem_typed_var.
+       * simpl. set x := ("x", () -{ ⟨ μ∀TS: θ, α0, A θ α0 ⇒ B θ α0, ⟩ }-∘ '! β').
          iApply (sem_typed_let _ [x; k; fulfill; add; next] _ _ _ _ (Promise ('! β'))); solve_sidecond.
          { iApply sem_typed_alloc_cpy. iApply sem_typed_right_inj. iApply sem_typed_nil. }
          set new_prom := ("new_prom", Promise ('! β')).
          iApply (sem_typed_seq _ [new_prom; k; next]).
-         ** iApply (sem_typed_app _ [new_prom; k; add; next]).
+         ** iApply (sem_typed_app_os _ [new_prom; k; add; next]).
             { iApply sem_typed_swap_third.
-              iApply sem_typed_sub_ty; [apply ty_le_u2aarr|iApply sem_typed_var]. }
+              iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|iApply sem_typed_var]. }
             iApply sem_typed_swap_fourth. iApply sem_typed_swap_second.
             iApply sem_typed_contraction; solve_sidecond.
             do 2 iApply sem_typed_swap_fourth.
@@ -363,13 +358,13 @@ Section typing.
                           [fulfill; x; new_prom] ++ [new_prom; k; add; next]) by done.
             rewrite Hrw. clear Hrw.
             iApply sem_typed_afun; solve_sidecond. simpl.
-            do 2 (iApply sem_typed_swap_second; iApply sem_typed_app; [|iApply sem_typed_var]).
+            do 2 (iApply sem_typed_swap_second; iApply sem_typed_app_os; [|iApply sem_typed_var]).
             rewrite -/asig.
-            iApply sem_typed_sub_ty; [apply ty_le_u2aarr|]. 
+            iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|]. 
             set C := (λ β, Promise ('! β) → (() -{ asig }-∘ '! β) ⊸ ())%T.
             rewrite -/(C β').
-            iApply sem_typed_TApp. iApply sem_typed_var.
-         ** iApply (sem_typed_app _ [k]); [iApply sem_typed_var|].
+            iApply sem_typed_TApp; first solve_copy. iApply sem_typed_var.
+         ** iApply (sem_typed_app_os _ [k]); [iApply sem_typed_var|].
             iApply sem_typed_swap_third. iApply sem_typed_weaken.
             iApply sem_typed_left_inj. iApply sem_typed_var.
       * simpl.
@@ -388,7 +383,7 @@ Section typing.
            iApply (sem_typed_seq _ [v; k]).
            {  iApply sem_typed_replace_cpy; [iApply sem_typed_var|].
              iApply sem_typed_left_inj. iApply sem_typed_var. }
-           iApply sem_typed_app; [iApply sem_typed_var|].
+           iApply sem_typed_app_os; [iApply sem_typed_var|].
            iApply sem_typed_right_inj. iApply sem_typed_var.
         ** simpl. set ks := ("ks", List ('! β' ⊸ ())).
            iApply (sem_typed_seq _ [next] _ _ _ (Status ('! β'))).
@@ -400,10 +395,10 @@ Section typing.
                assert (Hrw : [k; p; next] = [k] ++ [p;next]) by done.
                rewrite Hrw. clear Hrw.
                iApply sem_typed_afun; solve_sidecond. simpl.
-               iApply sem_typed_app; [iApply sem_typed_var|].
+               iApply sem_typed_app_os; [iApply sem_typed_var|].
                iApply sem_typed_right_inj. iApply sem_typed_var.
-           *** iApply sem_typed_app; [|iApply sem_typed_unit].
-               iApply sem_typed_sub_ty; [apply ty_le_u2aarr|iApply sem_typed_var].
+           *** iApply sem_typed_app_os; [|iApply sem_typed_unit].
+               iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|iApply sem_typed_var].
     + simpl. 
       iApply sem_typed_swap_third. iApply sem_typed_weaken.
       iApply sem_typed_swap_fourth; iApply sem_typed_weaken.
@@ -425,19 +420,20 @@ Section typing.
         ** iApply sem_typed_replace_cpy; [iApply sem_typed_var|].
            iApply sem_typed_left_inj. iApply sem_typed_var.
         ** iApply (sem_typed_seq _ [next]).
-           2: { iApply sem_typed_app; [|iApply sem_typed_unit].
-                iApply sem_typed_sub_ty; [apply ty_le_u2aarr|iApply sem_typed_var]. }
+           2: { iApply sem_typed_app_os; [|iApply sem_typed_unit].
+                iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|iApply sem_typed_var]. }
            iApply sem_typed_swap_second.
-           iApply (sem_typed_app _ _ _ _ _ (List ('! β ⊸ ())) _ ()); [|iApply sem_typed_var].
-           iApply (sem_typed_app _ _ _ _ _ (('! β ⊸ ()) → ())%T).
-           2: { iApply sem_typed_app; [|iApply sem_typed_var]. 
-                iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
-                set C := λ β, ('! β → ('! β ⊸ ()) → ())%T. rewrite -/(C β).
-                iApply sem_typed_TApp. iApply sem_typed_var. }
-           iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
-           set C := (λ θ, (('! β ⊸ ()) -{ θ }-> ()) → List ('! β ⊸ ()) -{ θ }-∘ ())%T.
+           iApply (sem_typed_app_os _ _ _ _ _ (List ('! β ⊸ ())) _ ()); [|iApply sem_typed_var].
+           iApply (sem_typed_app_os _ [next] _ _ _ (('! β ⊸ ()) → ())%T).
+           2: { iApply sem_typed_app_os; [|iApply sem_typed_var]. 
+                iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
+                set C := λ β, ('! β → ('! β ⊸ ()) → ())%T. rewrite -/(C β). simpl.
+                iApply sem_typed_TApp; first solve_sidecond. iApply sem_typed_var. }
+           iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
+           set C := (λ (θ : sem_sigs Σ), (('! β ⊸ ()) -{ ⟨θ.1,⟩ }-> ()) → List ('! β ⊸ ()) -{ ⟨θ.1,⟩ }-∘ ())%T.
            rewrite -/(C ⟨⟩%R).
-           iApply sem_typed_SApp. iApply sem_typed_val. iApply iter_typed.
+           iApply sem_typed_SApp; first solve_copy. 
+           iApply sem_typed_val. iApply iter_typed.
   - set fulfill := ("fulfill", ∀T: α,, Promise ('! α) → (() -{ asig }-∘ '! α) ⊸ ()).
     iApply (sem_typed_let _ [fulfill; main]); solve_sidecond.
     { iApply (sem_typed_alloc_cpy _ _ _ _ (Status ('! α))). 
@@ -446,16 +442,19 @@ Section typing.
     iApply sem_typed_contraction; solve_sidecond.
     iApply sem_typed_swap_third. iApply sem_typed_swap_second. iApply sem_typed_swap_fourth.
     iApply (sem_typed_seq _ [pmain]).
-    + iApply (sem_typed_app _ _ _ _ _ _ _ ()); [|iApply sem_typed_var]. 
-      iApply sem_typed_app; [|iApply sem_typed_var]. 
-      iApply sem_typed_sub_ty; [apply ty_le_u2aarr|].
+    + iApply (sem_typed_app_os _ _ _ _ _ _ _ ()); [|iApply sem_typed_var]. 
+      iApply sem_typed_app_os; [|iApply sem_typed_var]. 
+      iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       set C := (λ α, Promise ('! α) → (() -{ asig }-∘ '! α) ⊸ ())%T.
       rewrite -/(C α).
-      iApply sem_typed_TApp. iApply sem_typed_var.
+      iApply sem_typed_TApp; first solve_copy. iApply sem_typed_var.
     + iApply (sem_typed_match _ []); solve_sidecond; simpl; [|iApply sem_typed_var|].
       { iApply sem_typed_replace_cpy; [iApply sem_typed_var|].
         iApply sem_typed_right_inj. iApply sem_typed_nil. }
       iApply impossible_typed. 
+      Unshelve.
+      { rewrite /A /Promise /Status. intros ???????. by repeat f_equiv. }
+      { rewrite /B /Promise /Status. intros ???????. by repeat f_equiv. }
   Qed.
                   
 End typing.

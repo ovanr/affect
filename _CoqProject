@@ -18,10 +18,6 @@ theories/logic/tactics.v
 theories/logic/compatibility.v
 theories/logic/adequacy.v
 
-theories/case_studies/representable.v
-theories/case_studies/ghost.v
 theories/case_studies/state.v
-theories/case_studies/iterator.v
-theories/case_studies/generator.v
 theories/case_studies/generator_iterator.v
 theories/case_studies/asynchronous.v

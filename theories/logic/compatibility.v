@@ -423,14 +423,12 @@ Section compatibility.
     iIntros "!# % $ !> //=".
   Qed.
 
-  Lemma sem_typed_app_os Γ₁ Γ₂ Γ₃ (x₁ x₂ : string) e₁ e₂ τ ρs κ: 
-    x₂ ∉ env_dom Γ₂ → x₂ ∉ env_dom Γ₃ → 
-    x₁ ∉ env_dom Γ₃ → x₁ ≠ x₂ →
+  Lemma sem_typed_app_os Γ₁ Γ₂ Γ₃ e₁ e₂ τ ρs κ: 
     Γ₂ ⊨ e₁ : ⟨ρs.1,⟩ : (τ -{ ⟨ρs.1,⟩ }-∘ κ) ⊨ Γ₃ -∗
     Γ₁ ⊨ e₂ : ρs : τ ⊨ Γ₂ -∗
     Γ₁ ⊨ (e₁ e₂) : ρs : κ ⊨ Γ₃.
   Proof.
-    iIntros (????) "#He₁ #He₂ !# %vs HΓ₁ /=".
+    iIntros "#He₁ #He₂ !# %vs HΓ₁ /=".
     iApply (ewp_bind [AppRCtx _]); first done.
     iApply (ewp_pers_mono with "[HΓ₁]"); first (by iApply "He₂").
     iIntros "!# % [Hτ HΓ₂] !> /=".
@@ -929,24 +927,23 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_store_cpy Γ₁ Γ₂ Γ₃ e₁ e₂ ρs τ: 
-    copy_ty τ -∗
-    Γ₂ ⊨ e₁ : ρs : Refᶜ τ ⊨ Γ₃ -∗
+    Γ₂ ⊨ e₁ : ⟨ρs.1,⟩ : Refᶜ τ ⊨ Γ₃ -∗
     Γ₁ ⊨ e₂ : ρs : τ ⊨ Γ₂ -∗
     Γ₁ ⊨ (e₁ <- e₂) : ρs : () ⊨ Γ₃.
   Proof.
-    iIntros "#Hcpy #He₁ #He₂ %vs !# /= HΓ₁ /=".
+    iIntros "#He₁ #He₂ %vs !# /= HΓ₁ /=".
     iApply (ewp_bind [StoreRCtx _]); first done. simpl.
     iApply (ewp_pers_mono with "[HΓ₁]"); [by iApply "He₂"|].
     iIntros "!# %w [Hτ HΓ₂] !>". 
     iApply (ewp_bind [StoreLCtx _]); first done. simpl.
-    iDestruct ("Hcpy" with "Hτ") as "#Hτ'".
-    iApply (ewp_pers_mono with "[HΓ₂]"); [by iApply "He₁"|].
-    iIntros "!# %u [(%l & -> & Hinv) HΓ₃] !>".
+    iApply ewp_ms_prot_mono; [iApply sig_le_nil|].
+    iApply (ewp_mono with "[HΓ₂]"); [by iApply "He₁"|].
+    iIntros "%u [(%l & -> & Hinv) HΓ₃] !>".
     iApply (ewp_atomic _ (⊤ ∖ ↑tyN.@l)).
     iMod (inv_acc _ (tyN.@l) with "Hinv") as "[(%u & >Hl & _) Hclose]"; first done.
     iModIntro. iApply (ewp_store with "Hl"). 
     iIntros "!> Hl !>".  
-    iMod ("Hclose" with "[Hl Hτ']"); solve_env.
+    iMod ("Hclose" with "[Hl Hτ]"); solve_env.
   Qed.
 
   Lemma sem_typed_replace_cpy Γ₁ Γ₂ Γ₃ e₁ e₂ ρs τ: 
@@ -1310,20 +1307,21 @@ Section compatibility.
       iApply ("Hκb" with "HB₁"). iApply "IH".
   Qed.
     
-  Lemma sem_typed_deep_try_os' Γ₁ Γ₂ Γ' x k e h r A₁ B₁ τ τ' ρ₁' 
+  Lemma sem_typed_deep_try_os' Γ₁ Γ₂ Γ' Γ₃ x k e h r A₁ B₁ τ τ' ρ₁' 
         `{NonExpansive2 A₁, NonExpansive2 B₁}:
-    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' → x ≠ k → 
+    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → k ∉ env_dom Γ' →
+    x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → x ≠ k → 
     let ρ₁ := (μ∀TS: θ, α, A₁ θ α ⇒ B₁ θ α)%R in
     let ρs := ⟨ρ₁',⟩%R in
     copy_env Γ' -∗
     Γ₁ ⊨ e : ⟨ρ₁,⟩ : τ' ⊨ Γ₂ -∗
-    (∀ α, (x, A₁ ρ₁ α) :: (k, B₁ ρ₁ α -{ ρs }-∘ τ) :: Γ' ⊨ h : ρs : τ ⊨ Γ') -∗
-    (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ' -∗
+    (∀ α, (x, A₁ ρ₁ α) :: (k, B₁ ρ₁ α -{ ρs }-∘ τ) :: Γ' ⊨ h : ρs : τ ⊨ Γ₃) -∗
+    (x, τ') :: Γ₂ ++ Γ' ⊨ r : ρs : τ ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (deep-try-os: e with
                   effect  (λ: x k, h) 
-                | return  (λ: x, r) end) : ρs : τ ⊨ Γ'.
+                | return  (λ: x, r) end) : ρs : τ ⊨ Γ₃.
   Proof.
-    iIntros (????) "%ρ₁ %ρs #Hcpy #He #Hh #Hr !# %vs HΓ₁Γ' //=".
+    iIntros (??????) "%ρ₁ %ρs #Hcpy #He #Hh #Hr !# %vs HΓ₁Γ' //=".
     iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']".
     iDestruct ("Hcpy" with "HΓ''") as "#HΓ'".
     rewrite /select_on_sum. ewp_pure_steps. 
