@@ -6,8 +6,8 @@
 *)
 
 (* Local imports *)
-From affine_tes.lib Require Import base.
-From affine_tes.lang Require Import hazel.
+From haffel.lib Require Import base.
+From haffel.lang Require Import hazel.
 
 Fixpoint subst_map (vs : gmap string val) (e : expr) : expr :=
   match e with

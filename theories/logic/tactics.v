@@ -9,15 +9,15 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From affine_tes.lib Require Import base.
-From affine_tes.lib Require Import logic.
-From affine_tes.lang Require Import hazel.
-From affine_tes.lang Require Import subst_map.
-From affine_tes.logic Require Import iEff.
-From affine_tes.logic Require Import sem_def.
-From affine_tes.logic Require Import sem_types.
-From affine_tes.logic Require Import sem_env.
-From affine_tes.logic Require Import sem_sub_typing.
+From haffel.lib Require Import base.
+From haffel.lib Require Import logic.
+From haffel.lang Require Import hazel.
+From haffel.lang Require Import subst_map.
+From haffel.logic Require Import iEff.
+From haffel.logic Require Import sem_def.
+From haffel.logic Require Import sem_types.
+From haffel.logic Require Import sem_env.
+From haffel.logic Require Import sem_sub_typing.
 
 
 Ltac ewp_bottom := iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|].

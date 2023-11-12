@@ -16,11 +16,11 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From affine_tes.lang Require Import hazel.
-From affine_tes.lang Require Import subst_map.
-From affine_tes.logic Require Import sem_def.
-From affine_tes.logic Require Import sem_types.
-From affine_tes.logic Require Import sem_env.
+From haffel.lang Require Import hazel.
+From haffel.lang Require Import subst_map.
+From haffel.logic Require Import sem_def.
+From haffel.logic Require Import sem_types.
+From haffel.logic Require Import sem_env.
 
 
 Section sub_typing.

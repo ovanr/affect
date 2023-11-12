@@ -3,7 +3,7 @@ From iris.proofmode  Require Import tactics.
 From iris.base_logic Require Export lib.iprop.
 
 From hazel.program_logic Require Export protocols.
-From affine_tes.lang Require Import hazel.
+From haffel.lang Require Import hazel.
 
 
 Lemma iEff_tele_eq' {Σ} (TT1 TT2 : tele) v m

@@ -9,12 +9,12 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From affine_tes.lib Require Import base.
-From affine_tes.lang Require Import hazel.
-From affine_tes.lang Require Import subst_map.
-From affine_tes.logic Require Import iEff.
-From affine_tes.logic Require Import sem_def.
-From affine_tes.logic Require Import sem_types.
+From haffel.lib Require Import base.
+From haffel.lang Require Import hazel.
+From haffel.lang Require Import subst_map.
+From haffel.logic Require Import iEff.
+From haffel.logic Require Import sem_def.
+From haffel.logic Require Import sem_types.
 
 Lemma env_dom_nil {Σ} :
   env_dom (Σ:= Σ) [] = [].

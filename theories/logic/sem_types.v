@@ -15,11 +15,11 @@ From hazel.program_logic Require Import weakest_precondition
                                         protocols.
 
 (* Local imports *)
-From affine_tes.lib Require Import logic.
-From affine_tes.lang Require Import hazel.
-From affine_tes.lang Require Import subst_map.
-From affine_tes.logic Require Import iEff.
-From affine_tes.logic Require Import sem_def.
+From haffel.lib Require Import logic.
+From haffel.lang Require Import hazel.
+From haffel.lang Require Import subst_map.
+From haffel.logic Require Import iEff.
+From haffel.logic Require Import sem_def.
 
 (* Base types. *)
 Definition sem_ty_void {Σ} : sem_ty Σ := (λ v, False)%I.

@@ -1,7 +1,7 @@
 
-From affine_tes.lang Require Import hazel.
-From affine_tes.logic Require Import sem_def.
-From affine_tes.logic Require Import sem_types.
+From haffel.lang Require Import hazel.
+From haffel.logic Require Import sem_def.
+From haffel.logic Require Import sem_types.
 
 Open Scope sem_ty_scope.
 

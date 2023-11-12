@@ -18,8 +18,8 @@ From hazel.program_logic Require Import weakest_precondition
                                         deep_handler_reasoning
                                         state_reasoning.
 
-From affine_tes.lib Require Export base.
-From affine_tes.lib Require Export logic.
+From haffel.lib Require Export base.
+From haffel.lib Require Export logic.
 
 Definition pair_elim :=
   (λ: "x", λ: "f", "f" (Fst "x") (Snd "x"))%V.

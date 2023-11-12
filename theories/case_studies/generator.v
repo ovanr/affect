@@ -7,10 +7,10 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From affine_tes.lib Require Import logic.
-From affine_tes.lang Require Import hazel.
-From affine_tes.case_studies Require Import representable.
-From affine_tes.logic Require Import sem_types.
+From haffel.lib Require Import logic.
+From haffel.lang Require Import hazel.
+From haffel.case_studies Require Import representable.
+From haffel.logic Require Import sem_types.
 
 
 Section generator.
