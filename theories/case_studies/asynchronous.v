@@ -24,13 +24,19 @@ From haffel.logic Require Import tactics.
 
 Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
-Definition async : val := (Λ: λ: "c", perform: (InjL "c"))%V.
-Definition await : val := (Λ: λ: "p", (perform: (InjR "p")))%V.
+Definition async : val := 
+  (Λ: λ: "c", match: perform: (InjL "c") with 
+                InjL "p" => "p"
+              | InjR "a" => ref (InjL "a")
+              end)%V.
+Definition await : val := 
+  (Λ: rec: "f" "p" := 
+        match: perform: (InjR "p") with 
+          InjL "p" => "f" "p"
+        | InjR "a" => "a"
+        end)%V.
 Definition yield : val := 
-  (λ: <>, match: async <_> (λ: <>, #()) with
-            InjL "p" => await <_> "p" ;; #()
-          | InjR <>  => impossible
-          end)%V.
+  (λ: <>, await <_> (async <_> (λ: <>, #())))%V. 
 
 Definition iter  : val:= 
   (Λ: rec: "f" "g" "xs" := 
@@ -134,61 +140,67 @@ Section typing.
   Qed.
 
   Lemma async_typed :
-    ⊢ ⊨ᵥ async : (∀T: α ,, (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α) + '! α).
+    ⊢ ⊨ᵥ async : (∀T: α ,, (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α)).
   Proof.
     rewrite /async. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
     rewrite - {1} (app_nil_r []).
     iApply sem_typed_ufun; solve_sidecond. simpl.
-    iApply (sem_typed_perform_os with "[]");
-      try (rewrite /Promise /Status; intros ???????; by repeat f_equiv).
-    iApply sem_typed_left_inj.
-    iApply sem_typed_sub_nil.
-    iApply sem_typed_var.
+    iApply (sem_typed_match _ []); solve_sidecond.
+    - iApply (sem_typed_perform_os with "[]");
+        try (rewrite /Promise /Status; intros ???????; by repeat f_equiv).
+        iApply sem_typed_left_inj.
+        iApply sem_typed_sub_nil.
+        iApply sem_typed_var.
+    - simpl. iApply sem_typed_sub_nil. iApply sem_typed_var.
+    - simpl. iApply sem_typed_alloc_cpy. iApply sem_typed_left_inj.
+      iApply sem_typed_sub_nil. iApply sem_typed_var.
   Qed.
 
   Lemma await_typed :
-    ⊢ ⊨ᵥ await : (∀T: α ,, Promise ('! α) -{ asig }-> Promise ('! α) + '! α).
+    ⊢ ⊨ᵥ await : (∀T: α ,, Promise ('! α) -{ asig }-> '! α).
   Proof.
     rewrite /await. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
     rewrite - {1} (app_nil_r []).
     iApply sem_typed_ufun; solve_sidecond. simpl.
-    iApply (sem_typed_perform_os with "[]");
+    iApply (sem_typed_match _ [("f", _)]); solve_sidecond.
+    - iApply (sem_typed_perform_os with "[]");
       try (rewrite /Promise /Status; intros ???????; by repeat f_equiv).
-      iApply sem_typed_sub_nil.
-      iApply sem_typed_right_inj.
-      iApply sem_typed_var. 
+      iApply sem_typed_sub_nil. iApply sem_typed_right_inj. iApply sem_typed_var. 
+    - simpl. iApply sem_typed_app_os.
+      { iApply sem_typed_sub_nil. 
+        iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|iApply sem_typed_var]. }
+      iApply sem_typed_sub_nil. iApply sem_typed_var.
+    - simpl. iApply sem_typed_sub_nil. 
+      iApply sem_typed_swap_second. iApply sem_typed_weaken.
+      iApply sem_typed_var.
   Qed.
 
   Lemma yield_typed :
     ⊢ ⊨ᵥ yield : ( () -{ asig }-> () ).
   Proof.
     iIntros. iApply sem_typed_closure; try done. simpl.
-    iApply (sem_typed_match [] [] [] _ _ _ _ _ (Promise ( '! () )) _ ('! ())); solve_sidecond.
+    iApply (sem_typed_app_os _ [] _ _ _ (Promise ('! ()))).
+    - iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
+      iApply sem_typed_sub_ty; [iApply ty_le_uarr|]; 
+        [iApply sigs_le_refl|iApply ty_le_refl|iApply ty_le_cpy_inv|].
+      iApply sem_typed_sub_nil. simpl. rewrite -/asig.
+      set C := (λ α, (Promise ('! α)) -{ asig }-> ('! α)).
+      rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
+      iApply sem_typed_val. iApply await_typed.
     - iApply (sem_typed_app _ [] _ _ _ (() -{ asig }-∘ '! ())); first solve_copy.
       + iApply sem_typed_sub_nil. 
         iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
-        set C := (λ α, (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α) + ('! α)).
+        set C := (λ α, (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α)).
         rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
         iApply sem_typed_val. iApply async_typed.
       + iApply sem_typed_sub_nil.
         rewrite - {1} (app_nil_r []).
         iApply sem_typed_afun; solve_sidecond. simpl.
         iApply sem_typed_sub_nil.
-        iApply sem_typed_sub_ty.
-        { iApply ty_le_cpy. solve_copy. }
+        iApply sem_typed_sub_ty; [iApply ty_le_cpy; solve_copy|].
         iApply sem_typed_unit.
-    - simpl. iApply sem_typed_seq; [|iApply sem_typed_sub_nil; iApply sem_typed_unit].
-      iApply (sem_typed_app _ [] _ _ _ (Promise ('! ())) _ (Promise ('! ()) + '!())); first solve_copy.
-      + iApply sem_typed_sub_nil. 
-        iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
-        set C := (λ α, (Promise ('! α)) -{ asig }-> Promise ('! α) + ('! α)).
-        rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
-        iApply sem_typed_val. iApply await_typed.
-      + iApply sem_typed_sub_nil. iApply sem_typed_var.
-    - simpl. iApply sem_typed_sub_nil. 
-      iApply impossible_typed.
   Qed.
 
   Lemma iter_typed τ :
