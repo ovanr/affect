@@ -24,11 +24,11 @@ From haffel.logic Require Import compatibility.
 
 Definition yield := (λ: "x", perform: "x")%V.
 Definition generate :=
-  (λ: "i", let: "cont" := ref (λ: <>, "i" <_> yield) in
+  (Λ: λ: "i", let: "cont" := ref (λ: <>, "i" <_> yield) in
       λ: <>, let: "comp" := "cont" <!- (λ: <>, #())  in
              shallow-try-os: "comp" #() with
-                effect λ: "w" "k", "cont" <- "k" ;; SOME "w"
-             |  return λ: "w", NONE
+                effect λ: "x" "k", "cont" <- "k" ;; SOME "x"
+             |  return λ: "x", NONE
              end
   )%V.
 
@@ -50,17 +50,18 @@ Section typing.
   Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
   
-  Lemma sem_typed_generate τ :
-    ⊢ ⊨ᵥ generate : (iter_ty τ → generator_ty τ).
+  Lemma sem_typed_generate :
+    ⊢ ⊨ᵥ generate : (∀T: α,, iter_ty α → generator_ty α).
   Proof.
-    iIntros "". iApply sem_typed_closure; first done.
-    set cont_ty := (() -{ ⟨yield_sig τ,⟩ }-∘ ()). 
+    iIntros "". iApply sem_typed_Tclosure. iIntros (α).
+    rewrite -(app_nil_r []). iApply sem_typed_ufun; solve_sidecond. simpl.
+    set cont_ty := (() -{ ⟨yield_sig α,⟩ }-∘ ()). 
     iApply (sem_typed_let _ [] _ _ _ _ (Refᶜ cont_ty)); simpl; solve_sidecond. 
     - iApply sem_typed_alloc_cpy.
       rewrite -(app_nil_r [("i", _)]).
       iApply sem_typed_afun; solve_sidecond. simpl.
-      iApply (sem_typed_app _ [("i", iter_ty τ)] _ _ _ (yield_ty τ)); solve_sidecond.
-      + iApply (sem_typed_SApp _ _ _ ⟨yield_sig τ,⟩%R (λ ρ, ( τ -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
+      iApply (sem_typed_app _ [("i", iter_ty α)] _ _ _ (yield_ty α)); solve_sidecond.
+      + iApply (sem_typed_SApp _ _ _ ⟨yield_sig α,⟩%R (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
         iApply sem_typed_sub_nil. iApply sem_typed_var.
       + iApply sem_typed_frame_os. iApply sem_typed_sub_nil.
         iApply sem_typed_val. iApply sem_typed_closure; first done.
@@ -79,12 +80,12 @@ Section typing.
       + rewrite app_singletons.
         iApply (sem_typed_shallow_try_os' 
                       [("comp", cont_ty)] [] [] [("cont", Refᶜ cont_ty)] 
-                      "w" "k" _ _ _ (λ _ _, τ) (λ _ _, ()) (Option τ) ()); solve_sidecond.
+                      "x" "k" _ _ _ (λ _ _, α) (λ _ _, ()) (Option α) ()); solve_sidecond.
         * iApply sem_typed_app; first solve_sidecond; 
           iApply sem_typed_sub_nil;
             [iApply sem_typed_var|iApply sem_typed_unit]. 
         * iIntros (?). do 2 iApply sem_typed_swap_third.
-          iApply (sem_typed_seq _ [("w", τ)]).
+          iApply (sem_typed_seq _ [("x", α)]).
           { iApply (sem_typed_store_cpy _ _ _ _ _ _ cont_ty); iApply sem_typed_var. }
           iApply sem_typed_some.
           iApply sem_typed_var.
