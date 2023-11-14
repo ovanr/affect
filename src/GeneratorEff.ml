@@ -11,6 +11,9 @@ type 'elt iterator = ('elt -> unit) -> unit
 
 type 'elt generator = unit -> 'elt option
 
+(* Reference Store that returns the old value of the reference *)
+let (<!-) r y = let x = !r in r := y; x
+
 let generate_shallow (type elt) (i : elt iterator) : elt generator =
     let open Effect in
     let open Effect.Shallow in
@@ -19,45 +22,22 @@ let generate_shallow (type elt) (i : elt iterator) : elt generator =
             Yield : elt -> unit Effect.t
     end in 
     let yield x = perform (Yield x) in
-    let cont = ref (fiber (fun () -> i yield)) in
+    let refc = ref (fiber (fun () -> i yield)) in
     fun () ->
-        continue_with !cont () {
-            retc = (fun () -> cont := fiber (fun () -> ()); None);
+        let comp = refc <!- (fiber (fun () -> ())) in
+        continue_with comp () {
+            retc = (fun () -> None);
             exnc = raise;
             effc = fun (type a) (eff : a Effect.t) ->
                 match eff with
                     Yield(x) -> Some(fun (k: (a, _) continuation) -> 
-                        cont := k;
+                        refc := k;
                         Some(x)
                     )
                 |   _ -> None
         }
 
-let generate_deep_alt (type elt) (i : elt iterator) : elt generator =
-    let open Effect in
-    let open Effect.Deep in
-    let open struct
-        type _ Effect.t +=
-            Yield : elt -> unit Effect.t
-    end in 
-    let yield x = perform (Yield x) in
-    let cont = ref (fun () -> i yield; None) in
-    fun () ->
-        match_with !cont () {
-            retc = (
-                function  Some(y) -> Some(y)
-                        | None -> cont := (fun () -> None); None);
-            exnc = raise;
-            effc = fun (type a) (eff : a Effect.t) ->
-                match eff with
-                    Yield(x) -> Some(fun (k: (a, _) continuation) -> 
-                        cont := continue k;
-                        Some(x)
-                    )
-                |   _ -> None
-        }
-
-let generate (type elem) (i : elem iterator) : elem generator =
+let generate_deep (type elem) (i : elem iterator) : elem generator =
     let open Effect in
     let open Effect.Deep in
     let open struct
@@ -108,7 +88,7 @@ let list_gen (type a) (xs : a list) : a generator =
         | [] -> None
 
 
-let gen_list : 'a list -> 'a generator = fun xs -> generate (list_iter xs)
+let gen_list : 'a list -> 'a generator = fun xs -> generate_deep (list_iter xs)
 let gl : int generator = gen_list [1;2;3]
 ;;
 
@@ -118,7 +98,7 @@ assert (Some 3 = gl ());;
 assert (None = gl ());;
 assert (None = gl ());;
 
-let gen_array : 'a array -> 'a generator = fun arr -> generate (Fun.flip Array.iter arr)
+let gen_array : 'a array -> 'a generator = fun arr -> generate_deep (Fun.flip Array.iter arr)
 let ga : float generator = gen_array [| 1.0; 2.0; 3.0 |]
 ;;
 
@@ -149,7 +129,7 @@ let inf : 'a generator -> 'a stream  =
     | _ -> assert false
 
 (* Nat stream *)
-let gen_nats : int stream = inf (generate (nats 0))
+let gen_nats : int stream = inf (generate_deep (nats 0))
 ;;
 
 assert (0 = gen_nats ());;
@@ -170,7 +150,7 @@ let rec map : 'a stream -> ('a -> 'b) -> 'b stream =
 
 (* Even stream *)
 let gen_even : int stream =
-    let nat_stream = inf (generate (nats 0)) in
+    let nat_stream = inf (generate_deep (nats 0)) in
     filter nat_stream (fun n -> n mod 2 = 0)
 ;;
 
@@ -181,7 +161,7 @@ assert (6 = gen_even ());;
 
 (* Odd stream *)
 let gen_odd : int stream =
-    let nat_stream = inf (generate (nats 1)) in
+    let nat_stream = inf (generate_deep (nats 1)) in
     filter nat_stream (fun n -> n mod 2 == 1)
 ;;
 
@@ -193,7 +173,7 @@ assert (7 = gen_odd ());;
 
 (* Primes using sieve of Eratosthenes *)
 let gen_primes =
-    let s = inf (generate (nats 2)) in
+    let s = inf (generate_deep (nats 2)) in
     let rs = ref s in
     fun () ->
     let s = !rs in
