@@ -5,7 +5,6 @@
    Copyable (persistent) types
 *)
 
-
 From iris.algebra Require Import ofe.
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic.lib Require Import iprop invariants.
