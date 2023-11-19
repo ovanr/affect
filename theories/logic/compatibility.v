@@ -119,7 +119,7 @@ Section compatibility.
 
   (* Signature abstraction and application *)
   Lemma sem_typed_Rclosure e C : 
-    (∀ θ, ⊨ e : θ : C θ) -∗
+    (∀ θ, ⊨ e : ⟨⟩ : C θ) -∗
     ⊨ᵥ (Λ: e) : (∀R: θ , C θ)%T.
   Proof.
     iIntros "#He !# %ρ !# /=".
@@ -675,7 +675,7 @@ Section compatibility.
   (* Signature abstraction and application *)
   Lemma sem_typed_SLam Γ₁ Γ₂ e C : 
     copy_env Γ₁ -∗
-    (∀ θ, Γ₁ ⊨ e : θ : C θ ⊨ []) -∗
+    (∀ θ, Γ₁ ⊨ e : ⟨⟩ : C θ ⊨ []) -∗
     Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀R: θ , C θ)%T ⊨ Γ₂.
   Proof.
     iIntros "#Hcpy #He !# %vs HΓ₁₂ /=".
@@ -688,30 +688,18 @@ Section compatibility.
     iIntros "!# % [$ _] //=".
   Qed.
 
-  Lemma sem_typed_SApp Γ₁ Γ₂ e ρs C : 
-    copy_env Γ₂ -∗
+  Lemma sem_typed_SApp Γ₁ Γ₂ e ρs ρs' C : 
     Γ₁ ⊨ e : ρs : (∀R: θ , C θ) ⊨ Γ₂ -∗
-    Γ₁ ⊨ e <_> : ρs : C ρs ⊨ Γ₂. 
+    Γ₁ ⊨ e <_> : ρs : C ρs' ⊨ Γ₂. 
   Proof.
-    iIntros "#Hcpy #He !# %vs HΓ₁ /=".
+    iIntros "#He !# %vs HΓ₁ /=".
     iApply (ewp_bind [AppLCtx _]); first done.
     iApply (ewp_pers_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [HC HΓ₂] /= !>".
-    iDestruct ("Hcpy" with "HΓ₂") as "#HΓ₂'".
-    iApply (ewp_pers_mono with "[HC]"); [iApply ("HC" $! ρs)|].
-    iIntros "!# %w HCρ !>". iFrame "∗#".
-  Qed.
-
-  Lemma sem_typed_SApp_os Γ₁ Γ₂ (x : string) e ρ C :
-    x ∉ env_dom Γ₂ → 
-    Γ₁ ⊨ e : ⟨ρ,⟩ : (∀R: θ , C θ) ⊨ Γ₂ -∗
-    Γ₁ ⊨ (let: x := e in x <_>) : ⟨ρ,⟩ : C ⟨ρ,⟩%R ⊨ Γ₂. 
-  Proof.
-    iIntros (?) "#He". 
-    iApply (sem_typed_let _ Γ₂); solve_sidecond.
-    iApply sem_typed_swap_env_singl. rewrite - {3} (app_nil_r Γ₂).
-    iApply sem_typed_frame_env_os. iApply sem_typed_SApp; solve_copy.
-    iApply sem_typed_sub_nil. iApply sem_typed_var.
+    iApply ewp_os_prot_mono; [iApply sig_le_nil|].
+    iApply ewp_ms_prot_mono; [iApply sig_le_nil|].
+    iApply (ewp_mono with "[HC]"); [iApply ("HC" $! ρs')|].
+    iIntros "%w HCρ !>". iFrame "∗#".
   Qed.
 
   (* Existential type packing and unpacking *)

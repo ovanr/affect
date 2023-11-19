@@ -77,7 +77,7 @@ Definition sem_ty_forall `{irisGS eff_lang Σ}
 (* example: ∀ θ, ∀ τ, (τ -{ θ }-> ()) -{ θ }-> () *)
 Definition sem_ty_sig_forall `{irisGS eff_lang Σ} 
   (τ : sem_sigs Σ → sem_ty Σ) : sem_ty Σ := 
-    (λ v, ∀ θ, □ EWP (v <_>) <| fst θ |> {| snd θ |} {{ τ θ }})%I.
+    (λ v, ∀ θ, □ EWP (v <_>) {{ τ θ }})%I.
 
 (* Existential type. *)
 Definition sem_ty_exists `{irisGS eff_lang Σ} 
