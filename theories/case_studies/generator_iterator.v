@@ -61,7 +61,7 @@ Section typing.
       rewrite -(app_nil_r [("i", _)]).
       iApply sem_typed_afun; solve_sidecond. simpl.
       iApply (sem_typed_app _ [("i", iter_ty α)] _ _ _ (yield_ty α)); solve_sidecond.
-      + iApply (sem_typed_SApp _ _ _ ⟨yield_sig α,⟩%R (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
+      + iApply (sem_typed_SApp _ _ _ ⟨yield_sig α,⟩%R _ (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
         iApply sem_typed_sub_nil. iApply sem_typed_var.
       + iApply sem_typed_frame_os. iApply sem_typed_sub_nil.
         iApply sem_typed_val. iApply sem_typed_closure; first done.
