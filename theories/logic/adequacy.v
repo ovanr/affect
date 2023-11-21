@@ -88,7 +88,7 @@ Proof.
 Qed.
 
 Lemma sem_typed_ewp e τ σ:
-  (∀ `{heapGS Σ}, ⊨ e : σ : τ -∗ EWP e <| σ |> {{ τ }}). 
+  (∀ `{heapGS Σ}, ⊨ e : σ : τ -∗ EWP e <| ⊥ |> {| σ |} {{ τ }}). 
 Proof.
   iIntros (?) "He". unfold sem_typed. simpl.
   iAssert (emp)%I as "Hemp"; first done.

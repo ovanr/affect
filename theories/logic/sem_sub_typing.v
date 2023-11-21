@@ -42,23 +42,28 @@ Section sub_typing.
     ⊢ ⊥ ≤S σ.
   Proof. iApply iEff_le_bottom. Qed.
 
-  Lemma sig_le_eff_rec (ι₁ ι₂ κ₁ κ₂ : sem_sig Σ → sem_ty Σ → sem_ty Σ)
+  Lemma sig_le_eff_rec m₁ m₂ (ι₁ ι₂ κ₁ κ₂ : sem_sig Σ → sem_ty Σ → sem_ty Σ)
     `{NonExpansive2 ι₁, NonExpansive2 ι₂, NonExpansive2 κ₁, NonExpansive2 κ₂ } :
+    mode_le m₁ m₂ →
     □ (∀ α σ σ', σ ≤S σ' -∗ (ι₁ σ α) ≤T (ι₂ σ' α)) -∗
     □ (∀ α σ σ', σ ≤S σ' -∗ (κ₂ σ' α) ≤T (κ₁ σ α)) -∗
-    (μ∀TS: θ , α , ι₁ θ α ⇒ κ₁ θ α) ≤S (μ∀TS: θ , α , ι₂ θ α ⇒ κ₂ θ α).
+    (μ∀TS: θ , α , ι₁ θ α ⇒ κ₁ θ α | m₁) ≤S (μ∀TS: θ , α , ι₂ θ α ⇒ κ₂ θ α | m₂).
   Proof.
-    iIntros "#Hι₁₂ #Hκ₂₁". iLöb as "IH".
+    iIntros (mle) "#Hι₁₂ #Hκ₂₁". iLöb as "IH".
     iIntros (v Φ) "!#".
-    iPoseProof (sem_sig_eff_rec_eq ι₂ κ₂ v Φ) as "[_ Hrw]".
-    iIntros "Hμ₁". iApply "Hrw".
-    iPoseProof (sem_sig_eff_rec_eq ι₁ κ₁ v Φ) as "[Hrw' _]".
-    iDestruct ("Hrw'" with "Hμ₁") as "(%α & %w & <- & Hι₁ & HκΦ₁)".
+    rewrite !sem_sig_eff_rec_eq.
+    iIntros "(%α & %w & <- & Hι₁ & HκΦ₁)".
     iExists α, w; iSplitR; first done.
     iSplitL "Hι₁".
     { iNext. iApply ("Hι₁₂" with "IH Hι₁"). }
-    simpl. iIntros (b) "Hκ₂". iApply "HκΦ₁".
-    iNext. iApply ("Hκ₂₁" with "IH Hκ₂").
+    simpl. destruct m₁, m₂; rewrite /mode_le in mle; try tauto; simpl.
+    - iIntros (b) "Hκ₂". iApply "HκΦ₁".
+      iNext. iApply ("Hκ₂₁" with "IH Hκ₂").
+    - iIntros (b) "Hκ₂". iApply "HκΦ₁".
+      iNext. iApply ("Hκ₂₁" with "IH Hκ₂").
+    - iDestruct "HκΦ₁" as "#HκΦ₁".
+      iIntros "!# %b Hκ₂". iApply "HκΦ₁".
+      iNext. iApply ("Hκ₂₁" with "IH Hκ₂").
   Qed.
 
   Lemma ty_le_refl (τ : sem_ty Σ) : ⊢ τ ≤T τ.
@@ -94,6 +99,7 @@ Section sub_typing.
     ⊢ (τ -{ σ }-> κ) ≤T (τ -{ σ }-∘ κ).
   Proof.
     iIntros "!# %v #Hτκ". iIntros (w) "Hτ /=".
+    
     iApply (ewp_pers_mono with "[Hτ Hτκ]"); [by iApply "Hτκ"|].
     iIntros "!# % $ //=".
   Qed.
@@ -105,7 +111,7 @@ Section sub_typing.
     (τ₁ -{ σ }-∘ κ₁) ≤T (τ₂ -{ σ' }-∘ κ₂).
   Proof.
     iIntros "#Hσ  #Hτ₂₁ #Hκ₁₂ !# %v Hτκ₁ %w Hτ".
-    iApply ewp_os_prot_mono; [iApply "Hσ"|].
+    iApply ewp_ms_prot_mono; [iApply "Hσ"|].
     iApply (ewp_pers_mono with "[Hτκ₁ Hτ]").
     { iApply ("Hτκ₁" with "[Hτ]"); by iApply "Hτ₂₁". }
     iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
@@ -118,7 +124,7 @@ Section sub_typing.
     (τ₁ -{ σ }-> κ₁) ≤T (τ₂ -{ σ' }-> κ₂).
   Proof.
     iIntros "#Hσ #Hτ₂₁ #Hκ₁₂ !# %v #Hτκ₁ %w !# Hτ₂".
-    iApply ewp_os_prot_mono; [iApply "Hσ"|].
+    iApply ewp_ms_prot_mono; [iApply "Hσ"|].
     iApply (ewp_pers_mono with "[Hτκ₁ Hτ₂]").
     { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
     iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
@@ -355,7 +361,7 @@ Section copyable_types.
   Lemma copy_ty_forallT C : ⊢ copy_ty (∀T: α, C α).
   Proof. iIntros "!# % #$". Qed.
 
-  Lemma copy_ty_forallR C : ⊢ copy_ty (∀S: θ, C θ).
+  Lemma copy_ty_forallS C : ⊢ copy_ty (∀S: θ, C θ).
   Proof. iIntros "!# % #$". Qed.
 
   Lemma copy_ty_ref τ : ⊢ copy_ty (Refᶜ τ).

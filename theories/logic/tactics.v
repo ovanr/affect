@@ -18,6 +18,7 @@ From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_types.
 From haffel.logic Require Import sem_env.
 From haffel.logic Require Import sem_sub_typing.
+From haffel.logic Require Import reasoning_os.
 
 
 Ltac ewp_bottom := iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|].
@@ -46,7 +47,7 @@ Ltac solve_disjoint :=
       done
     ).
 
-Global Ltac solve_copy :=
+Ltac solve_copy :=
   repeat (
     rewrite !env_sem_typed_empty ||
     rewrite !env_sem_typed_cons ||
@@ -61,7 +62,7 @@ Global Ltac solve_copy :=
     iApply copy_ty_prod ||
     iApply copy_ty_sum ||
     iApply copy_ty_forallT || 
-    iApply copy_ty_forallR || 
+    iApply copy_ty_forallS || 
     iApply copy_ty_ref  || 
     iApply copy_ty_exists || 
     iApply copy_ty_rec || 
@@ -70,12 +71,15 @@ Global Ltac solve_copy :=
     iApply copy_env_nil || 
     iApply copy_env_cons).
 
+Ltac solve_is_os := try (iApply bot_is_os || iApply os_is_os).
+
 Ltac solve_sidecond := 
     try rewrite !env_dom_nil;
     try rewrite !env_dom_cons;
     solve_dom; 
     solve_disjoint;
-    solve_copy.
+    solve_copy;
+    solve_is_os.
 
 Ltac solve_dec := 
     ((rewrite decide_True; last (done || split; eauto; intros ?; by simplify_eq)) ||

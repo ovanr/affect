@@ -75,7 +75,7 @@ Notation "'unfold:' e" := (rec_unfold e%E)
 
 Definition rec_perform : val := (λ: "x", "x")%V.
 
-Notation "'perform:' e" := (rec_perform (Do OS e%E))%E
+Notation "'perform:' e" := (rec_perform (Do MS e%E))%E
   (at level 200, e at level 200,
    format "'[' 'perform:'  e ']'") : expr_scope.
 

@@ -60,13 +60,13 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition stsig : sem_sig Σ := (μ∀TS: _ , _, () + ℤ ⇒ ℤ)%S.
+  Definition stsig : sem_sig Σ := (μ∀TS: _ , _, () + ℤ ⇒ ℤ | MS)%S.
 
   Lemma get_typed :
     ⊢ ⊨ᵥ get : (() -{ stsig }-> ℤ).
   Proof.
     iIntros. iApply sem_typed_closure; solve_sidecond.
-    simpl. iApply (sem_typed_perform _ _ _ () with "[]").
+    simpl. iApply (sem_typed_perform_ms _ _ _ () with "[] []"); first solve_copy.
     simpl. iApply sem_typed_left_inj. 
     iApply sem_typed_sub_nil. iApply sem_typed_unit.
   Qed.
@@ -77,7 +77,7 @@ Section typing.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. iApply (sem_typed_seq _ []);
       last (iApply sem_typed_sub_nil; iApply sem_typed_unit).
-    iApply (sem_typed_perform _ _ _ () with "[]").
+    iApply (sem_typed_perform_ms _ _ _ () with "[] []"); first solve_copy.
     simpl. iApply sem_typed_right_inj. 
     iApply sem_typed_sub_nil. iApply sem_typed_var.
   Qed.
@@ -96,10 +96,10 @@ Section typing.
       iApply sem_typed_var. }
     iApply sem_typed_seq.
     - iApply sem_typed_contraction; solve_sidecond.
-      iApply sem_typed_frame.
+      iApply sem_typed_frame_ms; first solve_copy.
       iApply sem_typed_swap_second.
-      iApply sem_typed_frame.
-      iApply (sem_typed_app _ _ []); first solve_sidecond.
+      iApply sem_typed_frame_ms; first solve_copy.
+      iApply (sem_typed_app_ms _ _ []); first solve_sidecond.
       { iApply sem_typed_sub_nil. 
         iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
         iApply sem_typed_val. iApply put_typed. }

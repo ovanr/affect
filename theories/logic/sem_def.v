@@ -114,7 +114,7 @@ Definition sem_typed `{!irisGS eff_lang Σ}
   (Γ₂ : env Σ) : iProp Σ :=
     tc_opaque (□ (∀ (vs : gmap string val),
                     env_sem_typed Γ₁ vs -∗ 
-                    EWP (subst_map vs e) <| σ |> {{ v, τ v ∗ env_sem_typed Γ₂ vs }}))%I.
+                    EWP (subst_map vs e) <| ⊥ |> {| σ |} {{ v, τ v ∗ env_sem_typed Γ₂ vs }}))%I.
 
 Global Instance sem_typed_persistent `{!irisGS eff_lang Σ} (Γ Γ' : env Σ) e σ τ :
   Persistent (sem_typed Γ e σ τ Γ').
@@ -186,6 +186,12 @@ Global Instance env_le_persistent `{!heapGS Σ} Γ Γ' :
 Proof.
   unfold env_le, tc_opaque. apply _.
 Qed.
+
+Definition mode_le m₁ m₂ := 
+  match (m₁, m₂) with
+    (OS, MS) => False 
+  | _ => True
+  end.
 
 Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
 Notation "σ '≤S' σ'" := (sig_le σ%S σ'%S) (at level 98).

@@ -55,7 +55,7 @@ Definition sem_ty_aarr `{irisGS eff_lang Σ}
   (λ (v : val),
     ∀ (w : val),
       τ w -∗
-      EWP (v w) <| σ |> {{ u, κ u }})%I.
+      EWP (v w) <| ⊥ |> {| σ |} {{ u, κ u }})%I.
 
 (* Unrestricted Arrow type. *)
 Definition sem_ty_uarr `{irisGS eff_lang Σ} 
@@ -65,7 +65,7 @@ Definition sem_ty_uarr `{irisGS eff_lang Σ}
   (λ (v : val), □ (
     ∀ (w : val),
       τ w -∗ 
-      EWP (v w) <| σ |> {{ u, κ u }}))%I.
+      EWP (v w) <| ⊥ |> {| σ |} {{ u, κ u }}))%I.
 
 (* Polymorphic type. *)
 Definition sem_ty_forall `{irisGS eff_lang Σ} 
@@ -115,12 +115,12 @@ Definition sem_sig_nil {Σ} : sem_sig Σ := iEff_bottom.
 (* Universally Quantified, Recursive Effect Signature *)
 
 (* Effect Signature *)
-Definition sem_sig_eff_rec_pre {Σ} (A B : sem_sig Σ -d> sem_ty Σ -d> sem_ty Σ) (rec : sem_sig Σ) : sem_sig Σ :=
+Definition sem_sig_eff_rec_pre {Σ} m (A B : sem_sig Σ -d> sem_ty Σ -d> sem_ty Σ) (rec : sem_sig Σ) : sem_sig Σ :=
   (>> (α : sem_ty Σ) (a : val) >> ! a {{ ▷ (∃ rec', rec ≡ rec' ∧ A rec' α a) }}; 
-   << (b : val)                << ? b {{ ▷ (∃ rec', rec ≡ rec' ∧ B rec' α b) }} @OS).
+   << (b : val)                << ? b {{ ▷ (∃ rec', rec ≡ rec' ∧ B rec' α b) }} @m).
 
-Global Instance sem_sig_eff_rec_pre_contractive {Σ} (A B : sem_sig Σ -d> sem_ty Σ -d> sem_ty Σ) :
-  Contractive (sem_sig_eff_rec_pre A B).
+Global Instance sem_sig_eff_rec_pre_contractive {Σ} m (A B : sem_sig Σ -d> sem_ty Σ -d> sem_ty Σ) :
+  Contractive (sem_sig_eff_rec_pre m A B).
 Proof.
   intros ?????. 
   rewrite /sem_sig_eff_rec_pre iEffPre_exist_eq iEffPost_exist_eq /=.
@@ -128,56 +128,56 @@ Proof.
   intros ?. simpl. do 2 f_equiv.
   { f_contractive. simpl in H. by do 4 f_equiv. }
   do 2 f_equiv. rewrite /iEffPost_exist_def. do 3 f_equiv.
-  rewrite iEffPost_base_eq /iEffPost_base_def. f_equiv. f_contractive.
+  rewrite iEffPost_base_eq /iEffPost_base_def. do 2 f_equiv. f_contractive.
   simpl in H. by do 4 f_equiv.
 Qed.
 
-Definition sem_sig_eff_rec {Σ} (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) : sem_sig Σ :=
-  fixpoint (sem_sig_eff_rec_pre A B).
+Definition sem_sig_eff_rec {Σ} m (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) : sem_sig Σ :=
+  fixpoint (sem_sig_eff_rec_pre m A B).
 
-Lemma sem_sig_eff_rec_unfold {Σ} (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) `{NonExpansive2 A, NonExpansive2 B} :
-  (sem_sig_eff_rec A B) ≡ 
-    (>> (α : sem_ty Σ) (a : val) >> ! a {{ ▷ (A (sem_sig_eff_rec A B) α a) }}; 
-     << (b : val)                << ? b {{ ▷ (B (sem_sig_eff_rec A B) α b) }} @OS)%ieff.
+Lemma sem_sig_eff_rec_unfold {Σ} m (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) `{NonExpansive2 A, NonExpansive2 B} :
+  (sem_sig_eff_rec m A B) ≡ 
+    (>> (α : sem_ty Σ) (a : val) >> ! a {{ ▷ (A (sem_sig_eff_rec m A B) α a) }}; 
+     << (b : val)                << ? b {{ ▷ (B (sem_sig_eff_rec m A B) α b) }} @m)%ieff.
 Proof.
   rewrite {1} /sem_sig_eff_rec fixpoint_unfold {1} /sem_sig_eff_rec_pre.
   do 5 f_equiv. 
   - iSplit. 
     + iIntros "[% [#Hfix HA]] !>". 
       rewrite /sem_sig_eff_rec.
-      iAssert (A rec' a ≡ A (fixpoint (sem_sig_eff_rec_pre A B)) a)%I as "#H".
+      iAssert (A rec' a ≡ A (fixpoint (sem_sig_eff_rec_pre m A B)) a)%I as "#H".
       { by iRewrite "Hfix". }
       rewrite discrete_fun_equivI. by iRewrite - ("H" $! a0).
-    + iIntros "HA //=". iExists (sem_sig_eff_rec A B).
+    + iIntros "HA //=". iExists (sem_sig_eff_rec m A B).
       by iFrame. 
   - intros ?. rewrite iEffPost_base_eq /iEffPost_base_def.
     apply non_dep_fun_equiv. do 2 f_equiv. intros ?. do 2 f_equiv. iSplit.
     + iIntros "[% [#Hfix HB]]". 
       rewrite /sem_sig_eff_rec.
-      iAssert (B rec' a ≡ B (fixpoint (sem_sig_eff_rec_pre A B)) a)%I as "#H".
+      iAssert (B rec' a ≡ B (fixpoint (sem_sig_eff_rec_pre m A B)) a)%I as "#H".
       { by iRewrite "Hfix". }
       rewrite discrete_fun_equivI. by iRewrite - ("H" $! a1).
-    + iIntros "Hτ //=". iExists (sem_sig_eff_rec A B).
+    + iIntros "Hτ //=". iExists (sem_sig_eff_rec m A B).
       by iFrame. 
 Qed.
 
-Lemma sem_sig_eff_rec_unfold' {Σ} (A B : sem_sig Σ -d> sem_ty Σ -d> sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B } v Φ:
-  iEff_car (sem_sig_eff_rec A B) v Φ ⊣⊢
-    iEff_car (>> (α : sem_ty Σ) (a : val) >> ! a {{ ▷ (A (sem_sig_eff_rec A B) α a) }}; 
-              << (b : val)                << ? b {{ ▷ (B (sem_sig_eff_rec A B) α b) }} @OS)%ieff v Φ.
+Lemma sem_sig_eff_rec_unfold' {Σ} m (A B : sem_sig Σ -d> sem_ty Σ -d> sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B } v Φ:
+  iEff_car (sem_sig_eff_rec m A B) v Φ ⊣⊢
+    iEff_car (>> (α : sem_ty Σ) (a : val) >> ! a {{ ▷ (A (sem_sig_eff_rec m A B) α a) }}; 
+              << (b : val)                << ? b {{ ▷ (B (sem_sig_eff_rec m A B) α b) }} @m)%ieff v Φ.
 Proof.
   assert (Hequiv :
-  iEff_car (sem_sig_eff_rec A B) v Φ ⊣⊢
-    iEff_car (>> (α : sem_ty Σ) (a : val) >> ! a {{ ▷ (A (sem_sig_eff_rec A B) α a) }}; 
-              << (b : val)                << ? b {{ ▷ (B (sem_sig_eff_rec A B) α b) }} @OS)%ieff v Φ).
+  iEff_car (sem_sig_eff_rec m A B) v Φ ⊣⊢
+    iEff_car (>> (α : sem_ty Σ) (a : val) >> ! a {{ ▷ (A (sem_sig_eff_rec m A B) α a) }}; 
+              << (b : val)                << ? b {{ ▷ (B (sem_sig_eff_rec m A B) α b) }} @m)%ieff v Φ).
   { f_equiv. apply non_dep_fun_equiv. by apply sem_sig_eff_rec_unfold. }
   by rewrite Hequiv.
 Qed.
 
-Lemma sem_sig_eff_rec_eq {Σ} A B v Φ `{ NonExpansive2 A, NonExpansive2 B }:
-  iEff_car (sem_sig_eff_rec (Σ:=Σ) A B) v Φ ⊣⊢
-    (∃ α a, ⌜ a = v ⌝ ∗ (▷ A (sem_sig_eff_rec A B) α a) ∗ 
-                        (∀ b, (▷ B (sem_sig_eff_rec A B) α b) -∗ Φ b))%I.
+Lemma sem_sig_eff_rec_eq {Σ} m A B v Φ `{ NonExpansive2 A, NonExpansive2 B }:
+  iEff_car (sem_sig_eff_rec (Σ:=Σ) m A B) v Φ ⊣⊢
+    (∃ α a, ⌜ a = v ⌝ ∗ (▷ A (sem_sig_eff_rec m A B) α a) ∗ 
+                        □? m (∀ b, (▷ B (sem_sig_eff_rec m A B) α b) -∗ Φ b))%I.
 Proof. 
   etrans; [by apply sem_sig_eff_rec_unfold'|]. 
   by rewrite (iEff_tele_eq' [tele _ _] [tele _]) /=. 
@@ -185,7 +185,7 @@ Qed.
 
 (* The sem_sig_eff_rec protocol is monotonic. *)
 Global Instance sem_sig_eff_rec_mono_prot {Σ} A B `{ NonExpansive2 A, NonExpansive2 B }:
-  MonoProt (@sem_sig_eff_rec Σ A B).
+  MonoProt (@sem_sig_eff_rec Σ OS A B).
 Proof.
   constructor. iIntros (???) "HΦ'".
   rewrite !sem_sig_eff_rec_eq /=.
@@ -194,20 +194,31 @@ Proof.
   iIntros (b) "Hκ". iApply "HΦ'". by iApply "HκΦ".
 Qed.
 
-Lemma upcl_sem_sig_rec_eff {Σ} A B v Φ `{ NonExpansive2 A, NonExpansive2 B}:
-  iEff_car (upcl OS (sem_sig_eff_rec (Σ:=Σ) A B)) v Φ ⊣⊢
-    (∃ α a, ⌜ a = v ⌝ ∗ (▷ A (sem_sig_eff_rec A B) α a) ∗ 
-                        (∀ b, (▷ B (sem_sig_eff_rec A B) α b) -∗ Φ b))%I.
+(* The sem_sig_eff_rec protocol is persistently monotonic. *)
+Global Instance sem_sig_eff_rec_pers_mono_prot {Σ} A B `{ NonExpansive2 A, NonExpansive2 B }:
+  PersMonoProt (@sem_sig_eff_rec Σ MS A B).
+Proof.
+  constructor. iIntros (???) "#HΦ'".
+  rewrite !sem_sig_eff_rec_eq. simpl.
+  iIntros "(% & % & <- & Hτ & #HκΦ)".
+  iExists α, a. iSplitR; first done. iFrame. simpl.
+  iIntros "!# %b Hκ". iApply "HΦ'". by iApply "HκΦ".
+Qed.
+
+Lemma upcl_sem_sig_rec_eff {Σ} m A B v Φ `{ NonExpansive2 A, NonExpansive2 B}:
+  iEff_car (upcl m (sem_sig_eff_rec (Σ:=Σ) m A B)) v Φ ⊣⊢
+    (∃ α a, ⌜ a = v ⌝ ∗ (▷ A (sem_sig_eff_rec m A B) α a) ∗ 
+                        □? m (∀ b, (▷ B (sem_sig_eff_rec m A B) α b) -∗ Φ b))%I.
 Proof.
   assert (Hequiv:
-    iEff_car (upcl OS (sem_sig_eff_rec A B)) v Φ ≡ iEff_car (sem_sig_eff_rec A B) v Φ).
-  { f_equiv. apply non_dep_fun_equiv. by rewrite upcl_id. }
+    iEff_car (upcl m (sem_sig_eff_rec m A B)) v Φ ≡ iEff_car (sem_sig_eff_rec m A B) v Φ).
+  { f_equiv. apply non_dep_fun_equiv. destruct m; [by rewrite upcl_id|by rewrite pers_upcl_id]. }
   rewrite Hequiv. by apply sem_sig_eff_rec_eq.
 Qed.
 
 (* Notations. *)
-Notation "'μ∀TS:' θ , α , τ ⇒ κ" := (sem_sig_eff_rec (λ θ α, τ%T) (λ θ α, κ%T))
-  (at level 100, τ, κ at level 200) : sem_sig_scope.
+Notation "'μ∀TS:' θ , α , τ ⇒ κ | m " := (sem_sig_eff_rec m (λ θ α, τ%T) (λ θ α, κ%T))
+  (at level 100, m, τ, κ at level 200) : sem_sig_scope.
 
 Notation "'Void'" := sem_ty_void : sem_ty_scope.
 Notation "()" := sem_ty_unit : sem_ty_scope.
