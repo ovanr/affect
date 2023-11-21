@@ -26,7 +26,7 @@ Definition yield := (λ: "x", perform: "x")%V.
 Definition generate :=
   (Λ: λ: "i", let: "cont" := ref (λ: <>, "i" <_> yield) in
       λ: <>, let: "comp" := "cont" <!- (λ: <>, #())  in
-             shallow-try-os: "comp" #() with
+             shallow-try: "comp" #() with
                 effect λ: "x" "k", "cont" <- "k" ;; SOME "x"
              |  return λ: "x", NONE
              end
@@ -45,27 +45,27 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition yield_sig (τ : sem_ty Σ) := (μ∀TS: _, _, τ ⇒ ())%R.
-  Definition yield_ty τ := τ -{ ⟨yield_sig τ,⟩ }-> ().
-  Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
+  Definition yield_sig (τ : sem_ty Σ) := (μ∀TS: _, _, τ ⇒ ())%S.
+  Definition yield_ty τ := τ -{ yield_sig τ }-> ().
+  Definition iter_ty τ := (∀S: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
   
   Lemma sem_typed_generate :
-    ⊢ ⊨ᵥ generate : (∀T: α,, iter_ty α → generator_ty α).
+    ⊢ ⊨ᵥ generate : (∀T: α, iter_ty α → generator_ty α).
   Proof.
     iIntros "". iApply sem_typed_Tclosure. iIntros (α).
     rewrite -(app_nil_r []). iApply sem_typed_ufun; solve_sidecond. simpl.
-    set cont_ty := (() -{ ⟨yield_sig α,⟩ }-∘ ()). 
+    set cont_ty := (() -{ yield_sig α }-∘ ()). 
     iApply (sem_typed_let _ [] _ _ _ _ (Refᶜ cont_ty)); simpl; solve_sidecond. 
     - iApply sem_typed_alloc_cpy.
       rewrite -(app_nil_r [("i", _)]).
       iApply sem_typed_afun; solve_sidecond. simpl.
       iApply (sem_typed_app _ [("i", iter_ty α)] _ _ _ (yield_ty α)); solve_sidecond.
-      + iApply (sem_typed_SApp _ _ _ ⟨yield_sig α,⟩%R _ (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
+      + iApply (sem_typed_SApp _ _ _ (yield_sig α) _ (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
         iApply sem_typed_sub_nil. iApply sem_typed_var.
-      + iApply sem_typed_frame_os. iApply sem_typed_sub_nil.
+      + iApply sem_typed_frame. iApply sem_typed_sub_nil.
         iApply sem_typed_val. iApply sem_typed_closure; first done.
-        simpl. iApply (sem_typed_perform_os _ _ _ () with "[]"). 
+        simpl. iApply (sem_typed_perform _ _ _ () with "[]"). 
         iApply sem_typed_sub_nil. iApply sem_typed_var.
     - set Γ₁ :=[("cont", Refᶜ cont_ty)]; rewrite -(app_nil_r Γ₁). 
       iApply sem_typed_ufun; solve_sidecond. simpl.
@@ -73,14 +73,14 @@ Section typing.
       + iApply sem_typed_contraction; solve_sidecond.
         iApply sem_typed_replace_cpy.
         { iApply sem_typed_sub_nil. iApply sem_typed_var. }
-        do 2 iApply sem_typed_frame_os.
+        do 2 iApply sem_typed_frame.
         rewrite -(app_nil_r []).
         iApply sem_typed_afun; solve_sidecond.
         simpl. iApply sem_typed_sub_nil. iApply sem_typed_unit.
       + rewrite app_singletons.
-        iApply (sem_typed_shallow_try_os' 
+        iApply (sem_typed_shallow_try
                       [("comp", cont_ty)] [] [] [("cont", Refᶜ cont_ty)] 
-                      "x" "k" _ _ _ (λ _ _, α) (λ _ _, ()) (Option α) ()); solve_sidecond.
+                      "x" "k" _ _ _ (λ _ _, α) (λ _ _, ()) () (Option α)); solve_sidecond.
         * iApply sem_typed_app; first solve_sidecond; 
           iApply sem_typed_sub_nil;
             [iApply sem_typed_var|iApply sem_typed_unit]. 
@@ -117,10 +117,10 @@ Section typing.
       iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|iApply sem_typed_var].
     - iApply sem_typed_sub_nil. do 3 iApply sem_typed_weaken. iApply sem_typed_unit.
     - iApply (sem_typed_seq _ [("g", generator_ty τ ); ("go", generator_ty τ -{ θ }-> ())]).
-      + iApply sem_typed_app; [solve_sidecond| |iApply sem_typed_sub_nil; iApply sem_typed_var].
+      + iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_swap_third. 
         iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|]. iApply sem_typed_var.
-      + iApply sem_typed_app; [solve_sidecond| |iApply sem_typed_sub_nil; iApply sem_typed_var].
+      + iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
         iApply sem_typed_var.
   Qed.

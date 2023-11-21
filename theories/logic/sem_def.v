@@ -34,11 +34,10 @@ Delimit Scope sem_ty_scope with T.
 (** * Semantic Effect Signature. *)
 
 Notation sem_sig Σ := (iEff Σ)%type.
-Notation sem_sigs Σ := (sem_sig Σ * sem_sig Σ)%type.
 
 Declare Scope sem_sig_scope.
 Bind Scope ieff_scope with sem_sig.
-Delimit Scope sem_sig_scope with R.
+Delimit Scope sem_sig_scope with S.
 
 
 (** The Type Environment
@@ -110,24 +109,24 @@ Global Opaque env_sem_typed.
 Definition sem_typed `{!irisGS eff_lang Σ}
   (Γ₁ : env Σ)
   (e : expr)
-  (ρs : sem_sigs Σ)
+  (σ : sem_sig Σ)
   (τ : sem_ty Σ) 
   (Γ₂ : env Σ) : iProp Σ :=
     tc_opaque (□ (∀ (vs : gmap string val),
                     env_sem_typed Γ₁ vs -∗ 
-                    EWP (subst_map vs e) <| fst ρs |> {| snd ρs |} {{ v, τ v ∗ env_sem_typed Γ₂ vs }}))%I.
+                    EWP (subst_map vs e) <| σ |> {{ v, τ v ∗ env_sem_typed Γ₂ vs }}))%I.
 
-Global Instance sem_typed_persistent `{!irisGS eff_lang Σ} (Γ Γ' : env Σ) e ρs τ :
-  Persistent (sem_typed Γ e ρs τ Γ').
+Global Instance sem_typed_persistent `{!irisGS eff_lang Σ} (Γ Γ' : env Σ) e σ τ :
+  Persistent (sem_typed Γ e σ τ Γ').
 Proof.
   unfold sem_typed, tc_opaque. apply _.
 Qed.
 
-Notation "Γ₁ ⊨ e : ρs : α ⊨ Γ₂" := (sem_typed Γ₁ e%E ρs%R α%T Γ₂)
-  (at level 74, e, ρs, α at next level) : bi_scope.
+Notation "Γ₁ ⊨ e : σ : α ⊨ Γ₂" := (sem_typed Γ₁ e%E σ%S α%T Γ₂)
+  (at level 74, e, σ, α at next level) : bi_scope.
 
-Notation "⊨ e : ρs : α" := (sem_typed [] e%E ρs%R α%T [])
-  (at level 74, e, ρs, α at next level) : bi_scope.
+Notation "⊨ e : σ : α" := (sem_typed [] e%E σ%S α%T [])
+  (at level 74, e, σ, α at next level) : bi_scope.
 
 (* The value semantic typing judgement is also defined
  * to be persistent, so only persistent values hold for it.
@@ -173,9 +172,9 @@ Proof.
   unfold ty_le, tc_opaque. apply _.
 Qed.
 
-Definition sig_le {Σ} (ρ ρ' : sem_sig Σ) := tc_opaque (iEff_le ρ ρ').
-Global Instance sig_le_persistent {Σ} ρ ρ' :
-  Persistent (@sig_le Σ ρ ρ').
+Definition sig_le {Σ} (σ σ' : sem_sig Σ) := tc_opaque (iEff_le σ σ').
+Global Instance sig_le_persistent {Σ} σ σ' :
+  Persistent (@sig_le Σ σ σ').
 Proof.
   unfold sig_le, tc_opaque. apply _.
 Qed.
@@ -188,18 +187,6 @@ Proof.
   unfold env_le, tc_opaque. apply _.
 Qed.
 
-Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).
 Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
-
-Notation "ρ '≤R' ρ'" := (sig_le ρ%R ρ'%R) (at level 98).
-
-Definition sigs_le {Σ} (ρs ρs' : sem_sigs Σ) :=
-  (sig_le (fst ρs%R) (fst ρs'%R) ∗ sig_le (snd ρs%R) (snd ρs'%R))%I.
-
-Global Instance sigs_le_persistent {Σ} ρs ρs' :
-  Persistent (@sigs_le Σ ρs ρs').
-Proof.
-  unfold sigs_le. apply bi.sep_persistent; apply sig_le_persistent.
-Qed.
-
-Notation "ρs '≤Rs' ρs'" := (sigs_le ρs%R ρs'%R)%I (at level 98).
+Notation "σ '≤S' σ'" := (sig_le σ%S σ'%S) (at level 98).
+Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).

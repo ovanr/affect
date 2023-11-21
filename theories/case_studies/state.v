@@ -31,7 +31,7 @@ Definition fact : val :=
 
 Definition fact_ref : val :=
   (λ: "n", let: "store" := ref #1 in
-            deep-try-os: (fact "n") with
+            deep-try: (fact "n") with
               effect (λ: "x" "k",
                 match: "x" with 
                   InjL <> => 
@@ -44,7 +44,7 @@ Definition fact_ref : val :=
             | return (λ: "x", Load "store")%E end)%V.
 
 Definition fact_st : val :=
-  (λ: "n", deep-try-os: (fact "n") with
+  (λ: "n", deep-try: (fact "n") with
               effect (λ: "x" "k",
                 match: "x" with 
                   InjL <> => 
@@ -60,13 +60,13 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition stsig := ⟨μ∀TS: _ , _, (@sem_ty_unit Σ) + ℤ ⇒ ℤ, @sem_sig_nil Σ⟩%R.  
+  Definition stsig : sem_sig Σ := (μ∀TS: _ , _, () + ℤ ⇒ ℤ)%S.
 
   Lemma get_typed :
     ⊢ ⊨ᵥ get : (() -{ stsig }-> ℤ).
   Proof.
     iIntros. iApply sem_typed_closure; solve_sidecond.
-    simpl. iApply (sem_typed_perform_os _ _ _ () with "[]").
+    simpl. iApply (sem_typed_perform _ _ _ () with "[]").
     simpl. iApply sem_typed_left_inj. 
     iApply sem_typed_sub_nil. iApply sem_typed_unit.
   Qed.
@@ -77,7 +77,7 @@ Section typing.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. iApply (sem_typed_seq _ []);
       last (iApply sem_typed_sub_nil; iApply sem_typed_unit).
-    iApply (sem_typed_perform_os _ _ _ () with "[]").
+    iApply (sem_typed_perform _ _ _ () with "[]").
     simpl. iApply sem_typed_right_inj. 
     iApply sem_typed_sub_nil. iApply sem_typed_var.
   Qed.
@@ -96,9 +96,9 @@ Section typing.
       iApply sem_typed_var. }
     iApply sem_typed_seq.
     - iApply sem_typed_contraction; solve_sidecond.
-      iApply sem_typed_frame_os.
+      iApply sem_typed_frame.
       iApply sem_typed_swap_second.
-      iApply sem_typed_frame_os.
+      iApply sem_typed_frame.
       iApply (sem_typed_app _ _ []); first solve_sidecond.
       { iApply sem_typed_sub_nil. 
         iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
@@ -111,7 +111,7 @@ Section typing.
       iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       iApply sem_typed_val. iApply get_typed. 
     - iApply (sem_typed_app _ [("fact", _)]); 
-        [solve_copy|iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|];
+        [iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|];
          iApply sem_typed_sub_nil; iApply sem_typed_var|].
       iApply sem_typed_sub_nil.
       iApply sem_typed_bin_op; 
@@ -126,18 +126,18 @@ Section typing.
     { iApply sem_typed_alloc_cpy. iApply sem_typed_int. }
     iApply sem_typed_swap_second.
     rewrite app_singletons.
-    set A := (λ (_ : sem_sig Σ) (_ : sem_ty Σ), (@sem_ty_unit Σ) + ℤ)%T.
-    set B := (λ (_ : sem_sig Σ) (_ : sem_ty Σ), @sem_ty_int Σ)%T.
-    iApply (sem_typed_deep_try_os' _ [] _ _ "x" _ _ _ _ A B ℤ _ (@sem_sig_nil Σ) with "[] [] []"); solve_sidecond.
+    set A : sem_sig Σ → sem_ty Σ → sem_ty Σ := (λ _ _, () + ℤ)%T.
+    set B : sem_sig Σ → sem_ty Σ → sem_ty Σ := (λ _ _, ℤ)%T.
+    iApply (sem_typed_deep_try _ [] _ _ "x" _ _ _ _ A B () _ ⊥ with "[] [] []"); solve_sidecond.
     { rewrite /A /B -/stsig. 
-      iApply sem_typed_app; first solve_copy; iApply sem_typed_sub_nil; 
+      iApply sem_typed_app; iApply sem_typed_sub_nil; 
       last (iApply sem_typed_var).
       iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       iApply sem_typed_val. iApply fact_typed. }
     - iIntros (?). rewrite /A /B.
       iApply (sem_typed_match _ [("k", _); ("store", _)]); 
         solve_sidecond; [iApply sem_typed_var| |]; simpl.
-      + iApply sem_typed_app; first solve_copy; [iApply sem_typed_var|].
+      + iApply sem_typed_app; [iApply sem_typed_var|].
         iApply (sem_typed_load_cpy _ _ _ _ ℤ); solve_sidecond.
         iApply sem_typed_swap_second. 
         iApply sem_typed_var.
@@ -146,7 +146,7 @@ Section typing.
         iApply (sem_typed_seq _ [("store", _); ("k", _)]). 
         { iApply (sem_typed_store_cpy _ _ _ _ _ _ ℤ); 
             solve_sidecond; iApply sem_typed_var. }
-        iApply sem_typed_app; [solve_copy|iApply sem_typed_var|].
+        iApply sem_typed_app; [iApply sem_typed_var|].
         iApply (sem_typed_load_cpy _ _ _ _ ℤ); solve_sidecond.
         iApply sem_typed_var.
     - simpl. iApply sem_typed_weaken. iApply sem_typed_load_cpy; solve_sidecond.
@@ -157,13 +157,13 @@ Section typing.
     ⊢ ⊨ᵥ fact_st : (ℤ → ℤ).
   Proof.
     iIntros. iApply sem_typed_closure; solve_sidecond.
-    simpl. iApply sem_typed_app; [solve_copy| |iApply sem_typed_int].
-    set A := (λ (_ : sem_sig Σ) (_ : sem_ty Σ), (@sem_ty_unit Σ) + ℤ)%T.
-    set B := (λ (_ : sem_sig Σ) (_ : sem_ty Σ), @sem_ty_int Σ)%T.
+    simpl. iApply sem_typed_app; [|iApply sem_typed_int].
+    set A : sem_sig Σ → sem_ty Σ → sem_ty Σ := (λ _ _, () + ℤ)%T.
+    set B : sem_sig Σ → sem_ty Σ → sem_ty Σ := (λ _ _, ℤ)%T.
     rewrite - {1} (app_nil_r [("n", ℤ)]).
-    iApply (sem_typed_deep_try_os' _ [] _ _ _ _ _ _ _ A B); solve_sidecond.
+    iApply (sem_typed_deep_try _ [] _ _ _ _ _ _ _ A B); solve_sidecond.
     { rewrite /A /B -/stsig. 
-      iApply sem_typed_app; first solve_copy; iApply sem_typed_sub_nil; 
+      iApply sem_typed_app; iApply sem_typed_sub_nil; 
       last (iApply sem_typed_var).
       iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       iApply sem_typed_val. iApply fact_typed. }
@@ -173,12 +173,12 @@ Section typing.
       + rewrite - {1} (app_nil_r [("k", _)]).
         iApply sem_typed_afun; solve_sidecond. simpl.
         iApply sem_typed_contraction; solve_sidecond.
-        do 2 (iApply sem_typed_app; [solve_copy| |iApply sem_typed_var]).
+        do 2 (iApply sem_typed_app; [|iApply sem_typed_var]).
         iApply sem_typed_var.
       + rewrite - {1} (app_nil_r [("s", _); ("k", _)]).
         iApply sem_typed_afun; solve_sidecond. simpl.
         iApply sem_typed_contraction; solve_sidecond.
-        do 2 (iApply sem_typed_app; [solve_copy| |iApply sem_typed_var]).
+        do 2 (iApply sem_typed_app; [|iApply sem_typed_var]).
         iApply sem_typed_var.
     - simpl. iApply sem_typed_weaken.
       iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].

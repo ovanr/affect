@@ -75,13 +75,9 @@ Notation "'unfold:' e" := (rec_unfold e%E)
 
 Definition rec_perform : val := (λ: "x", "x")%V.
 
-Notation "'perform:' e" := (rec_perform (Do OS (InjL e%E)))%E
+Notation "'perform:' e" := (rec_perform (Do OS e%E))%E
   (at level 200, e at level 200,
    format "'[' 'perform:'  e ']'") : expr_scope.
-
-Notation "'performₘ:' e" := (rec_perform (Do MS (InjR e%E)))%E
-  (at level 200, e at level 200,
-   format "'[' 'performₘ:'  e ']'") : expr_scope.
 
 (** Notations for lists. *)
 Notation NIL := (InjL #()) (only parsing).
@@ -101,53 +97,6 @@ Definition from_binder (b : binder) (e : expr) : expr :=
     BAnon => e
   | BNamed x => Var x
   end.
-
-Definition select_on_sum : val := 
-  (λ: "e₁" "e₂" "v", 
-          match: "v" with
-            InjL "v" => "e₁" "v"
-          | InjR "v" => "e₂" "v"
-          end)%V.
-
-Definition ShallowTryDual e hos hms r :=
-  (TryWith e (select_on_sum hos hms) r)%E.
-
-Notation "'shallow-try-dual:' e 'with' 'effect' hos '|' 'effectₘ' hms '|' 'return' r 'end'" :=
-  (ShallowTryDual e hos hms r)
-  (e, hos, hms, r at level 200) : expr_scope.
-
-Notation "'shallow-try-os:' e 'with' 'effect' h '|' 'return' r 'end'" :=
-    ((λ: "h" "r", rec: "H" "e" := 
-                    shallow-try-dual: "e" #() with
-                      effect "h"
-                    | effectₘ  (λ: "w" "k", "H" ((λ: "w", λ: <>, "k" "w") (performₘ: "w")))
-                    | return  "r" end)%V h r (λ: <>, e))%E.
-
-Notation "'shallow-try-ms:' e 'with' 'effectₘ' h '|' 'return' r 'end'" :=
-    ((λ: "h" "r", rec: "H" "e" := 
-                    shallow-try-dual: "e" #() with
-                      effect  (λ: "w" "k", "H" ((λ: "w", λ: <>, "k" "w") (perform: "w")))
-                    | effectₘ "h"
-                    | return  "r" end)%V h r (λ: <>, e))%E.
-
-Definition DeepTryDual e hos hms r :=
-  (DeepTryWith e (select_on_sum hos hms) r)%E.
-
-Notation "'deep-try-dual:' e 'with' 'effect' hos '|' 'effectₘ' hms '|' 'return' r 'end'" :=
-  (DeepTryDual e hos hms r)
-  (e, hos, hms, r at level 200) : expr_scope.
-
-Notation "'deep-try-os:' e 'with' 'effect' h '|' 'return' r 'end'" :=
-    (deep-try-dual: e with
-            effect  h 
-          | effectₘ (λ: "w" "k", "k" (performₘ: "w"))%V
-          | return r end)%E. 
-
-Notation "'deep-try-ms:' e 'with' 'effectₘ' h '|' 'return' r 'end'" :=
-    (deep-try-dual: e with
-            effect  (λ: "w" "k", "k" (perform: "w"))%V
-          | effectₘ  h 
-          | return r end)%E. 
 
 Global Instance load_atomic (l : loc) :
   Atomic StronglyAtomic (Load $ Val $ LitV $ LitLoc l).

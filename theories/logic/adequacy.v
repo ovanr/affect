@@ -61,7 +61,7 @@ Proof.
   Qed.
 
 Lemma eff_adequacy `{!heapGpreS Σ} e σ φ :
-  (∀ `{!heapGS Σ}, ⊢ EWP e <| ⊥ |> {{ v, ⌜φ v⌝ }}) →
+  (∀ `{!heapGS Σ}, ⊢ EWP e {{ v, ⌜φ v⌝ }}) →
   adequate NotStuck e σ (λ v _, φ v).
 Proof.
   intros Hwp.
@@ -87,8 +87,8 @@ Proof.
   set_solver.
 Qed.
 
-Lemma sem_typed_ewp e τ ρs:
-  (∀ `{heapGS Σ}, ⊨ e : ρs : τ -∗ EWP e <| ρs.1 |> {| ρs.2 |} {{ τ }}). 
+Lemma sem_typed_ewp e τ σ:
+  (∀ `{heapGS Σ}, ⊨ e : σ : τ -∗ EWP e <| σ |> {{ τ }}). 
 Proof.
   iIntros (?) "He". unfold sem_typed. simpl.
   iAssert (emp)%I as "Hemp"; first done.
@@ -102,12 +102,12 @@ Proof.
 Qed.
 
 Lemma sem_typed_adequacy `{!heapGpreS Σ} e τ σ :
-  (∀ `{!heapGS Σ}, ⊢ ⊨ e : ⟨⟩%R : τ) →
+  (∀ `{!heapGS Σ}, ⊢ ⊨ e : ⊥ : τ) →
   ∀ e' σ', rtc erased_step ([e], σ) ([e'], σ') → 
            not_stuck e' σ'.
 Proof.
   intros He. 
   apply (eff_adequate_not_stuck _ _ τ).
   iIntros (?) "". 
-  iApply (sem_typed_ewp _ _ ⟨⟩%R). iApply He.
+  iApply (sem_typed_ewp _ _ ⊥). iApply He.
 Qed.
