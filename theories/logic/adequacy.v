@@ -53,7 +53,7 @@ Proof.
   intros Hwp; eapply (@wp_adequacy Σ _ _). 
   intros ??. simpl.
   iMod (gen_heap_init σ.(heap)) as (?) "[Hh _]".
-  iMod (inv_heap_init loc val) as (?) ">Hi".
+  iMod (inv_heap_init loc (option val)) as (?) ">Hi".
   iExists
       (λ σ κs, gen_heap_interp σ.(heap)),
       (λ _, True%I).

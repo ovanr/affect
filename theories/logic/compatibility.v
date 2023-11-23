@@ -844,6 +844,17 @@ Section compatibility.
     iIntros "!> Hl !>". solve_env.
   Qed.
 
+  Lemma sem_typed_free Γ₁ Γ₂ e σ τ: 
+    Γ₁ ⊨ e : σ : Ref τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ Free e : σ : τ ⊨ Γ₂.
+  Proof.
+    iIntros "#He !# %vs HΓ₁ //=".
+    iApply (ewp_bind [FreeCtx]); first done. simpl.
+    iApply (ewp_pers_mono with "[HΓ₁]"); [by iApply "He"|].
+    iIntros "!# %v [(%l & -> & (%w & Hl & Hτ)) HΓ₂]".
+    iApply (ewp_free with "Hl"). iIntros "!> {$Hτ} {$HΓ₂} //=". 
+  Qed.
+
   Lemma sem_typed_store Γ₁ Γ₂ x e σ τ κ ι: 
     (x, Ref τ) :: Γ₁ ⊨ e : σ : ι ⊨ (x, Ref κ) :: Γ₂ -∗
     (x, Ref τ) :: Γ₁ ⊨ (x <- e) : σ : () ⊨ (x, Ref ι) :: Γ₂.
