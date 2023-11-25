@@ -75,9 +75,13 @@ Notation "'unfold:' e" := (rec_unfold e%E)
 
 Definition rec_perform : val := (λ: "x", "x")%V.
 
-Notation "'perform:' e" := (rec_perform (Do MS e%E))%E
+Notation "'perform:' e" := (rec_perform (Do OS e%E))%E
   (at level 200, e at level 200,
    format "'[' 'perform:'  e ']'") : expr_scope.
+
+Notation "'performₘ:' e" := (rec_perform (Do MS e%E))%E
+  (at level 200, e at level 200,
+   format "'[' 'performₘ:'  e ']'") : expr_scope.
 
 (** Notations for lists. *)
 Notation NIL := (InjL #()) (only parsing).
@@ -148,10 +152,22 @@ Qed.
 Global Instance ewp_pre_contractive `{!irisGS eff_lang Σ}: Contractive ewp_pre := 
   weakest_precondition.ewp_pre_contractive.
 
-Global Instance ewp_contractive `{!heapGS Σ}e n Ψ₁ Ψ₂:
+Global Instance ewp_contractive `{!heapGS Σ} E e Ψ₁ Ψ₂:
   TCEq (to_val e) None →
   TCEq (to_eff e) None →
-  Proper (pointwise_relation _ (dist_later n) ==> dist n) (ewp_def ⊤ e Ψ₁ Ψ₂).
+  Contractive (ewp_def E e Ψ₁ Ψ₂).
+Proof.
+  intros Hval Heff n Φ₁ Φ₂ HΦ. rewrite !ewp_unfold /ewp_pre /=.
+  destruct (to_val e) eqn:?; [inversion Hval|].
+  destruct (to_eff e) eqn:?; [inversion Heff|].
+  do 25 (f_contractive || f_equiv).
+  apply HΦ.
+Qed.
+
+Global Instance ewp_contractive_proper `{!heapGS Σ} E e n Ψ₁ Ψ₂:
+  TCEq (to_val e) None →
+  TCEq (to_eff e) None →
+  Proper (pointwise_relation _ (dist_later n) ==> dist n) (ewp_def E e Ψ₁ Ψ₂).
 Proof.
   intros Hval Heff Φ₁ Φ₂ HΦ. rewrite !ewp_unfold /ewp_pre /=.
   destruct (to_val e) eqn:?; [inversion Hval|].

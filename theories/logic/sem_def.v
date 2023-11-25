@@ -1,12 +1,11 @@
 
-(* sem_typed.v *)
+(* sem_def.v *)
 
-(* This file contains the definition semantic typing judgments and 
-   typed environments.
+(* This file contains the definition of types, signatures and environments.
 *)
 
 From iris.proofmode Require Import base tactics classes.
-From iris.algebra Require Import list.
+From iris.algebra Require Import list ofe.
 From iris.program_logic Require Import weakestpre.
 
 From stdpp Require Import base gmap.
@@ -33,12 +32,20 @@ Delimit Scope sem_ty_scope with T.
 
 (** * Semantic Effect Signature. *)
 
-Notation sem_sig Σ := (iEff Σ)%type.
+Notation sem_sig Σ := (mode * iEff Σ)%type.
 
 Declare Scope sem_sig_scope.
 Bind Scope ieff_scope with sem_sig.
 Delimit Scope sem_sig_scope with S.
 
+(* -------------------------------------------------------------------------- *)
+(** Inhabited. *)
+Global Instance mode_inhabited : Inhabited mode := populate MS.
+
+(** OFE Structure. *)
+Canonical Structure modeO := leibnizO mode.
+
+Canonical Structure stringO := leibnizO string.
 
 (** The Type Environment
 
@@ -66,16 +73,24 @@ the same variable occurs twice in Γ we get that:
 
 *)
 
-Canonical Structure stringO := leibnizO string.
 
 Notation env Σ := (list (stringO * sem_ty Σ)).
+
+(* Copyable types *)
+Definition copy_ty {Σ} (τ : sem_ty Σ) := 
+  tc_opaque (□ (∀ v, τ%T v -∗ □ τ%T v))%I.
+
+Global Instance copy_ty_persistent {Σ} (τ : sem_ty Σ) :
+  Persistent (copy_ty τ).
+Proof.
+  unfold copy_ty, tc_opaque. apply _.
+Qed.
 
 (** The domain of the environment. *)
 Definition env_dom {Σ} (Γ : env Σ) : list string := (map fst Γ).
 Global Opaque env_dom.
 
-Fixpoint env_sem_typed `{irisGS eff_lang Σ} (Γ : env Σ)
-                        (vs : gmap string val) : iProp Σ :=
+Fixpoint env_sem_typed {Σ} (Γ : env Σ) (vs : gmap string val) : iProp Σ :=
   match Γ with
     | [] => emp
     | (x,A) :: Γ' => (∃ v, ⌜ vs !! x = Some v ⌝ ∗ A v) ∗ 
@@ -84,14 +99,14 @@ Fixpoint env_sem_typed `{irisGS eff_lang Σ} (Γ : env Σ)
 
 Notation "⟦ Γ ⟧" := (env_sem_typed Γ)%T.
 
-Global Instance env_sem_typed_into_exist `{irisGS eff_lang Σ} x τ Γ vs : 
+Global Instance env_sem_typed_into_exist {Σ} x τ (Γ : env Σ) vs : 
   IntoExist (⟦ (x, τ) :: Γ ⟧ vs) (λ v, ⌜ vs !! x = Some v ⌝ ∗ τ v ∗ ⟦ Γ ⟧ vs)%I (to_ident_name v).
 Proof.
   rewrite /IntoExist /=. iIntros "[(%v & Hrw & Hτ) HΓ]". 
   iExists v. iFrame.
 Qed.
 
-Global Instance env_sem_typed_from_exist `{irisGS eff_lang Σ} x τ Γ vs: 
+Global Instance env_sem_typed_from_exist {Σ} x τ (Γ : env Σ) vs: 
   FromExist (⟦ (x, τ) :: Γ ⟧ vs) (λ v, ⌜ vs !! x = Some v ⌝ ∗ τ v ∗ ⟦ Γ ⟧ vs)%I .
 Proof.
   rewrite /FromExist /=. iIntros "[%v (Hrw & Hτ & HΓ)]". 
@@ -100,99 +115,50 @@ Qed.
 
 Global Opaque env_sem_typed.
 
-(* Semantic typing judgment. *)
-
-(* The semantic typing judgment is defined to be persistent
- * because we want the persistent resources it uses to only be 
- * from the environment Γ.
- *)
-Definition sem_typed `{!irisGS eff_lang Σ}
-  (Γ₁ : env Σ)
-  (e : expr)
-  (σ : sem_sig Σ)
-  (τ : sem_ty Σ) 
-  (Γ₂ : env Σ) : iProp Σ :=
-    tc_opaque (□ (∀ (vs : gmap string val),
-                    env_sem_typed Γ₁ vs -∗ 
-                    EWP (subst_map vs e) <| ⊥ |> {| σ |} {{ v, τ v ∗ env_sem_typed Γ₂ vs }}))%I.
-
-Global Instance sem_typed_persistent `{!irisGS eff_lang Σ} (Γ Γ' : env Σ) e σ τ :
-  Persistent (sem_typed Γ e σ τ Γ').
-Proof.
-  unfold sem_typed, tc_opaque. apply _.
-Qed.
-
-Notation "Γ₁ ⊨ e : σ : α ⊨ Γ₂" := (sem_typed Γ₁ e%E σ%S α%T Γ₂)
-  (at level 74, e, σ, α at next level) : bi_scope.
-
-Notation "⊨ e : σ : α" := (sem_typed [] e%E σ%S α%T [])
-  (at level 74, e, σ, α at next level) : bi_scope.
-
-(* The value semantic typing judgement is also defined
- * to be persistent, so only persistent values hold for it.
- *) 
-Definition sem_val_typed `{!irisGS eff_lang Σ} 
-  (v : val) 
-  (A : sem_ty Σ) : iProp Σ := tc_opaque (□ (A v))%I.
-
-Notation "⊨ᵥ v : τ" := (sem_val_typed v%V τ%T)
-  (at level 20, v, τ at next level) : bi_scope.
-Global Instance sem_typed_val_persistent `{!irisGS eff_lang Σ} v τ :
-  Persistent (sem_val_typed v τ).
-Proof.
-  unfold sem_val_typed, tc_opaque. apply _.
-Qed.
-
-(* Copyable types *)
-Definition copy_ty `{!heapGS Σ} (τ : sem_ty Σ) := 
-  tc_opaque (□ (∀ v, τ%T v -∗ □ τ%T v))%I.
-
-Global Instance copy_ty_persistent `{!heapGS Σ} τ :
-  Persistent (copy_ty τ).
-Proof.
-  unfold copy_ty, tc_opaque. apply _.
-Qed.
-
 (* Copyable environment *)
-Definition copy_env `{!heapGS Σ} Γ :=
+Definition copy_env {Σ} (Γ : env Σ) :=
   tc_opaque (□ (∀ vs, ⟦ Γ ⟧ vs -∗ □ ⟦ Γ ⟧ vs))%I.
 
-Global Instance copy_env_persistent `{!heapGS Σ} Γ :
+Global Instance copy_env_persistent {Σ} (Γ : env Σ) :
   Persistent (copy_env Γ).
 Proof.
   unfold copy_env, tc_opaque. apply _.
 Qed.
 
+(* Relation on mode *)
+Definition mode_le_prop m₁ m₂ := 
+  match (m₁, m₂) with
+    (OS, MS) => False 
+  | _ => True
+  end.
+
 (* Sub-typing and relations *)
 
+Definition mode_le {Σ} (m₁ m₂ : mode) : iProp Σ := (⌜ mode_le_prop m₁ m₂ ⌝)%I.
+
 Definition ty_le {Σ} (A B : sem_ty Σ) := tc_opaque (□ (∀ v, A v -∗ B v))%I.
-Global Instance ty_le_persistent `{!heapGS Σ} τ τ' :
+Global Instance ty_le_persistent {Σ} τ τ' :
   Persistent (@ty_le Σ τ τ').
 Proof.
   unfold ty_le, tc_opaque. apply _.
 Qed.
 
-Definition sig_le {Σ} (σ σ' : sem_sig Σ) := tc_opaque (iEff_le σ σ').
+Definition sig_le {Σ} (σ σ' : sem_sig Σ) := tc_opaque (iEff_le σ.2 ⊥ ∨ (mode_le σ.1 σ'.1 ∗ iEff_le σ.2 σ'.2))%I.
 Global Instance sig_le_persistent {Σ} σ σ' :
   Persistent (@sig_le Σ σ σ').
 Proof.
   unfold sig_le, tc_opaque. apply _.
 Qed.
 
-Definition env_le `{!heapGS Σ} Γ₁ Γ₂ :=
+Definition env_le {Σ} (Γ₁ Γ₂ : env Σ) :=
   tc_opaque (□ (∀ vs, ⟦ Γ₁ ⟧ vs -∗ ⟦ Γ₂ ⟧ vs))%I.
-Global Instance env_le_persistent `{!heapGS Σ} Γ Γ' :
+Global Instance env_le_persistent {Σ} (Γ Γ' : env Σ) :
   Persistent (env_le Γ Γ').
 Proof.
   unfold env_le, tc_opaque. apply _.
 Qed.
 
-Definition mode_le m₁ m₂ := 
-  match (m₁, m₂) with
-    (OS, MS) => False 
-  | _ => True
-  end.
-
+Notation "m '≤M' m'" := (mode_le m m') (at level 98).
 Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
 Notation "σ '≤S' σ'" := (sig_le σ%S σ'%S) (at level 98).
 Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).

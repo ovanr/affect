@@ -10,11 +10,13 @@ theories/lang/subst_map.v
 
 theories/logic/iEff.v
 theories/logic/sem_def.v
+theories/logic/sem_sig.v
+theories/logic/ewp_wrp.v
 theories/logic/sem_types.v
 theories/logic/sem_env.v
+theories/logic/sem_judgement.v
 theories/logic/sem_sub_typing.v
 theories/logic/sem_operators.v
-theories/logic/reasoning_os.v
 theories/logic/tactics.v
 theories/logic/compatibility.v
 theories/logic/adequacy.v

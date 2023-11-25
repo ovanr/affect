@@ -18,10 +18,11 @@ From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_types.
 From haffel.logic Require Import sem_env.
 From haffel.logic Require Import sem_sub_typing.
-From haffel.logic Require Import reasoning_os.
+From haffel.logic Require Import ewp_wrp.
 
 
-Ltac ewp_bottom := iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|].
+Ltac ewp_bottom := 
+  iApply ewp_os_prot_mono; [by iApply iEff_le_bottom|].
 
 Ltac destruct_binder_in_not_elem_goal :=
   match goal with 
@@ -85,3 +86,34 @@ Ltac solve_dec :=
     ((rewrite decide_True; last (done || split; eauto; intros ?; by simplify_eq)) ||
      (rewrite decide_False; last (done || intros []; by simplify_eq))); 
     simpl.
+
+Ltac match_ewp_wrp_goal lemma tac :=
+  match goal with
+  | [ |- @bi_emp_valid _                (ewp_wrp ?E ?e ?σ ?ϕ) ] => tac lemma e
+  | [ |- @environments.envs_entails _ _ (ewp_wrp ?E ?e ?σ ?ϕ) ] => tac lemma e
+  end.
+
+(* Tactic for applying the lemma [ewp_pure_step']. *)
+Ltac ewp_wrp_pure_step_lemma :=
+  iApply ewp_wrp_pure_step'.
+
+(* Tactic for applying the lemma [ewp_bind]. *)
+Ltac ewp_wrp_bind_rule_lemma k :=
+  iApply (ewp_wrp_bind k).
+
+Ltac ewp_wrp_bind_rule :=
+  match_ewp_wrp_goal ewp_wrp_bind_rule_lemma bind_rule_tac.
+
+(* The tactic [ewp_bind_rule]*)
+Ltac ewp_wrp_pure_step :=
+  match_ewp_wrp_goal ewp_wrp_pure_step_lemma pure_step_tac.
+
+(* The tactic [ewp_value_or_step] either applies the reasoning rule
+   for values ([ewp_value]) or applies the combination of the bind
+   rule and the step rule. *)
+Ltac ewp_wrp_value_or_step :=
+  ((iApply ewp_wrp_value) || (ewp_wrp_bind_rule; ewp_wrp_pure_step));
+  try iNext; simpl.
+
+Ltac ewp_wrp_pure_steps :=
+  repeat ewp_wrp_value_or_step.
