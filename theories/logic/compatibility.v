@@ -1007,44 +1007,24 @@ Section compatibility.
     iLöb as "IH" forall (e). iIntros "He".
     iApply (ewp_wrp_try_with _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs)%I with "[He] [HΓ']"). 
     { ewp_wrp_pure_steps. by iApply "He". }
-    iSplit; [|iSplit; iIntros (v c)].
-    - iIntros (v) "[Hv HΓ₂] //=". rewrite - ewpw_ewp_eq.
-      ewp_wrp_pure_steps.
+    iApply shallow_handler_wrp_os_impl. rewrite /shallow_handler_wrp_os. iSplit. 
+    - iIntros (v) "[Hv HΓ₂] //=". ewp_wrp_pure_steps.
       rewrite -subst_map_insert. 
       iApply (ewp_wrp_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
       { rewrite app_comm_cons env_sem_typed_app. iSplitR "HΓ'"; solve_env. }
       iIntros "!# % [$ HΓ₃] !>". solve_env.
-    - destruct σ.1 eqn:HOS; last (iIntros "(%Φ & [] & ?)").
+    - iIntros (v c).
       rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
       rewrite sem_sig_eff_rec_eq.
       iDestruct "Hσ" as "(%α & %a & <- & Ha & Hκb)". 
-      rewrite - ewpw_ewp_eq. ewp_wrp_pure_steps.
-      solve_dec.
+      ewp_wrp_pure_steps. solve_dec.
       rewrite subst_subst_ne; last done. rewrite -subst_map_insert. 
       rewrite -delete_insert_ne; last done. rewrite -subst_map_insert.
       iApply (ewp_wrp_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
       + iIntros "%b Hκ /=".
         iApply (ewp_wrp_mono _ _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
-        rewrite ewpw_ewp_eq HOS /=.
-        destruct m; simpl; last (iDestruct "Hκb" as "#Hκb");
-        iApply "HPost"; by iApply "Hκb". 
-      + by (do 2 (rewrite -env_sem_typed_insert; try done)).
-      + iIntros "!# %u [$ HΓ₃] !>".
-        by do 2 (rewrite -env_sem_typed_insert; last done).
-    - rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
-      rewrite sem_sig_eff_rec_eq.
-      iDestruct "Hσ" as "(%α & %a & <- & Ha & Hκb)". 
-      rewrite - ewpw_ewp_eq. ewp_wrp_pure_steps.
-      solve_dec.
-      rewrite subst_subst_ne; last done. rewrite -subst_map_insert. 
-      rewrite -delete_insert_ne; last done. rewrite -subst_map_insert.
-      iDestruct "HPost" as "#HPost".
-      iApply (ewp_wrp_mono with "[HΓ' Hκb Ha]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
-      + iIntros "%b Hκ /=".
-        iApply (ewp_wrp_mono _ _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs) with "[Hκ Hκb]"); last (iIntros "!# % [$ _] //=").
-        rewrite ewpw_ewp_eq.
-        destruct m; simpl; last (iDestruct "Hκb" as "#Hκb");
-        iApply "HPost"; by iApply "Hκb". 
+        rewrite ewpw_ewp_eq /=. destruct σ.1; subst;
+        iApply "HPost"; destruct m; simpl; by iApply "Hκb". 
       + by (do 2 (rewrite -env_sem_typed_insert; try done)).
       + iIntros "!# %u [$ HΓ₃] !>".
         by do 2 (rewrite -env_sem_typed_insert; last done).
@@ -1112,38 +1092,18 @@ Section compatibility.
     iDestruct ("Hcpy" with "HΓ''") as "#HΓ'". ewp_wrp_pure_steps. 
     iApply (ewp_wrp_deep_try_with _ _ (λ v, τ v ∗ env_sem_typed Γ₂ vs) with "[HΓ₁] []").
     { by iApply "He". }
-    iLöb as "IH". rewrite /deep_handler_wrp {2}deep_handler_unfold.
-    iSplit; [|iSplit; iIntros (v c)].
-    - iIntros (v) "[Hv HΓ₂] //=". rewrite - ewpw_ewp_eq.
+    iLöb as "IH". iApply deep_handler_wrp_os_impl.
+    rewrite /deep_handler_wrp_os. iSplit. 
+    - iIntros (v) "[Hv HΓ₂] //=". 
       ewp_wrp_pure_steps.
       rewrite -subst_map_insert.
       iApply (ewp_wrp_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
       { iExists v. rewrite env_sem_typed_app; solve_env. }
       iIntros "!# % [Hτ HΓ₃]"; solve_env.
-    - destruct σ.1 eqn:HOS; last (iIntros "(%Φ & [] & ?)").
-      rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
+    - iIntros (v c). rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
       rewrite sem_sig_eff_rec_eq.
       iDestruct "Hσ" as "(%α & %a & <- & Ha & Hκb)". 
-      rewrite - ewpw_ewp_eq. ewp_wrp_pure_steps.
-      solve_dec.
-      rewrite subst_subst_ne; last done.
-      rewrite -subst_map_insert -delete_insert_ne; last done.
-      rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
-      + iIntros (b) "Hκ /=".
-        iApply (ewp_wrp_mono _ _ _ (λ v, τ' v ∗ ⟦ Γ₃ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
-        rewrite ewpw_ewp_eq. destruct m;
-        iApply ("HPost" with "[Hκb Hκ] IH");
-        simpl; iApply ("Hκb" with "Hκ").
-      + by (do 2 (rewrite -env_sem_typed_insert; try done)).
-      + iIntros "!# %u [$ HΓ₃] !>".
-        rewrite -(env_sem_typed_insert _ _ x a); last done.
-        by rewrite -(env_sem_typed_insert _ _ k c).
-    - rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
-      rewrite sem_sig_eff_rec_eq.
-      iDestruct "Hσ" as "(%α & %a & <- & Ha & Hκb)". 
-      rewrite - ewpw_ewp_eq. ewp_wrp_pure_steps.
-      solve_dec.
+      ewp_wrp_pure_steps. solve_dec.
       rewrite subst_subst_ne; last done.
       rewrite -subst_map_insert -delete_insert_ne; last done.
       rewrite -subst_map_insert.
