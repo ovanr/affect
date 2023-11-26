@@ -1023,7 +1023,7 @@ Section compatibility.
       iApply (ewp_wrp_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
       + iIntros "%b Hκ /=".
         iApply (ewp_wrp_mono _ _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
-        rewrite ewpw_ewp_eq /=. destruct σ.1; subst;
+        destruct σ.1; subst;
         iApply "HPost"; destruct m; simpl; by iApply "Hκb". 
       + by (do 2 (rewrite -env_sem_typed_insert; try done)).
       + iIntros "!# %u [$ HΓ₃] !>".

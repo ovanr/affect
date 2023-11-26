@@ -371,7 +371,7 @@ Section reasoning.
 
     (* Correctness of the effect branch. *)
     (∀ (v k : val),
-       iEff_car (upcl OS σ.2) v (λ w, EWP k w @ E <| match σ.1 with OS => σ.2 | MS => ⊥ end |> {| σ.2 |} {{ Φ }}) -∗
+       iEff_car (upcl OS σ.2) v (λ w, EWPW k w @ E <| σ |> {{ Φ }}) -∗
          EWPW h v k @ E <| σ' |> {{ Φ' }}).
 
   Lemma shallow_handler_wrp_os_impl E σ Φ h r σ' Φ' :

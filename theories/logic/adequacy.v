@@ -13,6 +13,8 @@ From haffel.lang Require Import hazel.
 From haffel.lang Require Import subst_map.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_types.
+From haffel.logic Require Import sem_judgement.
+From haffel.logic Require Import ewp_wrp.
 
 (* This file is largely based from the adequacy proof in TES:
    https://gitlab.inria.fr/cambium/tes/-/blob/main/theories/logic/adequacy.v
@@ -87,8 +89,8 @@ Proof.
   set_solver.
 Qed.
 
-Lemma sem_typed_ewp e τ σ:
-  (∀ `{heapGS Σ}, ⊨ e : σ : τ -∗ EWP e <| ⊥ |> {| σ |} {{ τ }}). 
+Lemma sem_typed_ewpw e τ σ:
+  (∀ `{heapGS Σ}, ⊨ e : σ : τ -∗ EWPW e <| σ |> {{ τ }}). 
 Proof.
   iIntros (?) "He". unfold sem_typed. simpl.
   iAssert (emp)%I as "Hemp"; first done.
@@ -98,7 +100,7 @@ Proof.
           (@gmap_empty string string_eq_dec string_countable val)) as Hempty. 
   iSpecialize ("He" $! ∅ with "[]"); first done. 
   rewrite (subst_map_empty e). 
-  iApply (ewp_pers_mono with "[He]"); [iApply "He"|iIntros "!# % [$ _] //="].
+  iApply (ewp_wrp_mono with "[He]"); [iApply "He"|iIntros "!# % [$ _] //="].
 Qed.
 
 Lemma sem_typed_adequacy `{!heapGpreS Σ} e τ σ :
@@ -109,5 +111,5 @@ Proof.
   intros He. 
   apply (eff_adequate_not_stuck _ _ τ).
   iIntros (?) "". 
-  iApply (sem_typed_ewp _ _ ⊥). iApply He.
+  iApply (sem_typed_ewpw _ _ ⊥). iApply He.
 Qed.
