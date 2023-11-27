@@ -76,10 +76,20 @@ Notation "'EWPW' e '<|' σ '|' '>' {{ Φ } }" :=
   (at level 20, e, σ, Φ at level 200,
    format "'[' 'EWPW'  e  '/' '[          ' '<|' σ '|' '>' {{  Φ  } } ']' ']'") : bi_scope.
 
-Global Instance ewp_wrp_ne `{!heapGS Σ} E e σ : 
-  NonExpansive (ewp_wrp E e σ).
+Global Instance ewp_wrp_ne `{!heapGS Σ} E e : 
+  NonExpansive2 (ewp_wrp E e).
 Proof.
-  rewrite /ewp_wrp. intros ????. by repeat f_equiv.
+  rewrite /ewp_wrp. intros ???????. 
+  destruct x, y. destruct H as [-> ?]. simpl in *.
+  by repeat f_equiv.
+Qed.
+
+Global Instance ewp_wrp_proper `{!heapGS Σ} E e: 
+  Proper ((≡) ==> (≡) ==> (≡)) (ewp_wrp E e).
+Proof.
+  intros ??????. rewrite /ewp_wrp.
+  destruct x,y. destruct H as [-> ?]. simpl in *;
+  by repeat f_equiv.
 Qed.
 
 Global Instance ewp_wrp_contractive `{!heapGS Σ} E e σ : 
@@ -91,28 +101,10 @@ Proof.
   f_equiv; by f_contractive. 
 Qed.
 
-Definition is_os `{!heapGS Σ} (σ : sem_sig Σ) := (
-    (σ ≤S ⊥) ∨ 
-      (∃ τ κ, ⌜ NonExpansive2 τ ⌝ ∗ ⌜ NonExpansive2 κ ⌝ ∗
-              (σ ≤S (μ∀TS: θ, α, τ θ α ⇒ κ θ α | OS)%S) ∗ 
-              ((μ∀TS: θ, α, τ θ α ⇒ κ θ α | OS)%S ≤S σ))
-)%I. 
-
 Section reasoning.
 
   Context `{!heapGS Σ}. 
 
-  Lemma bot_is_os : ⊢ is_os ⊥.
-  Proof. iLeft. iApply sig_le_refl. Qed.
-  
-  Lemma os_is_os A B `{ NonExpansive2 A, NonExpansive2 B} : 
-    ⊢ is_os (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S.
-  Proof. 
-    iRight. iExists A, B. 
-    do 2 (iSplit; first done).
-    iSplit; iApply sig_le_refl. 
-  Qed.
-  
   Lemma ewpw_ewp_eq E e σ (Φ : val -d> iProp Σ) :
     (EWPW e @ E <| σ |> {{ Φ }})%I = (EWP e @E <| match σ.1 with OS => σ.2 | MS => ⊥ end |> {| σ.2 |} {{ Φ }})%I.
   Proof. rewrite /ewp_wrp. by destruct σ.1. Qed.
@@ -172,50 +164,36 @@ Section reasoning.
     - rewrite /ewp_wrp. destruct σ.1 eqn:H1, σ'.1 eqn:H2; 
       rewrite /mode_le /mode_le_prop; eauto.
       + iApply ewp_ms_prot_mono; first iApply "Hple".
-        by iApply ewp_os_prot_mono; first iApply "Hple".
+        by iApply  ewp_os_prot_mono; first iApply "Hple".
       + iApply ewp_ms_prot_mono; first iApply "Hple".
         by iApply ewp_os_prot_mono; first iApply iEff_le_bottom.
       + iApply ewp_ms_prot_mono; first iApply "Hple".
         by iApply ewp_os_prot_mono; first iApply iEff_le_bottom.
   Qed.
   
-  Lemma ewp_mono_os E σ σ' e Φ Φ' :
-    is_os σ -∗ is_os σ' -∗
+
+  Lemma ewp_mono_os E (σ σ' : sem_sig Σ) e Φ Φ' `{! IsOS σ } `{! IsOS σ' } :
     EWP e @ E <| σ.2 |> {| σ'.2 |} {{ v, Φ v }} -∗
     (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ EWP e @ E <| σ.2 |> {| σ'.2 |} {{ v, Φ' v }}.
   Proof.
-    iIntros "#HOS #HOS' Hewp Himp". 
+    iIntros "Hewp Himp". 
     iLöb as "IH" forall (e).
     rewrite !ewp_unfold /ewp_pre.
     destruct (to_val e) eqn:?.
     { iMod "Hewp" as "Hewp". by iApply "Himp". }
     destruct (to_eff e) eqn:?.
     - simpl. destruct p eqn:?, p0 eqn:?, m;
-      iDestruct "Hewp" as "(%Φ'' & HΨ & Hps)"; 
+      iDestruct "Hewp" as "(%Φ'' & HΨ & Hps)";
       iExists (λ w, Φ'' w ∗ (∀ v, Φ v ={E}=∗ Φ' v)%I)%I;
       iSplitL "HΨ Himp".
       2, 4: try (iDestruct "Hps" as "#Hps"; iModIntro);
             iIntros "% (HΦ'' & Himp)"; 
             iSpecialize ("Hps" with "HΦ''"); iNext;
             iApply ("IH" with "Hps Himp").
-      + iDestruct "HOS" as "[Hbot|Hple]".
-        { iDestruct (sem_sig_bot_ieff with "Hbot HΨ") as "[]". }
-        iDestruct "Hple" as "(%κ & %τ & %Hneτ & %Hneκ & Hle1 & Hle2)".
-        iDestruct (sem_sig_to_ieff with "Hle1 HΨ") as "HΨ".
-        iApply (sem_sig_to_ieff with "Hle2"). 
-        rewrite !sem_sig_eff_rec_eq.
-        iDestruct "HΨ" as "(%α & %u & Hrw & HA & HPost)".
-        iExists α, u. iFrame. simpl.
-        iIntros (b) "HB". iFrame. by iApply "HPost".
-      + iDestruct "HOS'" as "[Hbot|Hple]".
-        { iDestruct (sem_sig_bot_ieff with "Hbot HΨ") as "[]". }
-        iDestruct "Hple" as "(%κ & %τ & %Hneτ & %Hneκ & Hle1 & Hle2)".
-        iDestruct (sem_sig_to_ieff with "Hle1 HΨ") as "HΨ".
-        iApply (sem_sig_to_ieff with "Hle2"). 
-        rewrite !sem_sig_eff_rec_eq.
-        iDestruct "HΨ" as "(%α & %u & Hrw & HA & HPost)".
-        iExists α, u. iFrame. simpl.
-        iIntros (b) "HB". iFrame. by iApply "HPost".
+      + destruct IsOS0 as [[]];
+        iApply (monotonic_prot with "[Himp] HΨ"); iIntros "% $ {$Himp}".
+      + destruct IsOS1 as [[]];
+        iApply (monotonic_prot with "[Himp] HΨ"); iIntros "% $ {$Himp}".
     - iIntros (σ₁ ns κ' κs nt) "Hstate".
       iSpecialize ("Hewp" $! σ₁ ns κ' κs nt with "Hstate"). 
       iMod "Hewp" as "Hewp". iModIntro.
@@ -233,15 +211,14 @@ Section reasoning.
       do 2 iModIntro. iNext. iApply "IH".
   Qed.
   
-  Lemma ewp_wrp_mono_os E σ e Φ Φ' :
-    is_os σ -∗
+  Lemma ewp_wrp_mono_os E σ e Φ Φ' `{! IsOS σ} :
     EWPW e @ E <| σ |> {{ Φ }} -∗
     (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ 
     EWPW e @E <| σ |> {{ Φ' }}. 
   Proof.
-    iIntros "#HOS Hewp HΦ". rewrite /ewp_wrp. destruct σ.1. 
-    { iApply (ewp_mono_os with "HOS HOS Hewp HΦ"). }
-    iApply (ewp_mono_os _ ⊥ with "[] HOS [Hewp] HΦ"); [iLeft; iApply sig_le_nil|done].
+    iIntros "Hewp HΦ". rewrite /ewp_wrp. destruct σ.1. 
+    { iApply (ewp_mono_os with "Hewp HΦ"). }
+    iApply (ewp_mono_os _ ⊥ with "[Hewp] HΦ"); [done].
   Qed.
   
   Lemma ewp_wrp_mono E σ e Φ Φ' :

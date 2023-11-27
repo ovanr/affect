@@ -16,6 +16,7 @@ From haffel.lang Require Import subst_map.
 From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_types.
+From haffel.logic Require Import sem_sig.
 From haffel.logic Require Import sem_env.
 From haffel.logic Require Import sem_sub_typing.
 From haffel.logic Require Import ewp_wrp.
@@ -72,15 +73,12 @@ Ltac solve_copy :=
     iApply copy_env_nil || 
     iApply copy_env_cons).
 
-Ltac solve_is_os := try (iApply bot_is_os || iApply os_is_os).
-
 Ltac solve_sidecond := 
     try rewrite !env_dom_nil;
     try rewrite !env_dom_cons;
     solve_dom; 
     solve_disjoint;
-    solve_copy;
-    solve_is_os.
+    solve_copy.
 
 Ltac solve_dec := 
     ((rewrite decide_True; last (done || split; eauto; intros ?; by simplify_eq)) ||

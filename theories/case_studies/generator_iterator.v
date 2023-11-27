@@ -16,6 +16,8 @@ From haffel.lib Require Import base.
 From haffel.lang Require Import hazel.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_env.
+From haffel.logic Require Import sem_sig.
+From haffel.logic Require Import sem_judgement.
 From haffel.logic Require Import sem_types.
 From haffel.logic Require Import sem_sub_typing.
 From haffel.logic Require Import sem_operators.
@@ -34,7 +36,7 @@ Definition generate :=
 
 Definition iterate :=
   (λ: "g", 
-    (λ: <> "f", 
+    Λ: (λ: "f", 
     (rec: "go" "g" := 
         match: "g" #() with
             NONE => #()
@@ -45,9 +47,9 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition yield_sig (τ : sem_ty Σ) := (μ∀TS: _, _, τ ⇒ ())%S.
+  Definition yield_sig (τ : sem_ty Σ) := (μ∀TS: _, _, τ ⇒ () | OS)%S.
   Definition yield_ty τ := τ -{ yield_sig τ }-> ().
-  Definition iter_ty τ := (∀S: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
+  Definition iter_ty τ := (∀S: θ, (τ -{ ¡ θ }-> ()) -{ ¡ θ }-∘ ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
   
   Lemma sem_typed_generate :
@@ -61,11 +63,16 @@ Section typing.
       rewrite -(app_nil_r [("i", _)]).
       iApply sem_typed_afun; solve_sidecond. simpl.
       iApply (sem_typed_app _ [("i", iter_ty α)] _ _ _ (yield_ty α)); solve_sidecond.
-      + iApply (sem_typed_SApp _ _ _ (yield_sig α) _ (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
-        iApply sem_typed_sub_nil. iApply sem_typed_var.
+      + iApply sem_typed_sub_nil.
+        iApply sem_typed_sub_ty.
+        { iApply ty_le_aarr;[iApply sig_le_os| |iApply ty_le_refl]. 
+          iApply ty_le_uarr; try iApply ty_le_refl.
+          iApply sig_le_os_inv. }
+        iApply (sem_typed_SApp _ _ _ ⊥ _ (λ ρ, ( α -{ ¡ ρ }-> ()) -{ ¡ ρ }-∘ ())); solve_sidecond.
+        iApply sem_typed_var.
       + iApply sem_typed_frame. iApply sem_typed_sub_nil.
         iApply sem_typed_val. iApply sem_typed_closure; first done.
-        simpl. iApply (sem_typed_perform _ _ _ () with "[]"). 
+        simpl. iApply (sem_typed_perform_os _ _ _ () with "[]"). 
         iApply sem_typed_sub_nil. iApply sem_typed_var.
     - set Γ₁ :=[("cont", Refᶜ cont_ty)]; rewrite -(app_nil_r Γ₁). 
       iApply sem_typed_ufun; solve_sidecond. simpl.
@@ -73,12 +80,12 @@ Section typing.
       + iApply sem_typed_contraction; solve_sidecond.
         iApply sem_typed_replace_cpy.
         { iApply sem_typed_sub_nil. iApply sem_typed_var. }
-        do 2 iApply sem_typed_frame.
+        do 2 (iApply sem_typed_frame).
         rewrite -(app_nil_r []).
         iApply sem_typed_afun; solve_sidecond.
         simpl. iApply sem_typed_sub_nil. iApply sem_typed_unit.
       + rewrite app_singletons.
-        iApply (sem_typed_shallow_try
+        iApply (sem_typed_shallow_try_os OS
                       [("comp", cont_ty)] [] [] [("cont", Refᶜ cont_ty)] 
                       "x" "k" _ _ _ (λ _ _, α) (λ _ _, ()) () (Option α)); solve_sidecond.
         * iApply sem_typed_app; first solve_sidecond; 
@@ -86,7 +93,7 @@ Section typing.
             [iApply sem_typed_var|iApply sem_typed_unit]. 
         * iIntros (?). do 2 iApply sem_typed_swap_third.
           iApply (sem_typed_seq _ [("x", α)]).
-          { iApply (sem_typed_store_cpy _ _ _ _ _ _ cont_ty); iApply sem_typed_var. }
+          { iApply sem_typed_store_cpy; iApply sem_typed_var. }
           iApply sem_typed_some.
           iApply sem_typed_var.
         * simpl. do 2 iApply sem_typed_weaken.
@@ -102,24 +109,27 @@ Section typing.
     rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_sub_nil. 
     iApply sem_typed_afun; solve_sidecond. simpl.
-    iApply sem_typed_app; first solve_sidecond;
+    iApply sem_typed_app;
       [|iApply sem_typed_sub_nil; iApply sem_typed_swap_second; iApply sem_typed_var].
     rewrite - {1}((app_nil_r [("f", _)])). 
     iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
     iApply sem_typed_sub_nil.
     iApply sem_typed_ufun; solve_sidecond. simpl.
-    set Γ₂ := [("g", generator_ty τ); ("go", generator_ty τ -{ θ }-> () ); ("f", τ -{ θ }-> ())].
-    iApply (sem_typed_match_option _ Γ₂ _ _ _ _ _ θ τ); solve_sidecond.
+    set Γ₂ := [("g", generator_ty τ); ("go", generator_ty τ -{ ¡ θ }-> () ); ("f", τ -{ ¡ θ }-> ())].
+    iApply (sem_typed_match_option _ Γ₂ _ _ _ _ _ (¡ θ)%S τ); solve_sidecond.
     - iApply sem_typed_sub_nil. 
       iApply sem_typed_app; solve_sidecond; last iApply sem_typed_unit.
       iApply sem_typed_contraction; solve_sidecond. 
       iApply sem_typed_sub_nil. 
       iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|iApply sem_typed_var].
     - iApply sem_typed_sub_nil. do 3 iApply sem_typed_weaken. iApply sem_typed_unit.
-    - iApply (sem_typed_seq _ [("g", generator_ty τ ); ("go", generator_ty τ -{ θ }-> ())]).
-      + iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
-        iApply sem_typed_sub_nil. iApply sem_typed_swap_third. 
-        iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|]. iApply sem_typed_var.
+    - iApply (sem_typed_seq _ [("g", generator_ty τ ); ("go", generator_ty τ -{ ¡ θ }-> ())]).
+      + iApply sem_typed_app.
+        { iApply sem_typed_sub_nil. iApply sem_typed_sub_ty; first iApply ty_le_u2aarr.
+          iApply sem_typed_var. }
+        iApply sem_typed_sub_nil. 
+        iApply sem_typed_swap_fourth. iApply sem_typed_swap_second.
+        iApply sem_typed_var.
       + iApply sem_typed_app; [|iApply sem_typed_sub_nil; iApply sem_typed_var].
         iApply sem_typed_sub_nil. iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
         iApply sem_typed_var.

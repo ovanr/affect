@@ -141,12 +141,12 @@ Notation "'μT:' α , C " := (sem_ty_rec (λ α, C%T))
 
 Notation "τ '-{' σ '}-∘' κ" := (sem_ty_aarr σ%S τ%T κ%T)
   (at level 100, σ, κ at level 200) : sem_ty_scope.
-Notation "τ ⊸ κ" := (sem_ty_aarr sem_sig_nil τ%T κ%T)
+Notation "τ ⊸ κ" := (sem_ty_aarr ⊥ τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 Notation "τ '-{' σ '}->' κ" := (sem_ty_uarr σ%S τ%T κ%T)
   (at level 100, σ, κ at level 200) : sem_ty_scope.
-Notation "τ → κ" := (sem_ty_uarr sem_sig_nil τ%T κ%T)
+Notation "τ → κ" := (sem_ty_uarr ⊥ τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 (* Derived Types *)
@@ -189,10 +189,10 @@ Section types_properties.
   Global Instance sem_ty_sum_ne : NonExpansive2 (@sem_ty_sum Σ).
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_aarr_ne σ : NonExpansive2 (sem_ty_aarr σ).
+  Global Instance sem_ty_aarr_ne : NonExpansive3 sem_ty_aarr.
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_uarr_ne σ : NonExpansive2 (sem_ty_uarr σ).
+  Global Instance sem_ty_uarr_ne : NonExpansive3 sem_ty_uarr.
   Proof. solve_non_expansive. Qed.
 
   Global Instance sem_ty_ref_ne : NonExpansive (@sem_ty_ref Σ _).
@@ -251,10 +251,10 @@ Section types_properties.
   Global Instance sem_ty_sum_proper : Proper ((≡) ==> (≡) ==> (≡)) (@sem_ty_sum Σ).
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_aarr_proper σ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_aarr σ).
+  Global Instance sem_ty_aarr_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) sem_ty_aarr.
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_uarr_proper σ : Proper ((≡) ==> (≡) ==> (≡)) (sem_ty_uarr σ).
+  Global Instance sem_ty_uarr_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) sem_ty_uarr.
   Proof. solve_non_expansive. Qed.
 
   Global Instance sem_ty_ref_proper : Proper ((≡) ==> (≡)) (@sem_ty_ref Σ _).
