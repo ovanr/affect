@@ -20,7 +20,7 @@ From haffel.lang Require Import hazel.
 From haffel.lang Require Import subst_map.
 From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
-From haffel.logic Require Import ewp_wrp.
+From haffel.logic Require Import ewpw.
 
 (* Semantic typing judgment. *)
 

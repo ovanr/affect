@@ -159,25 +159,19 @@ Notation "¡ σ" := (sem_sig_os σ) (at level 10) : sem_sig_scope.
 
 (* One-Shot Signatures *)
 
-Definition mono_iEff {Σ} (Ψ : iEff Σ) : iProp Σ :=
-    □ (∀ v Φ Φ', (∀ w, Φ w -∗ Φ' w) -∗ Ψ.(iEff_car) v Φ -∗ Ψ.(iEff_car) v Φ').
-
-Class IsOS {Σ} (σ : sem_sig Σ) := {
-    is_os :> MonoProt σ.2
-}.
+Notation IsOS σ := (MonoProt σ.2).
 
 Global Instance bot_is_os {Σ} : IsOS (⊥ : sem_sig Σ).
-Proof. do 2 constructor. iIntros (v Φ Φ') "Himp []". Qed.
+Proof. constructor. iIntros (v Φ Φ') "Himp []". Qed.
 
 Global Instance sem_rec_eff_os_is_os {Σ} (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B} : 
   IsOS (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S.
 Proof. 
-  constructor.
   by apply sem_sig_eff_rec_mono_prot.
 Qed.
   
 Global Instance os_is_os {Σ} (σ : sem_sig Σ) : IsOS (¡ σ)%S.
-Proof. constructor. apply upcl_mono_prot. Qed.
+Proof. apply upcl_mono_prot. Qed.
 
 (* Sub-Typing on Signatures *)
 
@@ -235,7 +229,7 @@ Proof.
   iRight. rewrite /sem_sig_os. iSplit.
   { iPureIntro. by destruct σ.1. }
   iIntros (v Φ) "!# (%Φ' & Hσ & Himp)". simpl.
-  destruct IsOS0 as [[]].
+  destruct IsOS0 as [].
   iApply (monotonic_prot v Φ' Φ with "Himp Hσ"). 
 Qed.
   

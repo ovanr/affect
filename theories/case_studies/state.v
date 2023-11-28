@@ -19,7 +19,7 @@ From haffel.logic Require Import sem_env.
 From haffel.logic Require Import sem_sig.
 From haffel.logic Require Import sem_types.
 From haffel.logic Require Import sem_judgement.
-From haffel.logic Require Import sem_sub_typing.
+From haffel.logic Require Import copyable.
 From haffel.logic Require Import sem_operators.
 From haffel.logic Require Import compatibility.
 From haffel.logic Require Import tactics.

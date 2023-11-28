@@ -21,7 +21,7 @@ From haffel.lang Require Import subst_map.
 From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_sig.
-From haffel.logic Require Import ewp_wrp.
+From haffel.logic Require Import ewpw.
 
 (* Base types. *)
 Definition sem_ty_void {Σ} : sem_ty Σ := (λ v, False)%I.
@@ -292,3 +292,161 @@ Section types_properties.
   Qed.
 
 End types_properties.
+
+Section sub_typing.
+
+  Context `{!heapGS Σ}.
+
+  Lemma ty_le_refl (τ : sem_ty Σ) : ⊢ τ ≤T τ.
+  Proof. iIntros "!# % $". Qed.
+  
+  Lemma ty_le_trans (τ₁ τ₂ τ₃ : sem_ty Σ) :
+    τ₁ ≤T τ₂ -∗
+    τ₂ ≤T τ₃ -∗
+    τ₁ ≤T τ₃.
+  Proof. 
+    iIntros "#Hτ₁₂ #Hτ₂₃ !# %v Hτ₁". 
+    iApply "Hτ₂₃". by iApply "Hτ₁₂".
+  Qed.
+  
+  Lemma ty_le_void (τ : sem_ty Σ) :
+    ⊢ Void ≤T τ.
+  Proof. iIntros "% !# []". Qed.
+
+  Lemma ty_le_cpy (τ : sem_ty Σ) :
+    copy_ty τ -∗
+    τ ≤T '! τ.
+  Proof. 
+    iIntros "#Hcpy !# %v Hτ". 
+    iDestruct ("Hcpy" with "Hτ") as "#Hτ'".
+    iIntros "!# {$#Hτ'}". 
+  Qed.
+        
+  Lemma ty_le_cpy_inv (τ : sem_ty Σ) :
+    ⊢ ('! τ) ≤T τ.
+  Proof. iIntros "!# %v #$". Qed.
+
+  Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (σ : sem_sig Σ) :
+    ⊢ (τ -{ σ }-> κ) ≤T (τ -{ σ }-∘ κ).
+  Proof.
+    iIntros "!# %v #Hτκ". iIntros (w) "Hτ /=".
+    by iApply "Hτκ".
+  Qed.
+
+  Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (σ σ' : sem_sig Σ) :
+    σ ≤S σ' -∗
+    τ₂ ≤T τ₁ -∗
+    κ₁ ≤T κ₂ -∗
+    (τ₁ -{ σ }-∘ κ₁) ≤T (τ₂ -{ σ' }-∘ κ₂).
+  Proof.
+    iIntros "#Hσ  #Hτ₂₁ #Hκ₁₂ !# %v Hτκ₁ %w Hτ₂".
+    iApply (ewpw_sub with "Hσ").
+    iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
+    { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
+    iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
+  Qed.
+  
+  Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (σ σ' : sem_sig Σ) :
+    σ ≤S σ' -∗
+    τ₂ ≤T τ₁ -∗
+    κ₁ ≤T κ₂ -∗
+    (τ₁ -{ σ }-> κ₁) ≤T (τ₂ -{ σ' }-> κ₂).
+  Proof.
+    iIntros "#Hσ #Hτ₂₁ #Hκ₁₂ !# %v #Hτκ₁ %w !# Hτ₂".
+    iApply (ewpw_sub with "Hσ").
+    iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
+    { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
+    iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
+  Qed.
+  
+  Lemma ty_le_ref (τ₁ τ₂ : sem_ty Σ) :
+    τ₁ ≤T τ₂ -∗
+    (Ref τ₁) ≤T (Ref τ₂).
+  Proof.
+    iIntros "#Hτ₁₂ !# %v (%l & -> & (%w & Hl & Hτw))".
+    iExists l. iSplit; first done.
+    iExists w. iFrame. by iApply "Hτ₁₂".
+  Qed.
+
+  Lemma ty_le_prod (τ₁ τ₂ κ₁ κ₂ : sem_ty Σ) :
+    τ₁ ≤T τ₂ -∗
+    κ₁ ≤T κ₂ -∗
+    (τ₁ × κ₁) ≤T (τ₂ × κ₂).
+  Proof.
+    iIntros "#Hτ₁₂ #Hκ₁₂ !# %v (%w₁ & %w₂ & -> &Hw₁ & Hw₂)".
+    iExists w₁, w₂. iSplit; first done. iSplitL "Hw₁".
+    { by iApply "Hτ₁₂". }
+    by iApply "Hκ₁₂".
+  Qed.
+  
+  Lemma ty_le_sum (τ₁ τ₂ κ₁ κ₂ : sem_ty Σ) :
+    τ₁ ≤T τ₂ -∗
+    κ₁ ≤T κ₂ -∗
+    (τ₁ + κ₁) ≤T (τ₂ + κ₂).
+  Proof.
+    iIntros "#Hτ₁₂ #Hκ₁₂ !# %v (%v' & [(-> & Hτ₁)|(-> & Hκ₁)])"; iExists v'. 
+    - iLeft. iSplit; first done. by iApply "Hτ₁₂".
+    - iRight. iSplit; first done. by iApply "Hκ₁₂". 
+  Qed.
+
+  Lemma ty_le_option (τ₁ τ₂ : sem_ty Σ) :
+    τ₁ ≤T τ₂ -∗
+    (Option τ₁) ≤T (Option τ₂).
+  Proof. iIntros "#?". iApply ty_le_sum; last done. iIntros "!# % $". Qed.
+
+  Lemma ty_le_forall (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
+    (∀ α, τ₁ α ≤T τ₂ α) -∗
+    (∀T: α, τ₁ α)%T ≤T (∀T: α, τ₂ α).
+  Proof.
+    iIntros "#Hτ₁₂ !# %v #Hτ₁ %τ !#".
+    iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
+    iIntros "!# % Hτ !>". by iApply "Hτ₁₂".
+  Qed.
+
+  Lemma ty_le_sig_forall (τ₁ τ₂ : sem_sig Σ → sem_ty Σ) :
+    (∀ θ, τ₁ θ ≤T τ₂ θ) -∗
+    (∀S: θ, τ₁ θ) ≤T (∀S: θ, τ₂ θ).
+  Proof.
+    iIntros "#Hτ₁₂ !# %v #Hτ₁ %σ !#".
+    iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
+    iIntros "!# % Hτ₁σ !>".
+    iApply ("Hτ₁₂" $! σ with "Hτ₁σ").
+  Qed.
+
+  Lemma ty_le_exists (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
+    (∀ α, τ₁ α ≤T τ₂ α) -∗
+    (∃: α, τ₁ α) ≤T (∃: α, τ₂ α).
+  Proof.
+    iIntros "#Hτ₁₂ !# %v (%α & Hα) //=".
+    iExists α. by iApply "Hτ₁₂".
+  Qed.
+
+  Lemma ty_le_rec (τ₁ τ₂ : sem_ty Σ -> sem_ty Σ) `{NonExpansive τ₁, NonExpansive τ₂} :
+    □ (∀ α α', (α ≤T α') -∗ τ₁ α ≤T τ₂ α') -∗
+    (μT: α, τ₁ α) ≤T (μT: α, τ₂ α).
+  Proof.
+    iIntros "#Hτ₁₂ !#". iLöb as "IH". iIntros "%v Hτ₁".
+    iApply sem_ty_rec_unfold.
+    rewrite sem_ty_rec_unfold. iNext.
+    iApply ("Hτ₁₂" with "[] Hτ₁").
+    rewrite /ty_le /tc_opaque. iApply "IH".
+  Qed.
+
+  Lemma ty_le_list (τ₁ τ₂ : sem_ty Σ) :
+    τ₁ ≤T τ₂ -∗
+    List τ₁ ≤T List τ₂.
+  Proof.
+    iIntros "#Hτ₁₂ !# %v HLτ₁". unfold sem_ty_list.
+    iLöb as "IH" forall (v).
+    iApply sem_ty_rec_unfold.
+    rewrite sem_ty_rec_unfold. iNext.
+    iDestruct "HLτ₁" as "(%v' & [(-> & Hunit)|(-> & (%w₁ & %w₂ & -> & Hτ₁ & Hμ))])".
+    { iExists v'; iLeft. by iFrame. }
+    iExists (w₁, w₂)%V. iRight. iSplit; first done.
+    iExists w₁, w₂; iSplit; first done.
+    iSplitL "Hτ₁"; [by iApply "Hτ₁₂"|by iApply "IH"].
+  Qed.
+  
+
+End sub_typing.
+

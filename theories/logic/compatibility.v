@@ -27,10 +27,10 @@ From haffel.logic Require Import sem_judgement.
 From haffel.logic Require Import tactics.
 From haffel.logic Require Import sem_sig.
 From haffel.logic Require Import sem_env.
-From haffel.logic Require Import sem_sub_typing.
+From haffel.logic Require Import copyable.
 From haffel.logic Require Import sem_judgement.
 From haffel.logic Require Import sem_operators.
-From haffel.logic Require Import ewp_wrp.
+From haffel.logic Require Import ewpw.
 
 Open Scope bi_scope.
 Open Scope stdpp_scope.
@@ -46,7 +46,7 @@ Section compatibility.
     ⊨ᵥ v : τ -∗ Γ ⊨ v : ⊥ : τ ⊨ Γ.
   Proof.
     iIntros "#Hv !# %vs HΓ /=". 
-    iApply ewp_wrp_bot.
+    iApply ewpw_bot.
     iApply ewp_value. iFrame.
     rewrite /sem_val_typed /tc_opaque.
     iApply "Hv".
@@ -58,7 +58,7 @@ Section compatibility.
     ⊢ Γ ⊨ #() : ⊥ : () ⊨ Γ.
   Proof.
     iIntros (vs) "!# HΓ₁ //=". 
-    iApply ewp_wrp_bot.
+    iApply ewpw_bot.
     iApply ewp_value. by iFrame.
   Qed.
   
@@ -66,7 +66,7 @@ Section compatibility.
     ⊢ Γ ⊨ #b : ⊥ : 𝔹 ⊨ Γ.
   Proof.
     iIntros (vs) "!# HΓ₁ //=". 
-    iApply ewp_wrp_bot.
+    iApply ewpw_bot.
     iApply ewp_value. 
     iSplitR; first (iExists b); done.
   Qed.
@@ -75,7 +75,7 @@ Section compatibility.
     ⊢ Γ ⊨ #i : ⊥ : ℤ ⊨ Γ.
   Proof.
     iIntros (vs) "!# HΓ₁ //=". 
-    iApply ewp_wrp_bot.
+    iApply ewpw_bot.
     iApply ewp_value. 
     iSplitR; first (iExists i); done.
   Qed.
@@ -84,7 +84,7 @@ Section compatibility.
     ⊢ (x, τ) :: Γ ⊨ x : ⊥ : τ ⊨ Γ.
   Proof.
     iIntros (vs) "!# /= [%v (%Hrw & Hτ & HΓ₁)] /=". 
-    iApply ewp_wrp_bot.
+    iApply ewpw_bot.
     rewrite Hrw. iApply ewp_value. iFrame.
   Qed.
 
@@ -102,18 +102,18 @@ Section compatibility.
   Proof.
       iIntros (?) "#He !#". iLöb as "IH".
       iIntros "%v !# Hτ /=".  
-      ewp_wrp_pure_steps. destruct x as [|x]; destruct f as [|f]; simpl.
+      ewpw_pure_steps. destruct x as [|x]; destruct f as [|f]; simpl.
       - rewrite - {3} [e]subst_map_empty.
-        iApply (ewp_wrp_mono with "[He]"); first (by iApply "He").
+        iApply (ewpw_mono with "[He]"); first (by iApply "He").
         iIntros "!# % [$ _] //=". 
       - rewrite -subst_map_singleton.
-        iApply ewp_wrp_mono; [iApply "He"; solve_env|solve_env].
+        iApply ewpw_mono; [iApply "He"; solve_env|solve_env].
         iIntros "!# % [$ _] //=".
       - rewrite -subst_map_singleton.
-        iApply (ewp_wrp_mono with "[Hτ]"); [iApply "He"; solve_env|solve_env].
+        iApply (ewpw_mono with "[Hτ]"); [iApply "He"; solve_env|solve_env].
         iIntros "!# % [$ _] //=".
       - rewrite -(subst_map_singleton f) -subst_map_singleton subst_map_union.
-        iApply (ewp_wrp_mono with "[Hτ]"); [iApply "He"|iIntros "!# % [$ _] //="].
+        iApply (ewpw_mono with "[Hτ]"); [iApply "He"|iIntros "!# % [$ _] //="].
         rewrite -insert_union_singleton_r; [solve_env|apply lookup_singleton_ne];
         intros ?; simplify_eq.
   Qed.
@@ -122,10 +122,10 @@ Section compatibility.
     (∀ α, ⊨ e : ⊥ : τ α) -∗ 
     ⊨ᵥ (Λ: e) : (∀T: α, τ α).
   Proof.
-    iIntros "#He !# %u !#". ewp_wrp_pure_steps.
+    iIntros "#He !# %u !#". ewpw_pure_steps.
     rewrite - {2} [e]subst_map_empty.
     iSpecialize ("He" $! u).
-    iApply (ewp_wrp_mono with "[He]"); [iApply "He"|]; first done. 
+    iApply (ewpw_mono with "[He]"); [iApply "He"|]; first done. 
     iIntros "!# % [$ _] //=".
   Qed.
 
@@ -135,8 +135,8 @@ Section compatibility.
     ⊨ᵥ (Λ: e) : (∀S: θ , C θ)%T.
   Proof.
     iIntros "#He !# %σ !# /=".
-    ewp_wrp_pure_steps. rewrite - {2} [e]subst_map_empty. 
-    iApply (ewp_wrp_mono with "[He]"); [by iApply "He"|].
+    ewpw_pure_steps. rewrite - {2} [e]subst_map_empty. 
+    iApply (ewpw_mono with "[He]"); [by iApply "He"|].
     iIntros "!# % [$ _] //=". 
   Qed.
 
@@ -160,8 +160,8 @@ Section compatibility.
   Proof.
     iIntros "#HΓ₁le #HΓ₂le #Hσle #Hτle #He !# %vs HΓ₁ //=".
     iDestruct ("HΓ₁le" with "HΓ₁") as "HΓ₁'".
-    iApply (ewp_wrp_sub with "Hσle").
-    iApply (ewp_wrp_mono with "[HΓ₁']"); first (by iApply "He").
+    iApply (ewpw_sub with "Hσle").
+    iApply (ewpw_mono with "[HΓ₁']"); first (by iApply "He").
     iIntros "!# % [Hτ HΓ₂] //= !>".
     iSplitL "Hτ"; [by iApply "Hτle"|by iApply "HΓ₂le"].
   Qed. 
@@ -265,7 +265,7 @@ Section compatibility.
     (x, τ) :: Γ₁ ⊨ e : σ : κ ⊨ (x, τ) :: Γ₂.
   Proof.
     iIntros "#He %vs !# (%v & %Hrw & Hτ & HΓ₁)".
-    iApply (ewp_wrp_mono_os with "[He HΓ₁]").
+    iApply (ewpw_mono_os with "[He HΓ₁]").
     { by iApply "He". }
     iIntros (w) "[Hκ HΓ₂]". solve_env.
   Qed.
@@ -277,7 +277,7 @@ Section compatibility.
   Proof.
     iIntros "#Hcpy #He %vs !# (%v & %Hrw & Hτ & HΓ₁)".
     iDestruct ("Hcpy" with "Hτ") as "#Hτ'".
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %w [Hκ HΓ₂]". solve_env.
   Qed.
 
@@ -290,7 +290,7 @@ Section compatibility.
     iInduction Γ' as [|[x κ]] "IH".
     { simpl. by iApply "He". }
     iDestruct "HΓ'" as "(%v & %Hrw & Hκ & HΓ'')".
-    iApply (ewp_wrp_mono_os with "[HΓ'' HΓ₁]").
+    iApply (ewpw_mono_os with "[HΓ'' HΓ₁]").
     { iApply ("IH" with "HΓ'' HΓ₁"). }
     iIntros (w) "[$ HΓ] !>". solve_env.
   Qed.
@@ -304,10 +304,10 @@ Section compatibility.
   Proof.
     iIntros (??) "#He !# %vs HΓ₁₂ //=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
-    ewp_wrp_pure_steps. iFrame.
+    ewpw_pure_steps. iFrame.
     iIntros (w) "Hτ". 
-    ewp_wrp_pure_steps. rewrite subst'_subst_map_insert.
-    iApply (ewp_wrp_mono with "[Hτ HΓ₁]"); [iApply "He"|iIntros "!# % [$ _] //="].
+    ewpw_pure_steps. rewrite subst'_subst_map_insert.
+    iApply (ewpw_mono with "[Hτ HΓ₁]"); [iApply "He"|iIntros "!# % [$ _] //="].
     destruct x; solve_env. 
   Qed.
 
@@ -319,18 +319,18 @@ Section compatibility.
     Γ₁ ++ Γ₂ ⊨ (rec: f x := e) : ⊥ : (τ -{ σ }-> κ) ⊨ Γ₂.
   Proof.
     iIntros (???) "#HcpyΓ₁ #He !# %vs HΓ₁₂ //=".
-    ewp_wrp_pure_steps.
+    ewpw_pure_steps.
     rewrite env_sem_typed_app. iDestruct "HΓ₁₂" as "[HΓ₁' $]".
     iDestruct ("HcpyΓ₁" with "HΓ₁'") as "#HΓ₁".
     iLöb as "IH".
     iIntros "!# %w Hτ". 
-    ewp_wrp_pure_steps. destruct f; destruct x; simpl.
-    - iApply ewp_wrp_mono; [by iApply "He"|iIntros "!# % [$ _] //="].
+    ewpw_pure_steps. destruct f; destruct x; simpl.
+    - iApply ewpw_mono; [by iApply "He"|iIntros "!# % [$ _] //="].
     - rewrite -subst_map_insert. 
-      iApply (ewp_wrp_mono with "[Hτ]"); 
+      iApply (ewpw_mono with "[Hτ]"); 
         [iApply "He"; solve_env|iIntros "!# % [$ _] //="].
     - rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[Hτ]"); 
+      iApply (ewpw_mono with "[Hτ]"); 
         [iApply "He"; solve_env|iIntros "!# % [$ _] //="].
       by iApply "IH".
     - assert (s ≠ s0) by (intros ?; simplify_eq).
@@ -338,7 +338,7 @@ Section compatibility.
       rewrite -subst_map_insert.
       rewrite -delete_insert_ne; last done. 
       rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[Hτ]"); 
+      iApply (ewpw_mono with "[Hτ]"); 
         [iApply "He"; solve_env|iIntros "!# % [$ _] //="].
       { by iApply "IH". }
       by do 2 (rewrite -env_sem_typed_insert; last done).
@@ -352,20 +352,20 @@ Section compatibility.
     Γ₁ ++ Γ₂ ⊨ (rec: f <> := λ: x, e) : ⊥ : (∀T: α, τ α -{ σ α }-> κ α) ⊨ Γ₂.
   Proof.
     iIntros (???) "#HcpyΓ₁ #He !# %vs HΓ₁₂ //=".
-    ewp_wrp_pure_steps. rewrite env_sem_typed_app. 
+    ewpw_pure_steps. rewrite env_sem_typed_app. 
     iDestruct "HΓ₁₂" as "[HΓ₁' $]".
     iDestruct ("HcpyΓ₁" with "HΓ₁'") as "#HΓ₁".
     iLöb as "IH".
-    iIntros (α) "!#". ewp_wrp_pure_steps.
+    iIntros (α) "!#". ewpw_pure_steps.
     destruct f; destruct x; simpl; 
-    ewp_wrp_pure_steps; iIntros (v) "!# Hτ"; ewp_wrp_pure_steps.
-    - iApply ewp_wrp_mono; first (by iApply "He").  
+    ewpw_pure_steps; iIntros (v) "!# Hτ"; ewpw_pure_steps.
+    - iApply ewpw_mono; first (by iApply "He").  
       iIntros "!# % [$ _] //=".
     - rewrite -subst_map_insert. 
-      iApply (ewp_wrp_mono with "[Hτ]"); first (iApply "He"; solve_env).  
+      iApply (ewpw_mono with "[Hτ]"); first (iApply "He"; solve_env).  
       iIntros "!# % [$ _] //=".
     - rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[Hτ]"); first (iApply "He"; solve_env; by iApply "IH") .
+      iApply (ewpw_mono with "[Hτ]"); first (iApply "He"; solve_env; by iApply "IH") .
       iIntros "!# % [$ _] //=".
     - assert (s ≠ s0) by (intros ?; simplify_eq).
       solve_dec.
@@ -373,7 +373,7 @@ Section compatibility.
       rewrite -subst_map_insert.
       rewrite -delete_insert_ne; last done. 
       rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[Hτ]"); first (iApply "He"; solve_env).  
+      iApply (ewpw_mono with "[Hτ]"); first (iApply "He"; solve_env).  
       + by iApply "IH". 
       + by do 2 (rewrite -env_sem_typed_insert; last done).
       + iIntros "!# % [$ _] //=".
@@ -386,11 +386,11 @@ Section compatibility.
     Γ₁ ⊨ (let: x := e₁ in e₂) : σ : κ ⊨ Γ₃.
   Proof.
     iIntros (??) "#He₁ #He₂ !# %vs HΓ₁ /=".
-    iApply (ewp_wrp_bind [AppRCtx _]); first done. simpl.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₁").
-    iIntros "!# % [Hτ HΓ₂] !> /=". ewp_wrp_pure_steps.
+    iApply (ewpw_bind [AppRCtx _]); first done. simpl.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₁").
+    iIntros "!# % [Hτ HΓ₂] !> /=". ewpw_pure_steps.
     rewrite -subst_map_insert.
-    iApply (ewp_wrp_mono with "[Hτ HΓ₂]"); first (iApply "He₂"; solve_env).
+    iApply (ewpw_mono with "[Hτ HΓ₂]"); first (iApply "He₂"; solve_env).
     iIntros "!# % [Hτκ HΓ₃] !> /=".
     solve_env.
   Qed.
@@ -401,14 +401,14 @@ Section compatibility.
     Γ₁ ⊨ (e₁ e₂) : σ : κ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ !# %vs HΓ₁ /=".
-    iApply (ewp_wrp_bind [AppRCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₂").
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₂").
     iIntros "!# % [Hτ HΓ₂] !> /=".
-    iApply (ewp_wrp_bind [AppLCtx _]); first done.
-    iApply (ewp_wrp_mono_os with "[HΓ₂]").
+    iApply (ewpw_bind [AppLCtx _]); first done.
+    iApply (ewpw_mono_os with "[HΓ₂]").
     { by iApply "He₁". }
     iIntros (w) "[Hτκ HΓ₃] !> /=".
-    iApply (ewp_wrp_mono_os with "[Hτκ Hτ]").
+    iApply (ewpw_mono_os with "[Hτκ Hτ]").
     { by iApply "Hτκ". }
     iIntros "% $ !> //=".
   Qed.
@@ -420,15 +420,15 @@ Section compatibility.
     Γ₁ ⊨ (e₁ e₂) : σ : κ ⊨ Γ₃.
   Proof.
     iIntros "#HΓcpy #Hcpyτ #He₁ #He₂ !# %vs HΓ₁ /=".
-    iApply (ewp_wrp_bind [AppRCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₂").
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₂").
     iIntros "!# % [Hτ HΓ₂] !> /=".
     iDestruct ("Hcpyτ" with "Hτ") as "#Hτ'".
-    iApply (ewp_wrp_bind [AppLCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₂]").
+    iApply (ewpw_bind [AppLCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₂]").
     { by iApply "He₁". }
     iIntros "!# %w [Hτκ HΓ₃] !> /=".
-    iApply (ewp_wrp_mono with "[Hτκ Hτ']").
+    iApply (ewpw_mono with "[Hτκ Hτ']").
     { by iApply "Hτκ". }
     iDestruct ("HΓcpy" with "HΓ₃") as "#HΓ₃'".
     iIntros "!# % $ !> //=".
@@ -440,10 +440,10 @@ Section compatibility.
     Γ₁ ⊨ (e₁ ;; e₂) : σ : κ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ !# %vs HΓ₁ /=".
-    iApply (ewp_wrp_bind ([AppRCtx _])); first done. simpl.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₁").
-    iIntros "!# % [Hτ HΓ₂] !> /=". ewp_wrp_pure_steps.
-    iApply (ewp_wrp_mono with "[Hτ HΓ₂]"); first (by iApply "He₂").
+    iApply (ewpw_bind ([AppRCtx _])); first done. simpl.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₁").
+    iIntros "!# % [Hτ HΓ₂] !> /=". ewpw_pure_steps.
+    iApply (ewpw_mono with "[Hτ HΓ₂]"); first (by iApply "He₂").
     iIntros "!# % [Hτκ HΓ₃] !> /=". iFrame.
   Qed.
 
@@ -453,13 +453,13 @@ Section compatibility.
     Γ₁ ⊨ (e₁,e₂) : σ : (τ × κ) ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind ([PairRCtx (subst_map vs e₁)])); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₂").
+    iApply (ewpw_bind ([PairRCtx (subst_map vs e₁)])); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₂").
     iIntros "!# % [Hτ HΓ₂] !> /=".
-    iApply (ewp_wrp_bind ([PairLCtx v])); first done.
-    iApply (ewp_wrp_mono_os with "[HΓ₂]").
+    iApply (ewpw_bind ([PairLCtx v])); first done.
+    iApply (ewpw_mono_os with "[HΓ₂]").
     { by iApply "He₁". }
-    iIntros (w) "[Hκw HΓ₃] //= !>". ewp_wrp_pure_steps.
+    iIntros (w) "[Hκw HΓ₃] //= !>". ewpw_pure_steps.
     solve_env.
   Qed.
 
@@ -470,14 +470,14 @@ Section compatibility.
     Γ₁ ⊨ (e₁,e₂) : σ : (τ × κ) ⊨ Γ₃.
   Proof.
     iIntros "#Hκcpy #He₁ #He₂ !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind ([PairRCtx (subst_map vs e₁)])); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₂").
+    iApply (ewpw_bind ([PairRCtx (subst_map vs e₁)])); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₂").
     iIntros "!# % [Hκ HΓ₂] !> /=".
-    iApply (ewp_wrp_bind ([PairLCtx v])); first done.
+    iApply (ewpw_bind ([PairLCtx v])); first done.
     iDestruct ("Hκcpy" with "Hκ") as "#Hκ'".
-    iApply (ewp_wrp_mono with "[HΓ₂]").
+    iApply (ewpw_mono with "[HΓ₂]").
     { by iApply "He₁". }
-    iIntros "!# %w [Hκw HΓ₃] //= !>". ewp_wrp_pure_steps.
+    iIntros "!# %w [Hκw HΓ₃] //= !>". ewpw_pure_steps.
     solve_env.
   Qed.
 
@@ -489,19 +489,19 @@ Section compatibility.
     (x₁, τ) :: (x₂, κ) :: Γ₂ ⊨ e₂ : σ : ι ⊨ Γ₃ -∗
     Γ₁ ⊨ (let: (x₁, x₂) := e₁ in e₂) : σ : ι ⊨ Γ₃.
   Proof.
-    iIntros (?????) "#He₁ #He₂ !# %vs HΓ₁ //=". ewp_wrp_pure_steps.
+    iIntros (?????) "#He₁ #He₂ !# %vs HΓ₁ //=". ewpw_pure_steps.
     set ex1x2 := (λ: x₁ x₂, subst_map (binder_delete x₂ 
                                       (binder_delete x₁ vs)) e₂)%V. 
-    iApply (ewp_wrp_bind ([AppLCtx ex1x2; AppRCtx pair_elim])); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₁").
+    iApply (ewpw_bind ([AppLCtx ex1x2; AppRCtx pair_elim])); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₁").
     iIntros "!# % [Hτκv HΓ₂] //= !>". 
-    unfold pair_elim. ewp_wrp_pure_steps.
+    unfold pair_elim. ewpw_pure_steps.
     iDestruct "Hτκv" as "(%v₁ & %v₂ & -> & Hτ & Hκ)".
-    unfold ex1x2. ewp_wrp_pure_steps. 
+    unfold ex1x2. ewpw_pure_steps. 
     destruct (decide _) as [[]|[]]; [|split; [done|congruence]].
     rewrite delete_commute -subst_map_insert -delete_insert_ne; last congruence.
     rewrite -subst_map_insert.
-    iApply (ewp_wrp_mono with "[Hτ Hκ HΓ₂]"); first (iApply "He₂").
+    iApply (ewpw_mono with "[Hτ Hκ HΓ₂]"); first (iApply "He₂").
     - iExists v₁. iFrame. iSplitL "".
       { rewrite lookup_insert_ne; last done. by rewrite lookup_insert. }
       iExists v₂. iFrame; iSplitL ""; [by rewrite lookup_insert|].
@@ -516,9 +516,9 @@ Section compatibility.
     Γ₁ ⊨ InjL e : σ : (τ + κ) ⊨ Γ₂.
   Proof.
     iIntros "#He !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [InjLCtx]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He").
-    iIntros "!# % [Hτ HΓ₂] /= !>". ewp_wrp_pure_steps.
+    iApply (ewpw_bind [InjLCtx]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He").
+    iIntros "!# % [Hτ HΓ₂] /= !>". ewpw_pure_steps.
     iFrame. iExists v. iLeft. by iFrame.
   Qed.
 
@@ -527,9 +527,9 @@ Section compatibility.
     Γ₁ ⊨ InjR e : σ : (τ + κ) ⊨ Γ₂.
   Proof.
     iIntros "#He !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [InjRCtx]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He").
-    iIntros "!# % [Hκ HΓ₂] /= !>". ewp_wrp_pure_steps.
+    iApply (ewpw_bind [InjRCtx]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He").
+    iIntros "!# % [Hκ HΓ₂] /= !>". ewpw_pure_steps.
     iFrame. iExists v. iRight. by iFrame.
   Qed.
 
@@ -541,18 +541,18 @@ Section compatibility.
     Γ₁ ⊨ match: e₁ with InjL x => e₂ | InjR y => e₃ end : σ : ι ⊨ Γ₃.
   Proof.
     iIntros (????) "#He₁ #He₂ #He₃ !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [CaseCtx _ _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₁").
-    iIntros "!# %v [(%w & [(-> & Hτ)|(-> & Hκ)]) HΓ₂] //= !>"; ewp_wrp_pure_steps.
+    iApply (ewpw_bind [CaseCtx _ _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₁").
+    iIntros "!# %v [(%w & [(-> & Hτ)|(-> & Hκ)]) HΓ₂] //= !>"; ewpw_pure_steps.
     - destruct x; simpl.
-      + iApply (ewp_wrp_mono with "[HΓ₂ Hτ]"); [by iApply "He₂"|eauto].
+      + iApply (ewpw_mono with "[HΓ₂ Hτ]"); [by iApply "He₂"|eauto].
       + rewrite -subst_map_insert.
-        iApply (ewp_wrp_mono with "[HΓ₂ Hτ]"); first (iApply "He₂"; solve_env).
+        iApply (ewpw_mono with "[HΓ₂ Hτ]"); first (iApply "He₂"; solve_env).
         iIntros "!# % [$ HΓ₃] //=". solve_env.
     - destruct y; simpl.
-      + iApply (ewp_wrp_mono with "[HΓ₂ Hκ]"); [iApply "He₃"; solve_env|eauto].
+      + iApply (ewpw_mono with "[HΓ₂ Hκ]"); [iApply "He₃"; solve_env|eauto].
       + rewrite -subst_map_insert.
-        iApply (ewp_wrp_mono with "[HΓ₂ Hκ]"); [iApply "He₃"; solve_env|].
+        iApply (ewpw_mono with "[HΓ₂ Hκ]"); [iApply "He₃"; solve_env|].
         iIntros "!# % [$ HΓ₃] //=". solve_env.
   Qed.
 
@@ -577,12 +577,12 @@ Section compatibility.
     Γ₁ ⊨ match: e₁ with NONE => e₂ | SOME x => e₃ end : σ : ι ⊨ Γ₃.
   Proof.
     iIntros (??) "#He₁ #He₂ #He₃ !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [CaseCtx _ _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); first (by iApply "He₁").
-    iIntros "!# %v [(%w & [(-> & _)|(-> & Hκ)]) HΓ₂] !> //="; ewp_wrp_pure_steps.
-    - iApply (ewp_wrp_mono with "[HΓ₂]"); [iApply "He₂"; solve_env|eauto].
+    iApply (ewpw_bind [CaseCtx _ _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₁").
+    iIntros "!# %v [(%w & [(-> & _)|(-> & Hκ)]) HΓ₂] !> //="; ewpw_pure_steps.
+    - iApply (ewpw_mono with "[HΓ₂]"); [iApply "He₂"; solve_env|eauto].
     - rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[HΓ₂ Hκ]"); [iApply "He₃"; solve_env|].
+      iApply (ewpw_mono with "[HΓ₂ Hκ]"); [iApply "He₃"; solve_env|].
       iIntros "!# % [$ HΓ₃] //=". solve_env.
   Qed.
 
@@ -598,17 +598,17 @@ Section compatibility.
   Proof.
     iIntros (Hop) "#He₁ #He₂ !# %vs HΓ₁ //=".
     iDestruct (bin_op_copy_types _ _ _ _ Hop) as "[Hcpyτ [Hcpyκ Hcpyι]]". 
-    iApply (ewp_wrp_bind [BinOpRCtx _ _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [iApply "He₂"; solve_env|eauto].
+    iApply (ewpw_bind [BinOpRCtx _ _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [iApply "He₂"; solve_env|eauto].
     iIntros "!# %v [Hκ HΓ₂] //= !>". 
     iDestruct ("Hcpyκ" with "Hκ") as "#Hκ'".
-    iApply (ewp_wrp_bind [BinOpLCtx _ _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₂]"); [iApply "He₁"; solve_env|eauto].
+    iApply (ewpw_bind [BinOpLCtx _ _]); first done.
+    iApply (ewpw_mono with "[HΓ₂]"); [iApply "He₁"; solve_env|eauto].
     iIntros "!# %w [Hτ HΓ₂] //= !>".
     destruct op; inversion_clear Hop;
       iDestruct "Hτ" as "(%n1 & ->)";
       iDestruct "Hκ'" as "(%n2 & ->)";
-      ewp_wrp_pure_steps; try done; eauto.
+      ewpw_pure_steps; try done; eauto.
   Qed.
   
   Lemma sem_typed_if Γ₁ Γ₂ Γ₃ e₁ e₂ e₃ σ τ: 
@@ -618,12 +618,12 @@ Section compatibility.
     Γ₁ ⊨ (if: e₁ then e₂ else e₃) : σ : τ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ #He₃ !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [IfCtx (subst_map vs e₂) (subst_map vs e₃)]) ;first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [iApply "He₁"; solve_env|eauto].
+    iApply (ewpw_bind [IfCtx (subst_map vs e₂) (subst_map vs e₃)]) ;first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [iApply "He₁"; solve_env|eauto].
     iIntros "!# %v ((%b & ->) & HΓ₂) //= !>".
-    destruct b; ewp_wrp_pure_steps.
-    - iApply (ewp_wrp_mono with "[HΓ₂]"); [iApply "He₂"; solve_env|eauto].
-    - iApply (ewp_wrp_mono with "[HΓ₂]"); [iApply "He₃"; solve_env|eauto].
+    destruct b; ewpw_pure_steps.
+    - iApply (ewpw_mono with "[HΓ₂]"); [iApply "He₂"; solve_env|eauto].
+    - iApply (ewpw_mono with "[HΓ₂]"); [iApply "He₃"; solve_env|eauto].
   Qed.
   
   (* Type abstraction and application *)
@@ -635,8 +635,8 @@ Section compatibility.
     iIntros "#Hcpy #He !# %vs HΓ₁₂ //=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
     iDestruct ("Hcpy" with "HΓ₁") as "#HΓ₁'".
-    ewp_wrp_pure_steps. iIntros "{$HΓ₂} %α //= !#". ewp_wrp_pure_steps.
-    iApply ewp_wrp_mono; [iApply "He"; solve_env|].
+    ewpw_pure_steps. iIntros "{$HΓ₂} %α //= !#". ewpw_pure_steps.
+    iApply ewpw_mono; [iApply "He"; solve_env|].
     iIntros "!# %w [$ _] //=".
   Qed.
 
@@ -645,11 +645,11 @@ Section compatibility.
     Γ₁ ⊨ e <_> : σ : C τ ⊨ Γ₂. 
   Proof.
     iIntros "#He !# %vs HΓ₁ /=".
-    iApply (ewp_wrp_bind [AppLCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [iApply "He"; solve_env|].
+    iApply (ewpw_bind [AppLCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [iApply "He"; solve_env|].
     iIntros "!# %w [Hw HΓ₂] //= !>".
-    iApply ewp_wrp_sub; first iApply sig_le_nil.
-    iApply (ewp_wrp_mono_os with "[Hw]"); [iApply "Hw"|].
+    iApply ewpw_sub; first iApply sig_le_nil.
+    iApply (ewpw_mono_os with "[Hw]"); [iApply "Hw"|].
     iIntros "% HC !>". iFrame "#∗".
   Qed.
 
@@ -661,11 +661,11 @@ Section compatibility.
   Proof.
     iIntros "#Hcpy #He !# %vs HΓ₁₂ /=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
-    ewp_wrp_pure_steps. iFrame.
+    ewpw_pure_steps. iFrame.
     iDestruct ("Hcpy" with "HΓ₁") as "#HΓ₁'".
-    iIntros (σ). ewp_wrp_pure_steps. iIntros "!#".
-    ewp_wrp_pure_steps.
-    iApply ewp_wrp_mono; [by iApply "He"|].
+    iIntros (σ). ewpw_pure_steps. iIntros "!#".
+    ewpw_pure_steps.
+    iApply ewpw_mono; [by iApply "He"|].
     iIntros "!# % [$ _] //=".
   Qed.
 
@@ -674,11 +674,11 @@ Section compatibility.
     Γ₁ ⊨ e <_> : σ : C σ' ⊨ Γ₂. 
   Proof.
     iIntros "#He !# %vs HΓ₁ /=".
-    iApply (ewp_wrp_bind [AppLCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [AppLCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [HC HΓ₂] /= !>".
-    iApply ewp_wrp_sub; first iApply sig_le_nil.
-    iApply (ewp_wrp_mono_os with "[HC]"); [iApply ("HC" $! σ')|].
+    iApply ewpw_sub; first iApply sig_le_nil.
+    iApply (ewpw_mono_os with "[HC]"); [iApply ("HC" $! σ')|].
     iIntros "%w HCσ !>". iFrame "∗#".
   Qed.
 
@@ -688,10 +688,10 @@ Section compatibility.
     Γ₁ ⊨ (pack: e) : σ : (∃: α, C α) ⊨ Γ₂. 
   Proof.
     iIntros "#He %vs !# HΓ₁ //=".
-    iApply (ewp_wrp_bind [AppRCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [Hτv HΓ₂] //= !>".
-    unfold exist_pack. ewp_wrp_pure_steps. iFrame.
+    unfold exist_pack. ewpw_pure_steps. iFrame.
     by iExists τ. 
   Qed.
 
@@ -702,11 +702,11 @@ Section compatibility.
     Γ₁ ⊨ (unpack: x := e₁ in e₂) : σ : κ ⊨ Γ₃.
   Proof.
     iIntros (??) "#He₁ #He₂ %vs !# HΓ₁ //=".
-    iApply (ewp_wrp_bind [AppRCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He₁"|].
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He₁"|].
     iIntros "!# %w [(%τ & Hτw) HΓ₂] //= !>". unfold exist_unpack.
-    ewp_wrp_pure_steps. rewrite -subst_map_insert.
-    iApply (ewp_wrp_mono with "[HΓ₂ Hτw]"); [iApply "He₂";solve_env|].
+    ewpw_pure_steps. rewrite -subst_map_insert.
+    iApply (ewpw_mono with "[HΓ₂ Hτw]"); [iApply "He₂";solve_env|].
     iIntros "!# %u [Hκ HΓ₃]". solve_env.
   Qed.
 
@@ -716,10 +716,10 @@ Section compatibility.
     Γ₁ ⊨ (fold: e) : σ : (μT: α, C α) ⊨ Γ₂.
   Proof.
     iIntros "#He %vs !# HΓ₁ //=".
-    iApply (ewp_wrp_bind [AppRCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %w [HC HΓ₂] //= !>".
-    unfold rec_fold. ewp_wrp_pure_steps. 
+    unfold rec_fold. ewpw_pure_steps. 
     iFrame. by iApply sem_ty_rec_unfold. 
   Qed.
 
@@ -728,11 +728,11 @@ Section compatibility.
     Γ₁ ⊨ (unfold: e) : σ : (C (μT: α, C α)) ⊨ Γ₂.
   Proof.
     iIntros "#He %vs !# HΓ₁ //=".
-    iApply (ewp_wrp_bind [AppRCtx _]); first done. 
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [AppRCtx _]); first done. 
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %w [Hμ HΓ₂] //= !>". 
     rewrite sem_ty_rec_unfold. 
-    unfold rec_unfold. ewp_wrp_pure_steps. 
+    unfold rec_unfold. ewpw_pure_steps. 
     iFrame.
   Qed.
 
@@ -741,7 +741,7 @@ Section compatibility.
     ⊢ Γ ⊨ NIL : ⊥ : List τ ⊨ Γ.
   Proof.
     iIntros "!# %vs HΓ //=". 
-    ewp_wrp_pure_steps. unfold sem_ty_list. 
+    ewpw_pure_steps. unfold sem_ty_list. 
     rewrite sem_ty_rec_unfold. iIntros "{$HΓ} !>".
     unfold ListF. iExists #(). by iLeft.
   Qed.
@@ -752,12 +752,12 @@ Section compatibility.
     Γ₁ ⊨ CONS e₁ e₂ : σ : List τ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ !# %vs HΓ₁ //=". 
-    iApply (ewp_wrp_bind [InjRCtx; PairRCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He₂"|].
+    iApply (ewpw_bind [InjRCtx; PairRCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He₂"|].
     iIntros "!# %l [Hl HΓ₂] //= !>".
-    iApply (ewp_wrp_bind [InjRCtx; PairLCtx _]); first done.
-    iApply (ewp_wrp_mono_os with "[HΓ₂]"); [by iApply "He₁"|].
-    iIntros "%x [Hx HΓ₃] //= !>". ewp_wrp_pure_steps.
+    iApply (ewpw_bind [InjRCtx; PairLCtx _]); first done.
+    iApply (ewpw_mono_os with "[HΓ₂]"); [by iApply "He₁"|].
+    iIntros "%x [Hx HΓ₃] //= !>". ewpw_pure_steps.
     unfold sem_ty_list. rewrite !sem_ty_rec_unfold.
     iIntros "{$HΓ₃} !>". iExists (x,l)%V. iRight. iSplit; first done.
     iExists x, l. iFrame; iSplit; first done.
@@ -771,13 +771,13 @@ Section compatibility.
     Γ₁ ⊨ CONS e₁ e₂ : σ : List τ ⊨ Γ₃.
   Proof.
     iIntros "#Hτcpy #He₁ #He₂ !# %vs HΓ₁ //=". 
-    iApply (ewp_wrp_bind [InjRCtx; PairRCtx _]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He₂"|].
+    iApply (ewpw_bind [InjRCtx; PairRCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He₂"|].
     iIntros "!# %l [Hl HΓ₂] //= !>".
-    iApply (ewp_wrp_bind [InjRCtx; PairLCtx _]); first done.
+    iApply (ewpw_bind [InjRCtx; PairLCtx _]); first done.
     iDestruct (copy_ty_list with "Hτcpy Hl") as "#Hl'". 
-    iApply (ewp_wrp_mono with "[HΓ₂]"); [by iApply "He₁"|].
-    iIntros "!# %x [Hx HΓ₃] //= !>". ewp_wrp_pure_steps.
+    iApply (ewpw_mono with "[HΓ₂]"); [by iApply "He₁"|].
+    iIntros "!# %x [Hx HΓ₃] //= !>". ewpw_pure_steps.
     unfold sem_ty_list. rewrite !sem_ty_rec_unfold.
     iIntros "{$HΓ₃} !>". iExists (x,l)%V. iRight. iSplit; first done.
     iExists x, l. iFrame; iSplit; first done.
@@ -797,22 +797,22 @@ Section compatibility.
          end : σ : κ ⊨ Γ₃.
   Proof.
     iIntros (?????) "#He₁ #He₂ #He₃ !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [CaseCtx _ _]); first done. simpl.
-    iApply (ewp_wrp_mono with "[HΓ₁]");
+    iApply (ewpw_bind [CaseCtx _ _]); first done. simpl.
+    iApply (ewpw_mono with "[HΓ₁]");
       [iApply (sem_typed_unfold with "He₁ HΓ₁")|].
     iIntros "!# %v₁ [Hl HΓ₂] !>". 
     iDestruct "Hl" as "(%v' & [[-> ->]|(-> & (%w₁ & %w₂ & -> & Hτ & Hμ))])"; 
-    ewp_wrp_pure_steps.
-    { iApply (ewp_wrp_mono with "[HΓ₂]"); 
+    ewpw_pure_steps.
+    { iApply (ewpw_mono with "[HΓ₂]"); 
         [iApply ("He₂" with "[$HΓ₂]")|eauto]. }
     rewrite lookup_delete. simpl.
-    repeat solve_dec. ewp_wrp_pure_steps. repeat solve_dec.
+    repeat solve_dec. ewpw_pure_steps. repeat solve_dec.
     rewrite delete_commute -subst_map_insert delete_commute.
     rewrite insert_delete_insert. rewrite subst_map_insert.
     rewrite subst_subst_ne; [|congruence]. rewrite delete_commute.
     rewrite -subst_map_insert -delete_insert_ne; try congruence.
     rewrite -subst_map_insert. 
-    iApply (ewp_wrp_mono with "[Hμ Hτ HΓ₂]"); [iApply "He₃"; solve_env|].
+    iApply (ewpw_mono with "[Hμ Hτ HΓ₂]"); [iApply "He₃"; solve_env|].
     { rewrite env_sem_typed_insert; last done; solve_env. }
     iIntros "!# %u [Hκ HΓ₃]". iFrame.
     rewrite -(env_sem_typed_insert _ _ x w₁); last done.
@@ -826,17 +826,17 @@ Section compatibility.
     Γ₁ ⊨ ref e : σ : Ref τ ⊨ Γ₂.
   Proof.
     iIntros "#He !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [AllocCtx]); first done. simpl.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [AllocCtx]); first done. simpl.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [Hτ HΓ₂] !>".
-    iApply ewp_wrp_alloc. iIntros "!> %l Hl !>". solve_env.
+    iApply ewpw_alloc. iIntros "!> %l Hl !>". solve_env.
   Qed.
   
   Lemma sem_typed_load Γ x τ: 
     ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⊥ : τ ⊨ (x, Ref Moved) :: Γ).
   Proof.
     iIntros "%vs !# //= [%v (%Hrw & (%w & -> & (%l & Hl & Hτ)) & HΓ)]".
-    rewrite Hrw. iApply (ewp_wrp_load with "Hl").
+    rewrite Hrw. iApply (ewpw_load with "Hl").
     iIntros "!> Hl !>". solve_env.
   Qed.
   
@@ -845,7 +845,7 @@ Section compatibility.
     ((x, Ref τ) :: Γ ⊨ !x : ⊥ : τ ⊨ (x, Ref τ) :: Γ).
   Proof.
     iIntros "#Hcpy %vs !# //= [%v (%Hrw & (%w & -> & (%l & Hl & Hτ)) & HΓ)]".
-    rewrite Hrw. iApply (ewp_wrp_load with "Hl").
+    rewrite Hrw. iApply (ewpw_load with "Hl").
     iDestruct ("Hcpy" with "Hτ") as "#Hτ'".
     iIntros "!> Hl !>". solve_env.
   Qed.
@@ -855,10 +855,10 @@ Section compatibility.
     Γ₁ ⊨ Free e : σ : τ ⊨ Γ₂.
   Proof.
     iIntros "#He !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [FreeCtx]); first done. simpl.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [FreeCtx]); first done. simpl.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [(%l & -> & (%w & Hl & Hτ)) HΓ₂]".
-    iApply (ewp_wrp_free with "Hl"). iIntros "!> {$Hτ} {$HΓ₂} //=". 
+    iApply (ewpw_free with "Hl"). iIntros "!> {$Hτ} {$HΓ₂} //=". 
   Qed.
 
   Lemma sem_typed_store Γ₁ Γ₂ x e σ τ κ ι: 
@@ -866,10 +866,10 @@ Section compatibility.
     (x, Ref τ) :: Γ₁ ⊨ (x <- e) : σ : () ⊨ (x, Ref ι) :: Γ₂.
   Proof.
     iIntros "#He !# %vs //= HΓ₁' //=".
-    iApply (ewp_wrp_bind [StoreRCtx _]); first done. simpl.
-    iApply (ewp_wrp_mono with "[HΓ₁']"); [iApply "He"; solve_env|].
+    iApply (ewpw_bind [StoreRCtx _]); first done. simpl.
+    iApply (ewpw_mono with "[HΓ₁']"); [iApply "He"; solve_env|].
     iIntros "!# %w [Hι [%v (%Hrw & (%l & -> & (% & Hl & Hκ)) & HΓ₂)]] /=". 
-    rewrite Hrw. iApply (ewp_wrp_store with "Hl"). 
+    rewrite Hrw. iApply (ewpw_store with "Hl"). 
     iIntros "!> !> Hl !>". solve_env. 
   Qed.
 
@@ -878,10 +878,10 @@ Section compatibility.
     Γ₁ ⊨ ref e : σ : Refᶜ  τ ⊨ Γ₂.
   Proof.
     iIntros "#He !# %vs HΓ₁ //=".
-    iApply (ewp_wrp_bind [AllocCtx]); first done. simpl.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [AllocCtx]); first done. simpl.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [Hτ HΓ₂] !>".
-    iApply ewp_wrp_alloc. iIntros "!> %l Hl". iFrame.
+    iApply ewpw_alloc. iIntros "!> %l Hl". iFrame.
     iMod (inv_alloc (tyN.@l) _
        (∃ w, l ↦ w ∗ τ w)%I with "[Hl Hτ]") as "#Hinv".
     { iExists v. by iFrame. }
@@ -894,12 +894,12 @@ Section compatibility.
     Γ₁ ⊨ !e : σ : τ ⊨ Γ₂.
   Proof.
     iIntros "#Hcpy #He %vs !# //= HΓ₁".
-    iApply (ewp_wrp_bind [LoadCtx]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [LoadCtx]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [(%l & -> & Hinv) HΓ₂] /= !>".
-    iApply (ewp_wrp_atomic _ (⊤ ∖ ↑tyN.@l)).
+    iApply (ewpw_atomic _ (⊤ ∖ ↑tyN.@l)).
     iMod (inv_acc _ (tyN.@l) with "Hinv") as "[(%u & >Hl & Hτ) Hclose]"; first done.
-    iModIntro. iApply (ewp_wrp_load with "Hl").
+    iModIntro. iApply (ewpw_load with "Hl").
     iIntros "!> Hl !>". 
     iDestruct ("Hcpy" with "Hτ") as "#Hτ'".
     iMod ("Hclose" with "[Hl]"); solve_env.
@@ -911,15 +911,15 @@ Section compatibility.
     Γ₁ ⊨ (e₁ <- e₂) : σ : () ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ %vs !# /= HΓ₁ /=".
-    iApply (ewp_wrp_bind [StoreRCtx _]); first done. simpl.
-    iApply (ewp_wrp_mono_os with "[HΓ₁]"); [by iApply "He₂"|].
+    iApply (ewpw_bind [StoreRCtx _]); first done. simpl.
+    iApply (ewpw_mono_os with "[HΓ₁]"); [by iApply "He₂"|].
     iIntros "%w [Hτ HΓ₂] !>". 
-    iApply (ewp_wrp_bind [StoreLCtx _]); first done. simpl.
-    iApply (ewp_wrp_mono_os with "[HΓ₂]"); [by iApply "He₁"|].
+    iApply (ewpw_bind [StoreLCtx _]); first done. simpl.
+    iApply (ewpw_mono_os with "[HΓ₂]"); [by iApply "He₁"|].
     iIntros "%u [(%l & -> & Hinv) HΓ₃] !>".
-    iApply (ewp_wrp_atomic _ (⊤ ∖ ↑tyN.@l)).
+    iApply (ewpw_atomic _ (⊤ ∖ ↑tyN.@l)).
     iMod (inv_acc _ (tyN.@l) with "Hinv") as "[(%u & >Hl & _) Hclose]"; first done.
-    iModIntro. iApply (ewp_wrp_store with "Hl"). 
+    iModIntro. iApply (ewpw_store with "Hl"). 
     iIntros "!> Hl !>".  
     iMod ("Hclose" with "[Hl Hτ]"); solve_env.
   Qed.
@@ -930,15 +930,15 @@ Section compatibility.
     Γ₁ ⊨ (e₁ <!- e₂) : σ : τ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ %vs !# /= HΓ₁ /=".
-    iApply (ewp_wrp_bind [ReplaceRCtx _]); first done. simpl.
-    iApply (ewp_wrp_mono_os with "[HΓ₁]"); [by iApply "He₂"|].
+    iApply (ewpw_bind [ReplaceRCtx _]); first done. simpl.
+    iApply (ewpw_mono_os with "[HΓ₁]"); [by iApply "He₂"|].
     iIntros "%w [Hτ HΓ₂] !>". 
-    iApply (ewp_wrp_bind [ReplaceLCtx _]); first done. simpl.
-    iApply (ewp_wrp_mono_os with "[HΓ₂]"); [by iApply "He₁"|].
+    iApply (ewpw_bind [ReplaceLCtx _]); first done. simpl.
+    iApply (ewpw_mono_os with "[HΓ₂]"); [by iApply "He₁"|].
     iIntros "%u [(%l & -> & Hinv) HΓ₃] !>".
-    iApply (ewp_wrp_atomic _ (⊤ ∖ ↑tyN.@l)).
+    iApply (ewpw_atomic _ (⊤ ∖ ↑tyN.@l)).
     iMod (inv_acc _ (tyN.@l) with "Hinv") as "[(%u & >Hl & Hu) Hclose]"; first done.
-    iModIntro. iApply (ewp_wrp_replace with "Hl"). 
+    iModIntro. iApply (ewpw_replace with "Hl"). 
     iIntros "!> Hl !>".  
     iMod ("Hclose" with "[Hl Hτ]").
     { iExists w. iFrame. } 
@@ -954,15 +954,15 @@ Section compatibility.
     Γ₁ ⊨ (perform: e) : σ : B σ τ ⊨ Γ₂.
   Proof.
     iIntros (σ) "#He !# %vs HΓ₁ //=". 
-    iApply (ewp_wrp_bind [AppRCtx _; DoCtx OS]); first done.
-    iApply (ewp_wrp_mono_os with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [AppRCtx _; DoCtx OS]); first done.
+    iApply (ewpw_mono_os with "[HΓ₁]"); [by iApply "He"|].
     iIntros "%v [Hι HΓ₂] //= !>".  rewrite /rec_perform.
-    iApply (ewp_wrp_bind [AppRCtx _]); first done.
-    iApply ewp_wrp_do_os.
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    iApply ewpw_do_os.
     { by rewrite sem_sig_eff_rec_unfold_1. }
     rewrite sem_sig_eff_rec_eq /=.
     iExists τ, v. iFrame. iSplitR; first done.
-    iIntros "%b Hκ". ewp_wrp_pure_steps. iFrame "∗#".
+    iIntros "%b Hκ". ewpw_pure_steps. iFrame "∗#".
   Qed.
 
   Lemma sem_typed_perform_ms Γ₁ Γ₂ e τ (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) 
@@ -973,15 +973,15 @@ Section compatibility.
     Γ₁ ⊨ (performₘ: e) : σ : B σ τ ⊨ Γ₂.
   Proof.
     iIntros (σ) "#HΓcpy #He !# %vs HΓ₁ //=". 
-    iApply (ewp_wrp_bind [AppRCtx _; DoCtx MS]); first done.
-    iApply (ewp_wrp_mono with "[HΓ₁]"); [by iApply "He"|].
+    iApply (ewpw_bind [AppRCtx _; DoCtx MS]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [Hι HΓ₂] //= !>". rewrite /rec_perform.
-    iApply (ewp_wrp_bind [AppRCtx _]); first done.
-    iApply ewp_wrp_do_ms. simpl.
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    iApply ewpw_do_ms. simpl.
     rewrite sem_sig_eff_rec_eq /=.
     iExists τ, v. iFrame. iSplitR; first done.
     iDestruct ("HΓcpy" with "HΓ₂") as "#HΓ₂'".
-    iIntros "!# %b Hκ". ewp_wrp_pure_steps. iFrame "∗#".
+    iIntros "!# %b Hκ". ewpw_pure_steps. iFrame "∗#".
   Qed.
 
   Lemma sem_typed_shallow_try_os m Γ₁ Γ₂ Γ₃ Γ' x k e h r A B τ τ' σ' `{NonExpansive2 A, NonExpansive2 B }:
@@ -998,24 +998,24 @@ Section compatibility.
     iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ']". simpl. 
     iSpecialize ("He" with "HΓ₁"). iRevert "He".
     iLöb as "IH" forall (e). iIntros "He".
-    iApply (ewp_wrp_try_with _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs)%I with "[He] [HΓ']"). 
-    { ewp_wrp_pure_steps. by iApply "He". }
+    iApply (ewpw_try_with _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs)%I with "[He] [HΓ']"). 
+    { ewpw_pure_steps. by iApply "He". }
     iApply shallow_handler_wrp_os_impl. rewrite /shallow_handler_wrp_os. iSplit. 
-    - iIntros (v) "[Hv HΓ₂] //=". ewp_wrp_pure_steps.
+    - iIntros (v) "[Hv HΓ₂] //=". ewpw_pure_steps.
       rewrite -subst_map_insert. 
-      iApply (ewp_wrp_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
+      iApply (ewpw_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
       { rewrite app_comm_cons env_sem_typed_app. iSplitR "HΓ'"; solve_env. }
       iIntros "!# % [$ HΓ₃] !>". solve_env.
     - iIntros (v c).
       rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
       rewrite sem_sig_eff_rec_eq.
       iDestruct "Hσ" as "(%α & %a & <- & Ha & Hκb)". 
-      ewp_wrp_pure_steps. solve_dec.
+      ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne; last done. rewrite -subst_map_insert. 
       rewrite -delete_insert_ne; last done. rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
+      iApply (ewpw_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
       + iIntros "%b Hκ /=".
-        iApply (ewp_wrp_mono _ _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
+        iApply (ewpw_mono _ _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
         destruct σ.1; subst;
         iApply "HPost"; destruct m; simpl; by iApply "Hκb". 
       + by (do 2 (rewrite -env_sem_typed_insert; try done)).
@@ -1037,13 +1037,13 @@ Section compatibility.
     iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ']". simpl. 
     iSpecialize ("He" with "HΓ₁"). iRevert "He".
     iLöb as "IH" forall (e). iIntros "He".
-    iApply (ewp_wrp_try_with _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs)%I with "[He] [HΓ']"). 
-    { ewp_wrp_pure_steps. by iApply "He". }
+    iApply (ewpw_try_with _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs)%I with "[He] [HΓ']"). 
+    { ewpw_pure_steps. by iApply "He". }
     iSplit; [|iSplit; iIntros (v c)].
     - iIntros (v) "[Hv HΓ₂] //=". rewrite - ewpw_ewp_eq.
-      ewp_wrp_pure_steps.
+      ewpw_pure_steps.
       rewrite -subst_map_insert. 
-      iApply (ewp_wrp_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
+      iApply (ewpw_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
       { rewrite app_comm_cons env_sem_typed_app. iSplitR "HΓ'"; solve_env. }
       iIntros "!# % [$ HΓ₃] !>". solve_env.
     - iAssert (σ.1 ≡ MS)%I as "->".
@@ -1052,15 +1052,15 @@ Section compatibility.
     - rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
       rewrite sem_sig_eff_rec_eq.
       iDestruct "Hσ" as "(%α & %a & <- & Ha & Hκb)". 
-      rewrite - ewpw_ewp_eq. ewp_wrp_pure_steps.
+      rewrite - ewpw_ewp_eq. ewpw_pure_steps.
       solve_dec.
       rewrite subst_subst_ne; last done. rewrite -subst_map_insert. 
       rewrite -delete_insert_ne; last done. rewrite -subst_map_insert.
       iDestruct "HPost" as "#HPost".
       iDestruct "Hκb" as "#Hκb".
-      iApply (ewp_wrp_mono with "[HΓ' Ha]"); [iApply "Hh"; solve_env|]. 
+      iApply (ewpw_mono with "[HΓ' Ha]"); [iApply "Hh"; solve_env|]. 
       + iIntros "!# %b Hκ /=".
-        iApply (ewp_wrp_mono _ _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs) with "[Hκ]"); last (iIntros "!# % [$ _] //=").
+        iApply (ewpw_mono _ _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs) with "[Hκ]"); last (iIntros "!# % [$ _] //=").
         rewrite ewpw_ewp_eq.
         iApply "HPost"; by iApply "Hκb". 
       + by (do 2 (rewrite -env_sem_typed_insert; try done)).
@@ -1082,27 +1082,27 @@ Section compatibility.
   Proof.
     iIntros (??????) "%σ #Hcpy #He #Hh #Hr !# %vs HΓ₁Γ' //=".
     iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']".
-    iDestruct ("Hcpy" with "HΓ''") as "#HΓ'". ewp_wrp_pure_steps. 
-    iApply (ewp_wrp_deep_try_with _ _ (λ v, τ v ∗ env_sem_typed Γ₂ vs) with "[HΓ₁] []").
+    iDestruct ("Hcpy" with "HΓ''") as "#HΓ'". ewpw_pure_steps. 
+    iApply (ewpw_deep_try_with _ _ (λ v, τ v ∗ env_sem_typed Γ₂ vs) with "[HΓ₁] []").
     { by iApply "He". }
     iLöb as "IH". iApply deep_handler_wrp_os_impl.
     rewrite /deep_handler_wrp_os. iSplit. 
     - iIntros (v) "[Hv HΓ₂] //=". 
-      ewp_wrp_pure_steps.
+      ewpw_pure_steps.
       rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
+      iApply (ewpw_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
       { iExists v. rewrite env_sem_typed_app; solve_env. }
       iIntros "!# % [Hτ HΓ₃]"; solve_env.
     - iIntros (v c). rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
       rewrite sem_sig_eff_rec_eq.
       iDestruct "Hσ" as "(%α & %a & <- & Ha & Hκb)". 
-      ewp_wrp_pure_steps. solve_dec.
+      ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne; last done.
       rewrite -subst_map_insert -delete_insert_ne; last done.
       rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
+      iApply (ewpw_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env; iSplitR "HΓ'"|].
       + iIntros (b) "Hκ /=".
-        iApply (ewp_wrp_mono _ _ _ (λ v, τ' v ∗ ⟦ Γ₃ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
+        iApply (ewpw_mono _ _ _ (λ v, τ' v ∗ ⟦ Γ₃ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
         rewrite ewpw_ewp_eq. destruct m;
         iApply ("HPost" with "[Hκb Hκ] IH");
         simpl; iApply ("Hκb" with "Hκ").
@@ -1126,15 +1126,15 @@ Section compatibility.
   Proof.
     iIntros (??????) "%σ #Hcpy #He #Hh #Hr !# %vs HΓ₁Γ' //=".
     iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']".
-    iDestruct ("Hcpy" with "HΓ''") as "#HΓ'". ewp_wrp_pure_steps. 
-    iApply (ewp_wrp_deep_try_with _ _ (λ v, τ v ∗ env_sem_typed Γ₂ vs) with "[HΓ₁] []").
+    iDestruct ("Hcpy" with "HΓ''") as "#HΓ'". ewpw_pure_steps. 
+    iApply (ewpw_deep_try_with _ _ (λ v, τ v ∗ env_sem_typed Γ₂ vs) with "[HΓ₁] []").
     { by iApply "He". }
     iLöb as "IH". rewrite /deep_handler_wrp {2}deep_handler_unfold.
     iSplit; [|iSplit; iIntros (v c)].
     - iIntros (v) "[Hv HΓ₂] //=". rewrite - ewpw_ewp_eq.
-      ewp_wrp_pure_steps.
+      ewpw_pure_steps.
       rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
+      iApply (ewpw_mono with "[HΓ₂ HΓ' Hv]"); [iApply "Hr"|].
       { iExists v. rewrite env_sem_typed_app; solve_env. }
       iIntros "!# % [Hτ HΓ₃]"; solve_env.
     - iAssert (σ.1 ≡ MS)%I as "->".
@@ -1143,16 +1143,16 @@ Section compatibility.
     - rewrite /upcl /=. iIntros "(%Φ & Hσ & HPost)".
       rewrite sem_sig_eff_rec_eq.
       iDestruct "Hσ" as "(%α & %a & <- & Ha & Hκb)". 
-      rewrite - ewpw_ewp_eq. ewp_wrp_pure_steps.
+      rewrite - ewpw_ewp_eq. ewpw_pure_steps.
       solve_dec.
       rewrite subst_subst_ne; last done.
       rewrite -subst_map_insert -delete_insert_ne; last done.
       rewrite -subst_map_insert.
-      iApply (ewp_wrp_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env|].
+      iApply (ewpw_mono with "[HΓ' Hκb Ha HPost]"); [iApply "Hh"; solve_env|].
       + iDestruct "Hκb" as "#Hκb".
         iDestruct "HPost" as "#HPost".
         iIntros "!# %b Hκ /=".
-        iApply (ewp_wrp_mono _ _ _ (λ v, τ' v ∗ ⟦ Γ₃ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
+        iApply (ewpw_mono _ _ _ (λ v, τ' v ∗ ⟦ Γ₃ ⟧ vs) with "[Hκ Hκb HPost]"); last (iIntros "!# % [$ _] //=").
         rewrite ewpw_ewp_eq. iApply ("HPost" with "[Hκb Hκ] IH");
         simpl; iApply ("Hκb" with "Hκ").
       + by (do 2 (rewrite -env_sem_typed_insert; try done)).

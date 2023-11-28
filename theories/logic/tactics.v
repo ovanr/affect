@@ -15,11 +15,11 @@ From haffel.lang Require Import hazel.
 From haffel.lang Require Import subst_map.
 From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
+From haffel.logic Require Import copyable.
 From haffel.logic Require Import sem_types.
 From haffel.logic Require Import sem_sig.
 From haffel.logic Require Import sem_env.
-From haffel.logic Require Import sem_sub_typing.
-From haffel.logic Require Import ewp_wrp.
+From haffel.logic Require Import ewpw.
 
 
 Ltac ewp_bottom := 
@@ -85,33 +85,33 @@ Ltac solve_dec :=
      (rewrite decide_False; last (done || intros []; by simplify_eq))); 
     simpl.
 
-Ltac match_ewp_wrp_goal lemma tac :=
+Ltac match_ewpw_goal lemma tac :=
   match goal with
-  | [ |- @bi_emp_valid _                (ewp_wrp ?E ?e ?σ ?ϕ) ] => tac lemma e
-  | [ |- @environments.envs_entails _ _ (ewp_wrp ?E ?e ?σ ?ϕ) ] => tac lemma e
+  | [ |- @bi_emp_valid _                (ewpw ?E ?e ?σ ?ϕ) ] => tac lemma e
+  | [ |- @environments.envs_entails _ _ (ewpw ?E ?e ?σ ?ϕ) ] => tac lemma e
   end.
 
 (* Tactic for applying the lemma [ewp_pure_step']. *)
-Ltac ewp_wrp_pure_step_lemma :=
-  iApply ewp_wrp_pure_step'.
+Ltac ewpw_pure_step_lemma :=
+  iApply ewpw_pure_step'.
 
 (* Tactic for applying the lemma [ewp_bind]. *)
-Ltac ewp_wrp_bind_rule_lemma k :=
-  iApply (ewp_wrp_bind k).
+Ltac ewpw_bind_rule_lemma k :=
+  iApply (ewpw_bind k).
 
-Ltac ewp_wrp_bind_rule :=
-  match_ewp_wrp_goal ewp_wrp_bind_rule_lemma bind_rule_tac.
+Ltac ewpw_bind_rule :=
+  match_ewpw_goal ewpw_bind_rule_lemma bind_rule_tac.
 
 (* The tactic [ewp_bind_rule]*)
-Ltac ewp_wrp_pure_step :=
-  match_ewp_wrp_goal ewp_wrp_pure_step_lemma pure_step_tac.
+Ltac ewpw_pure_step :=
+  match_ewpw_goal ewpw_pure_step_lemma pure_step_tac.
 
 (* The tactic [ewp_value_or_step] either applies the reasoning rule
    for values ([ewp_value]) or applies the combination of the bind
    rule and the step rule. *)
-Ltac ewp_wrp_value_or_step :=
-  ((iApply ewp_wrp_value) || (ewp_wrp_bind_rule; ewp_wrp_pure_step));
+Ltac ewpw_value_or_step :=
+  ((iApply ewpw_value) || (ewpw_bind_rule; ewpw_pure_step));
   try iNext; simpl.
 
-Ltac ewp_wrp_pure_steps :=
-  repeat ewp_wrp_value_or_step.
+Ltac ewpw_pure_steps :=
+  repeat ewpw_value_or_step.
