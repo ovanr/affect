@@ -241,3 +241,15 @@ Proof.
   iIntros (v Φ) "!# Hσ". simpl.
   iExists Φ. iFrame. iIntros "% $".
 Qed.
+
+Lemma sig_le_os_comp {Σ} (σ σ' : sem_sig Σ) :
+  σ ≤S σ' -∗ (¡ σ) ≤S (¡ σ').
+Proof.
+  iIntros "[#Hbot|[#Hlem #Hleσ]]". 
+  { iLeft. iIntros "%v %Φ !# (%Φ' & H & HPost) /=". 
+    by iApply "Hbot". }
+  iRight. iSplitL "Hlem"; first done.
+  iApply iEff_le_upcl.
+  iApply sem_sig_to_ieff.
+  iRight. iFrame "#".
+Qed.

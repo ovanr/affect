@@ -326,6 +326,13 @@ Section sub_typing.
     ⊢ ('! τ) ≤T τ.
   Proof. iIntros "!# %v #$". Qed.
 
+  Lemma ty_le_cpy_comp (τ τ' : sem_ty Σ) :
+    τ ≤T τ' -∗ ('! τ) ≤T ('! τ').
+  Proof. 
+    iIntros "#Hττ' !# %v #H!τ !#". 
+    by iApply "Hττ'".
+  Qed.
+
   Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (σ : sem_sig Σ) :
     ⊢ (τ -{ σ }-> κ) ≤T (τ -{ σ }-∘ κ).
   Proof.
