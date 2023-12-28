@@ -5,7 +5,7 @@ From iris.proofmode Require Import base tactics.
 From hazel.program_logic Require Import weakest_precondition 
                                         state_reasoning.
 (* Local imports *)
-From affine_tes.lang Require Import hazel.
+From affine_tes.lang Require Import haffel.
 
 
 (* Inhabitants of a representable type can be identified by values in Hazel *)

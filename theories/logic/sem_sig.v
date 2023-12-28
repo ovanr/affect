@@ -1,8 +1,6 @@
 (* sem_sig.v *)
 
-(* This file contains the definition of semantic types and signatures,
-   together with the definition of base types and type formers.  
-*)
+(* This file contains the definition of semantic signatures. *)
 
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe list.
@@ -15,25 +13,15 @@ From hazel.program_logic Require Import weakest_precondition
 
 (* Local imports *)
 From haffel.lib Require Import logic.
-From haffel.lang Require Import hazel.
+From haffel.lang Require Import haffel.
 From haffel.lang Require Import subst_map.
 From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
-
-(* Empty Effect Signature *)
-Definition sem_sig_nil {Σ} : sem_sig Σ := (inhabitant, iEff_bottom).
-Global Instance Bottom {Σ} : Bottom (sem_sig Σ) := sem_sig_nil.
-
-Lemma sem_sig_bot_ieff {Σ} (σ : sem_sig Σ) : 
-    σ ≤S ⊥ -∗ iEff_le σ.2 ⊥.
-Proof. iIntros "[$|[_ $]]". Qed.
+From haffel.logic Require Import mode.
 
 Lemma sem_sig_to_ieff {Σ} (σ σ' : sem_sig Σ) : 
     σ ≤S σ' -∗ iEff_le σ.2 σ'.2.
-Proof. 
-  iIntros "[Hbot|[_ $]]". 
-  iApply (iEff_le_trans with "Hbot"). iApply iEff_le_bottom.
-Qed.
+Proof. iIntros "[_ $]". Qed.
 
 (* Universally Quantified, Recursive Effect Signature *)
 
@@ -159,43 +147,33 @@ Notation "¡ σ" := (sem_sig_os σ) (at level 10) : sem_sig_scope.
 
 (* One-Shot Signatures *)
 
-Notation IsOS σ := (MonoProt σ.2).
+Notation OSSig σ := (MonoProt σ.2).
 
-Global Instance bot_is_os {Σ} : IsOS (⊥ : sem_sig Σ).
-Proof. constructor. iIntros (v Φ Φ') "Himp []". Qed.
-
-Global Instance sem_rec_eff_os_is_os {Σ} (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B} : 
-  IsOS (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S.
+Global Instance sem_rec_eff_os_os_sig {Σ} (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B} : 
+  OSSig (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S.
 Proof. 
   by apply sem_sig_eff_rec_mono_prot.
 Qed.
   
-Global Instance os_is_os {Σ} (σ : sem_sig Σ) : IsOS (¡ σ)%S.
+Global Instance os_os_sig {Σ} (σ : sem_sig Σ) : OSSig (¡ σ)%S.
 Proof. apply upcl_mono_prot. Qed.
+
 
 (* Sub-Typing on Signatures *)
 
 Lemma sig_le_refl {Σ} (σ : sem_sig Σ) : ⊢ σ ≤S σ.
-Proof. iRight. iSplit;[by destruct σ.1, σ.2|iApply iEff_le_refl]. Qed.
+Proof. iSplit;[iApply mode_le_refl|iApply iEff_le_refl]. Qed.
 
 Lemma sig_le_trans {Σ} (σ₁ σ₂ σ₃: sem_sig Σ) : 
     σ₁ ≤S σ₂ -∗
     σ₂ ≤S σ₃ -∗
     σ₁ ≤S σ₃. 
 Proof. 
-  iIntros "[#Hb₁₂|[#Hm₁₂ #Hp₁₂]] [#Hb₂₃|[#Hm₂₃ #Hp₂₃]]"; rewrite /sig_le /tc_opaque. 
-  - by iLeft.
-  - by iLeft.
-  - iLeft. iIntros (v Φ) "!# Hσ₁".
-    iApply "Hb₂₃". by iApply "Hp₁₂".
-  - iRight. 
-    iSplitL; [|iApply iEff_le_trans; [iApply "Hp₁₂"|iApply "Hp₂₃"]].
-    by destruct σ₁.1, σ₂.1, σ₃.1.
+  iIntros "[#Hm₁₂ #Hp₁₂] [#Hm₂₃ #Hp₂₃]"; rewrite /sig_le /tc_opaque. 
+  iSplitL.
+  - by iApply mode_le_trans.
+  - iApply iEff_le_trans; [iApply "Hp₁₂"|iApply "Hp₂₃"].
 Qed.
-
-Lemma sig_le_nil {Σ} (σ : sem_sig Σ) :
-  ⊢ ⊥ ≤S σ.
-Proof. iLeft. iApply iEff_le_bottom. Qed.
 
 Lemma sig_le_eff_rec {Σ} m₁ m₂ (ι₁ ι₂ κ₁ κ₂ : sem_sig Σ → sem_ty Σ → sem_ty Σ)
   `{NonExpansive2 ι₁, NonExpansive2 ι₂, NonExpansive2 κ₁, NonExpansive2 κ₂ } :
@@ -204,8 +182,7 @@ Lemma sig_le_eff_rec {Σ} m₁ m₂ (ι₁ ι₂ κ₁ κ₂ : sem_sig Σ → se
   □ (∀ α σ σ', σ ≤S σ' -∗ (κ₂ σ' α) ≤T (κ₁ σ α)) -∗
   (μ∀TS: θ , α , ι₁ θ α ⇒ κ₁ θ α | m₁) ≤S (μ∀TS: θ , α , ι₂ θ α ⇒ κ₂ θ α | m₂).
 Proof.
-  iIntros "#mle #Hι₁₂ #Hκ₂₁". iLöb as "IH". 
-  iRight. iSplitL.
+  iIntros "#Hmle #Hι₁₂ #Hκ₂₁". iLöb as "IH". iSplitL.
   { by rewrite !sem_sig_eff_rec_unfold_1 /=. }
   iIntros (v Φ) "!#".
   rewrite !sem_sig_eff_rec_eq.
@@ -213,9 +190,10 @@ Proof.
   iExists α, w; iSplitR; first done.
   iSplitL "Hι₁".
   { iNext. iApply ("Hι₁₂" with "IH Hι₁"). }
-  simpl. destruct m₁, m₂; rewrite /mode_le /mode_le_prop; eauto; simpl.
+  simpl. destruct m₁, m₂; rewrite /mode_le; eauto; simpl.
   - iIntros (b) "Hκ₂". iApply "HκΦ₁".
     iNext. iApply ("Hκ₂₁" with "IH Hκ₂").
+  - iDestruct "Hmle" as "[%|%]"; discriminate.
   - iIntros (b) "Hκ₂". iApply "HκΦ₁".
     iNext. iApply ("Hκ₂₁" with "IH Hκ₂").
   - iDestruct "HκΦ₁" as "#HκΦ₁".
@@ -223,21 +201,19 @@ Proof.
     iNext. iApply ("Hκ₂₁" with "IH Hκ₂").
 Qed.
 
-Lemma sig_le_os {Σ} (σ : sem_sig Σ) `{! IsOS σ} :
+Lemma sig_le_os {Σ} (σ : sem_sig Σ) `{! OSSig σ} :
   ⊢ ¡ σ ≤S σ.
 Proof.
-  iRight. rewrite /sem_sig_os. iSplit.
-  { iPureIntro. by destruct σ.1. }
+  rewrite /sem_sig_os. iSplit; [iApply mode_le_refl|].
   iIntros (v Φ) "!# (%Φ' & Hσ & Himp)". simpl.
-  destruct IsOS0 as [].
+  destruct OSSig0 as [].
   iApply (monotonic_prot v Φ' Φ with "Himp Hσ"). 
 Qed.
   
 Lemma sig_le_os_inv {Σ} (σ : sem_sig Σ) :
   ⊢ σ ≤S (¡ σ).
 Proof.
-  iRight. rewrite /sem_sig_os. iSplit.
-  { iPureIntro. by destruct σ.1. }
+  rewrite /sem_sig_os. iSplit; [iApply mode_le_refl|].
   iIntros (v Φ) "!# Hσ". simpl.
   iExists Φ. iFrame. iIntros "% $".
 Qed.
@@ -245,11 +221,7 @@ Qed.
 Lemma sig_le_os_comp {Σ} (σ σ' : sem_sig Σ) :
   σ ≤S σ' -∗ (¡ σ) ≤S (¡ σ').
 Proof.
-  iIntros "[#Hbot|[#Hlem #Hleσ]]". 
-  { iLeft. iIntros "%v %Φ !# (%Φ' & H & HPost) /=". 
-    by iApply "Hbot". }
-  iRight. iSplitL "Hlem"; first done.
-  iApply iEff_le_upcl.
-  iApply sem_sig_to_ieff.
-  iRight. iFrame "#".
+  iIntros "[#Hlem #Hleσ]". 
+  iSplitL "Hlem"; first done.
+  by iApply iEff_le_upcl.
 Qed.

@@ -37,7 +37,6 @@ Proof.
   intros ???????. by f_equiv.
 Qed.
 
-
 Global Instance non_expansive2_from_constant {A B C : ofe} (c : A) :
   NonExpansive2 (λ (_ : B) (_ : C), c).
 Proof.

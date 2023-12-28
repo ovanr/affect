@@ -9,7 +9,7 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From haffel.lang Require Import hazel.
+From haffel.lang Require Import haffel.
 From haffel.case_studies Require Import representable.
 
 

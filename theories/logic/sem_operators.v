@@ -1,5 +1,5 @@
 
-From haffel.lang Require Import hazel.
+From haffel.lang Require Import haffel.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_types.
 

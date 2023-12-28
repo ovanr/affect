@@ -8,7 +8,7 @@ From hazel.program_logic Require Import weakest_precondition
 
 (* Local imports *)
 From haffel.lib Require Import logic.
-From haffel.lang Require Import hazel.
+From haffel.lang Require Import haffel.
 From haffel.case_studies Require Import representable.
 From haffel.logic Require Import sem_types.
 

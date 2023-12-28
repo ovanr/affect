@@ -1,14 +1,12 @@
 
 (* sem_def.v *)
 
-(* This file contains the definition of types, signatures and environments.
+(* This file contains the definition of types, signatures, rows and environments.
 *)
 
 From iris.proofmode Require Import base tactics classes.
-From iris.algebra Require Import list ofe.
+From iris.algebra Require Import list ofe gmap.
 From iris.program_logic Require Import weakestpre.
-
-From stdpp Require Import base gmap.
 
 (* Hazel Reasoning *)
 From hazel.program_logic Require Import weakest_precondition
@@ -16,27 +14,9 @@ From hazel.program_logic Require Import weakest_precondition
 
 (* Local imports *)
 From haffel.lib Require Import base.
-From haffel.lang Require Import hazel.
+From haffel.lang Require Import haffel.
 From haffel.lang Require Import subst_map.
 From haffel.logic Require Import iEff.
-
-(** * Semantic Types. *)
-
-(* We equip sem_ty with the OFE structure val -d> iPropO
- * which is the OFE of non-dependently-typed functions over a discrete domain *)
-Definition sem_ty Σ := val -d> (iPropO Σ).
-
-Declare Scope sem_ty_scope.
-Bind Scope sem_ty_scope with sem_ty.
-Delimit Scope sem_ty_scope with T.
-
-(** * Semantic Effect Signature. *)
-
-Notation sem_sig Σ := (mode * iEff Σ)%type.
-
-Declare Scope sem_sig_scope.
-Bind Scope ieff_scope with sem_sig.
-Delimit Scope sem_sig_scope with S.
 
 (* -------------------------------------------------------------------------- *)
 (** Inhabited. *)
@@ -44,8 +24,35 @@ Global Instance mode_inhabited : Inhabited mode := populate MS.
 
 (** OFE Structure. *)
 Canonical Structure modeO := leibnizO mode.
-
 Canonical Structure stringO := leibnizO string.
+
+
+(** * Semantic Types. *)
+
+(* We equip sem_ty with the OFE structure val -d> iPropO
+ * which is the OFE of non-dependently-typed functions over a discrete domain *)
+Definition sem_ty Σ := (val -d> (iPropO Σ))%type.
+
+Declare Scope sem_ty_scope.
+(* Bind Scope sem_ty_scope with sem_ty. *)
+Delimit Scope sem_ty_scope with T.
+
+(** * Semantic Effect Signature. *)
+
+Definition sem_sig Σ := (modeO * iEff Σ)%type.
+
+Declare Scope sem_sig_scope.
+(* Bind Scope sem_sig_scope with sem_sig. *)
+Delimit Scope sem_sig_scope with S.
+
+(** * Semantic Effect Row. *)
+
+Definition sem_row Σ := (gmapO (stringO * natO) (sem_sig Σ))%type.
+
+Declare Scope sem_row_scope.
+(* Bind Scope sem_row_scope with sem_row. *)
+Delimit Scope sem_row_scope with R.
+
 
 (** The Type Environment
 
@@ -74,7 +81,7 @@ the same variable occurs twice in Γ we get that:
 *)
 
 
-Notation env Σ := (list (stringO * sem_ty Σ)).
+Notation env Σ := (list (string * sem_ty Σ)).
 
 (* Copyable types *)
 Definition copy_ty {Σ} (τ : sem_ty Σ) := 
@@ -125,16 +132,11 @@ Proof.
   unfold copy_env, tc_opaque. apply _.
 Qed.
 
-(* Relation on mode *)
-Definition mode_le_prop m₁ m₂ := 
-  match (m₁, m₂) with
-    (OS, MS) => False 
-  | _ => True
-  end.
-
 (* Sub-typing and relations *)
 
-Definition mode_le {Σ} (m₁ m₂ : mode) : iProp Σ := (⌜ mode_le_prop m₁ m₂ ⌝)%I.
+(* Relation on mode *)
+Definition mode_le {Σ} (m m' : modeO) : iProp Σ := 
+  (m ≡ m' ∨ m ≡ MS)%I.
 
 Definition ty_le {Σ} (A B : sem_ty Σ) := tc_opaque (□ (∀ v, A v -∗ B v))%I.
 Global Instance ty_le_persistent {Σ} τ τ' :
@@ -143,11 +145,21 @@ Proof.
   unfold ty_le, tc_opaque. apply _.
 Qed.
 
-Definition sig_le {Σ} (σ σ' : sem_sig Σ) := tc_opaque (iEff_le σ.2 ⊥ ∨ (mode_le σ.1 σ'.1 ∗ iEff_le σ.2 σ'.2))%I.
+Definition sig_le {Σ} (σ σ' : sem_sig Σ) := tc_opaque (mode_le σ.1 σ'.1 ∗ iEff_le σ.2 σ'.2)%I.
 Global Instance sig_le_persistent {Σ} σ σ' :
   Persistent (@sig_le Σ σ σ').
 Proof.
   unfold sig_le, tc_opaque. apply _.
+Qed.
+
+Definition row_le {Σ} (ρ ρ' : sem_row Σ) := 
+  tc_opaque (∀ l s σ, lookup (l, s) ρ ≡ Some σ -∗ 
+                      ∃ σ', lookup (l, s) ρ' ≡ Some σ' ∗ sig_le σ σ')%I. 
+
+Global Instance row_le_persistent {Σ} ρ ρ' :
+  Persistent (@row_le Σ ρ ρ').
+Proof.
+  unfold row_le, tc_opaque. apply _.
 Qed.
 
 Definition env_le {Σ} (Γ₁ Γ₂ : env Σ) :=
@@ -159,6 +171,49 @@ Proof.
 Qed.
 
 Notation "m '≤M' m'" := (mode_le m m') (at level 98).
+Notation "m '≤M@{' Σ } m'" := (@mode_le Σ m m') (at level 98, only parsing).
 Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
 Notation "σ '≤S' σ'" := (sig_le σ%S σ'%S) (at level 98).
+Notation "ρ '≤R' ρ'" := (row_le ρ%R ρ'%R) (at level 98).
 Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).
+
+Global Instance mode_le_ne {Σ} :
+  NonExpansive2 (@mode_le Σ).
+Proof. intros ???????. rewrite /mode_le. by repeat f_equiv. Qed.
+
+Global Instance mode_le_proper {Σ} :
+  Proper ((≡) ==> (≡) ==> (≡)) (@mode_le Σ).
+Proof. apply ne_proper_2. apply _. Qed.
+
+Global Instance ty_le_ne {Σ} :
+  NonExpansive2 (@ty_le Σ).
+Proof.
+  intros n τ κ Hequiv τ' κ' Hequiv'. 
+  rewrite /ty_le /tc_opaque. repeat f_equiv; by apply non_dep_fun_dist.
+Qed.
+
+Global Instance ty_le_proper {Σ} :
+  Proper ((≡) ==> (≡) ==> (≡)) (@ty_le Σ).
+Proof. apply ne_proper_2. apply _. Qed.
+
+Global Instance sig_le_ne {Σ} :
+  NonExpansive2 (@sig_le Σ).
+Proof.
+  intros n σ₁ σ₂ Hequiv σ₁' σ₂' Hequiv'. 
+  rewrite /sig_le /tc_opaque. by repeat f_equiv.
+Qed.
+
+Global Instance sig_le_proper {Σ} :
+  Proper ((≡) ==> (≡) ==> (≡)) (@sig_le Σ).
+Proof. apply ne_proper_2. apply _. Qed.
+
+Global Instance row_le_ne {Σ} :
+  NonExpansive2 (@row_le Σ).
+Proof.
+  intros n ρ₁ ρ₂ Hequiv ρ₁' ρ₂' Hequiv'.
+  rewrite /row_le /tc_opaque. by repeat f_equiv.
+Qed.
+
+Global Instance row_le_proper {Σ} :
+  Proper ((≡) ==> (≡) ==> (≡)) (@row_le Σ).
+Proof. apply ne_proper_2. apply _. Qed.

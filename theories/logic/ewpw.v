@@ -1,7 +1,7 @@
 (* ewpw.v *)
 
 From iris.proofmode Require Import base tactics.
-From iris.algebra Require Import ofe list.
+From iris.algebra Require Import ofe gmap.
 From iris.base_logic Require Export iprop upred invariants.
 
 (* Hazel Reasoning *)
@@ -15,18 +15,16 @@ From hazel.program_logic Require Import weakest_precondition
 
 (* Local imports *)
 From haffel.lib Require Import logic.
-From haffel.lang Require Import hazel.
+From haffel.lang Require Import haffel.
 From haffel.lang Require Import subst_map.
 From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_sig.
+From haffel.logic Require Import sem_row.
 
 (* EWP wrapper *)
-Definition ewpw `{!heapGS Σ} (E : coPset) (e : expr) (σ : sem_sig Σ) (Φ : val -d> iPropO Σ) : iPropO Σ := 
-  (match σ.1 with
-    OS => EWP e @ E <| σ.2 |> {| σ.2 |} {{ Φ }}
-  | MS => EWP e @ E <| ⊥ |>   {| σ.2 |} {{ Φ }}
-  end)%I.
+Definition ewpw `{!heapGS Σ} (E : coPset) (e : expr) (ρ : sem_row Σ) (Φ : val -d> iPropO Σ) : iPropO Σ := 
+    (EWP e @ E <| ⟦ filter_row_to_os ρ ⟧ |> {| ⟦ ρ ⟧ |} {{ Φ }})%R%I.
 
 Global Opaque env_dom.
 
@@ -53,128 +51,106 @@ Notation "'EWPW' e {{ Φ } }" :=
   (at level 20, e, Φ at level 200,
    format "'[' 'EWPW'  e  '/' '[          ' {{  Φ  } } ']' ']'") : bi_scope.
 
-Notation "'EWPW' e @ E '<|' σ '|' '>' {{ Φ } }" :=
-  (ewpw E e%E σ Φ)
-  (at level 20, e, σ, Φ at level 200,
-   format "'[' 'EWPW'  e  '/' '[          ' @  E '<|' σ '|' '>' {{  Φ  } } ']' ']'") : bi_scope.
+Notation "'EWPW' e @ E '<|' ρ '|' '>' {{ Φ } }" :=
+  (ewpw E e%E ρ Φ)
+  (at level 20, e, ρ, Φ at level 200,
+   format "'[' 'EWPW'  e  '/' '[          ' @  E '<|' ρ '|' '>' {{  Φ  } } ']' ']'") : bi_scope.
 
 (* Postcondition includes binder. *)
-Notation "'EWPW' e @ E '<|' σ '|' '>' {{ v , Φ } }" :=
-  (ewpw E e%E σ (λ v, Φ)%I)
-  (at level 20, e, σ, Φ at level 200,
-   format "'[' 'EWPW'  e  '/' '[          ' @  E '<|' σ '|' '>'  {{  v ,  Φ  } } ']' ']'") : bi_scope.
+Notation "'EWPW' e @ E '<|' ρ '|' '>' {{ v , Φ } }" :=
+  (ewpw E e%E ρ (λ v, Φ)%I)
+  (at level 20, e, ρ, Φ at level 200,
+   format "'[' 'EWPW'  e  '/' '[          ' @  E '<|' ρ '|' '>'  {{  v ,  Φ  } } ']' ']'") : bi_scope.
 
 (* Mask is implicitly specified by ⊤. *)
-Notation "'EWPW' e '<|' σ '|' '>' {{ v , Φ } }" :=
-  (ewpw ⊤ e%E σ (λ v, Φ)%I)
-  (at level 20, e, σ, Φ at level 200,
-   format "'[' 'EWPW'  e  '/' '[          ' '<|' σ '|' '>' {{  v ,  Φ  } } ']' ']'") : bi_scope.
+Notation "'EWPW' e '<|' ρ '|' '>' {{ v , Φ } }" :=
+  (ewpw ⊤ e%E ρ (λ v, Φ)%I)
+  (at level 20, e, ρ, Φ at level 200,
+   format "'[' 'EWPW'  e  '/' '[          ' '<|' ρ '|' '>' {{  v ,  Φ  } } ']' ']'") : bi_scope.
 
 (* No binder and no mask. *)
-Notation "'EWPW' e '<|' σ '|' '>' {{ Φ } }" :=
-  (ewpw ⊤ e%E σ Φ%I)
-  (at level 20, e, σ, Φ at level 200,
-   format "'[' 'EWPW'  e  '/' '[          ' '<|' σ '|' '>' {{  Φ  } } ']' ']'") : bi_scope.
+Notation "'EWPW' e '<|' ρ '|' '>' {{ Φ } }" :=
+  (ewpw ⊤ e%E ρ Φ%I)
+  (at level 20, e, ρ, Φ at level 200,
+   format "'[' 'EWPW'  e  '/' '[          ' '<|' ρ '|' '>' {{  Φ  } } ']' ']'") : bi_scope.
 
 Global Instance ewpw_ne `{!heapGS Σ} E e : 
   NonExpansive2 (ewpw E e).
 Proof.
-  rewrite /ewpw. intros ???????. 
-  destruct x, y. destruct H as [-> ?]. simpl in *.
-  by repeat f_equiv.
+  rewrite /ewpw. intros ???????. by repeat f_equiv.
 Qed.
 
 Global Instance ewpw_proper `{!heapGS Σ} E e: 
   Proper ((≡) ==> (≡) ==> (≡)) (ewpw E e).
-Proof.
-  intros ??????. rewrite /ewpw.
-  destruct x,y. destruct H as [-> ?]. simpl in *;
-  by repeat f_equiv.
-Qed.
+Proof. apply ne_proper_2. apply ewpw_ne. Qed.
 
-Global Instance ewpw_contractive `{!heapGS Σ} E e σ : 
+Global Instance ewpw_contractive `{!heapGS Σ} E e ρ : 
   TCEq (to_val e) None →
   TCEq (to_eff e) None →
-  Contractive (ewpw E e σ).
+  Contractive (ewpw E e ρ).
 Proof.
   rewrite /ewpw. intros ??????. 
-  f_equiv; by f_contractive. 
+  by f_contractive.
 Qed.
 
 Section reasoning.
 
   Context `{!heapGS Σ}. 
 
-  Lemma ewpw_ewp_eq E e σ (Φ : val -d> iProp Σ) :
-    (EWPW e @ E <| σ |> {{ Φ }})%I = (EWP e @E <| match σ.1 with OS => σ.2 | MS => ⊥ end |> {| σ.2 |} {{ Φ }})%I.
-  Proof. rewrite /ewpw. by destruct σ.1. Qed.
-
-  Lemma ewpw_value (E : coPset) σ Φ (v : val) :
-    Φ v -∗ EWPW v @E <| σ |> {{ Φ }}.
+  Lemma filter_row_to_os_nil :
+    filter_row_to_os (⟨⟩ : sem_row Σ)%R = (⟨⟩ : sem_row Σ)%R.
   Proof.
-    iIntros "HΦ". rewrite /ewpw. destruct σ.1; by iApply ewp_value. 
+    rewrite /filter_row_to_os.
+    rewrite union_with_idemp; first done.
+    intros ?? H. rewrite lookup_empty in H. inv H.
+  Qed.
+
+  Lemma ewpw_value (E : coPset) ρ Φ (v : val) :
+    Φ v -∗ EWPW v @E <| ρ |> {{ Φ }}.
+  Proof.
+    iIntros "HΦ". rewrite /ewpw. destruct (sem_row_mode ρ); by iApply ewp_value. 
   Qed.
   
   Lemma ewpw_bot E e Φ :
     EWP e @ E {{ v, Φ v }} -∗
     EWPW e @ E {{ Φ }}.
-  Proof. iIntros "Hewp". by rewrite /ewpw. Qed.
+  Proof. 
+    iIntros "Hewp". rewrite /ewpw /=.
+    iApply ewp_ms_prot_mono.
+    { iApply iEff_le_bottom. }
+    rewrite filter_row_to_os_nil.
+    iApply ewp_os_prot_mono.
+    { iApply iEff_le_bottom. }
+    iApply "Hewp".
+  Qed.
   
   Lemma ewpw_bot_inv e E Φ :
     EWPW e @ E {{ Φ }} -∗
     EWP e @ E {{ v, Φ v }}.
-  Proof. by iIntros "Hewp". Qed.
-  
-  Lemma ewp_sem_os_sig_le_sub E σ σ' e Φ :
-    σ ≤S σ' -∗
-    EWP e @ E <| σ.2 |> {| σ.2 |} {{ v, Φ v }} -∗
-    EWP e @ E <| σ'.2 |> {| σ'.2 |} {{ v, Φ v }}.
-  Proof.
-    iIntros "[#Hbot|[#Hmle #Hple]] Hewp".
-    - iApply ewp_ms_prot_mono; first iApply iEff_le_bottom.
-      iApply ewp_os_prot_mono; first iApply iEff_le_bottom.
-      iDestruct (ewp_ms_prot_mono with "Hbot Hewp") as "Hewp".
-      by iDestruct (ewp_os_prot_mono with "Hbot Hewp") as "Hewp".
-    - iApply ewp_ms_prot_mono; first iApply "Hple".
-      by iApply ewp_os_prot_mono; first iApply "Hple".
+  Proof. 
+    iIntros "Hewp".
+    rewrite /ewpw /=.
+    rewrite filter_row_to_os_nil.
+    iApply ewp_ms_prot_mono.
+    { iApply sem_row_to_prot_bot. }
+    iApply ewp_os_prot_mono.
+    { iApply sem_row_to_prot_bot. }
+    iApply "Hewp".
   Qed.
   
-  Lemma ewp_sem_ms_sig_le_sub E σ σ' e Φ :
-    σ ≤S σ' -∗
-    EWP e @ E <| ⊥ |> {| σ.2 |} {{ v, Φ v }} -∗
-    EWP e @ E <| ⊥ |> {| σ'.2 |} {{ v, Φ v }}.
+  Lemma ewpw_sub E e ρ ρ' Φ :
+    ρ ≤R ρ' -∗ 
+    EWPW e @E <| ρ |> {{ Φ }} -∗ EWPW e @E <| ρ' |> {{ Φ }}. 
   Proof.
-    iIntros "[#Hbot|[#Hmle #Hple]] Hewp".
-    - iApply ewp_ms_prot_mono; first iApply iEff_le_bottom.
-      by iDestruct (ewp_ms_prot_mono with "Hbot Hewp") as "Hewp".
-    - by iApply ewp_ms_prot_mono; first iApply "Hple".
+    iIntros "#Hρρ' Hewp".
+    rewrite /ewpw.
+    iApply ewp_ms_prot_mono; first (iApply (row_le_interp with "Hρρ'")). 
+    by iApply ewp_os_prot_mono; first (iApply (row_le_interp_to_os with "Hρρ'")). 
   Qed.
-  
-  Lemma ewpw_sub E e σ σ' Φ :
-    σ ≤S σ' -∗ 
-    EWPW e @E <| σ |> {{ Φ }} -∗ EWPW e @E <| σ' |> {{ Φ }}. 
-  Proof.
-    iIntros "#Hσσ' Hewp". 
-    iDestruct "Hσσ'" as "[Hbot|[Hmle Hple]]".
-    - rewrite /ewpw; destruct σ.1,σ'.1;
-      (iApply ewp_ms_prot_mono; first iApply iEff_le_bottom);
-      (iApply ewp_os_prot_mono; first iApply iEff_le_bottom);
-      iDestruct (ewp_ms_prot_mono with "Hbot Hewp") as "Hewp";
-      by try iDestruct (ewp_os_prot_mono with "Hbot Hewp") as "Hewp".
-    - rewrite /ewpw. destruct σ.1 eqn:H1, σ'.1 eqn:H2; 
-      rewrite /mode_le /mode_le_prop; eauto.
-      + iApply ewp_ms_prot_mono; first iApply "Hple".
-        by iApply  ewp_os_prot_mono; first iApply "Hple".
-      + iApply ewp_ms_prot_mono; first iApply "Hple".
-        by iApply ewp_os_prot_mono; first iApply iEff_le_bottom.
-      + iApply ewp_ms_prot_mono; first iApply "Hple".
-        by iApply ewp_os_prot_mono; first iApply iEff_le_bottom.
-  Qed.
-  
 
-  Lemma ewp_mono_os E (σ σ' : sem_sig Σ) e Φ Φ' `{! IsOS σ } `{! IsOS σ' } :
-    EWP e @ E <| σ.2 |> {| σ'.2 |} {{ v, Φ v }} -∗
-    (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ EWP e @ E <| σ.2 |> {| σ'.2 |} {{ v, Φ' v }}.
+  Lemma ewp_mono_os E (ρ ρ' : sem_row Σ) e Φ Φ' `{! OSRow ρ } `{! OSRow ρ' } :
+    EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ v }} -∗
+    (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ' v }}.
   Proof.
     iIntros "Hewp Himp". 
     iLöb as "IH" forall (e).
@@ -190,9 +166,9 @@ Section reasoning.
             iIntros "% (HΦ'' & Himp)"; 
             iSpecialize ("Hps" with "HΦ''"); iNext;
             iApply ("IH" with "Hps Himp").
-      + destruct IsOS0 as [];
+      + destruct OSRow0 as [];
         iApply (monotonic_prot with "[Himp] HΨ"); iIntros "% $ {$Himp}".
-      + destruct IsOS1 as [];
+      + destruct OSRow1 as [];
         iApply (monotonic_prot with "[Himp] HΨ"); iIntros "% $ {$Himp}".
     - iIntros (σ₁ ns κ' κs nt) "Hstate".
       iSpecialize ("Hewp" $! σ₁ ns κ' κs nt with "Hstate"). 
@@ -211,91 +187,92 @@ Section reasoning.
       do 2 iModIntro. iNext. iApply "IH".
   Qed.
   
-  Lemma ewpw_mono_os E σ e Φ Φ' `{! IsOS σ} :
-    EWPW e @ E <| σ |> {{ Φ }} -∗
+  Lemma ewpw_mono_os E ρ e Φ Φ' `{! OSRow ρ} :
+    EWPW e @ E <| ρ |> {{ Φ }} -∗
     (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ 
-    EWPW e @E <| σ |> {{ Φ' }}. 
+    EWPW e @E <| ρ |> {{ Φ' }}. 
   Proof.
-    iIntros "Hewp HΦ". rewrite /ewpw. destruct σ.1. 
-    { iApply (ewp_mono_os with "Hewp HΦ"). }
-    iApply (ewp_mono_os _ ⊥ with "[Hewp] HΦ"); [done].
+    iIntros "Hewp HΦ". rewrite /ewpw.
+    assert (OSRow (filter_row_to_os ρ)).
+    { by apply sem_row_filter_row_to_os. }
+    iApply (@ewp_mono_os _ (filter_row_to_os ρ) ρ e Φ Φ' H _ with "Hewp HΦ").
   Qed.
   
-  Lemma ewpw_mono E σ e Φ Φ' :
-    EWPW e @E <| σ |> {{ Φ }} -∗
+  Lemma ewpw_mono E ρ e Φ Φ' :
+    EWPW e @E <| ρ |> {{ Φ }} -∗
     □ (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ 
-    EWPW e @E <| σ |> {{ Φ' }}.
+    EWPW e @E <| ρ |> {{ Φ' }}.
   Proof.
-    iIntros "Hewp HΦ". rewrite /ewpw. destruct σ.1; 
+    iIntros "Hewp HΦ". rewrite /ewpw. 
     iApply (ewp_pers_mono with "Hewp HΦ").
   Qed.
-  
-  Lemma ewpw_pure_step' E e e' σ Φ :
+
+  Lemma ewpw_pure_step' E e e' ρ Φ :
     pure_prim_step e e' → 
-    ▷ EWPW e' @E <| σ |>  {{ Φ }} -∗
-    EWPW e @E <| σ |> {{ Φ }}. 
+    ▷ EWPW e' @E <| ρ |>  {{ Φ }} -∗
+    EWPW e @E <| ρ |> {{ Φ }}. 
   Proof.
     iIntros "%Hprim Hewp". rewrite /ewpw. 
-    destruct σ.1; by iApply ewp_pure_step'.
+    by iApply ewp_pure_step'.
   Qed.
   
-  Lemma ewpw_bind k `{NeutralEctx k} E σ e e' Φ  :
+  Lemma ewpw_bind k `{NeutralEctx k} E ρ e e' Φ  :
     e' = fill k e →
-    EWPW e @E <| σ |> {{ w, EWPW (fill k w) @E <| σ |> {{ Φ }} }} -∗
-    EWPW e' @E <| σ |> {{ Φ }}.
+    EWPW e @E <| ρ |> {{ w, EWPW (fill k w) @E <| ρ |> {{ Φ }} }} -∗
+    EWPW e' @E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros (?) "Hewp". rewrite /ewpw. destruct σ.1;
+    iIntros (?) "Hewp". rewrite /ewpw. 
     by iApply ewp_bind.
   Qed.
   
-  Lemma ewpw_alloc E σ Φ v :
+  Lemma ewpw_alloc E ρ Φ v :
     ▷ (∀ (l : loc), l ↦ v ={E}=∗ Φ #l) -∗
-      EWPW (ref v)%E @E <| σ |> {{ Φ }}.
+      EWPW (ref v)%E @E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros "H". rewrite /ewpw. destruct σ.1; by iApply ewp_alloc. 
+    iIntros "H". rewrite /ewpw. by iApply ewp_alloc. 
   Qed.
   
-  Lemma ewpw_load E σ Φ l q v :
+  Lemma ewpw_load E ρ Φ l q v :
     ▷ l ↦{q} v -∗
       ▷ (l ↦{q} v ={E}=∗ Φ v) -∗
-        EWPW (Load #l)%E @E <| σ |> {{ Φ }}.
+        EWPW (Load #l)%E @E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros "H". rewrite /ewpw. destruct σ.1; by iApply ewp_load. 
+    iIntros "H". rewrite /ewpw. by iApply ewp_load. 
   Qed.
   
-  Lemma ewpw_store E σ Φ l v w :
+  Lemma ewpw_store E ρ Φ l v w :
     ▷ l ↦ v -∗
       ▷ (l ↦ w ={E}=∗ Φ #()) -∗
-        EWPW (#l <- w)%E @E <| σ |> {{ Φ }}.
+        EWPW (#l <- w)%E @E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros "H". rewrite /ewpw. destruct σ.1; by iApply ewp_store. 
+    iIntros "H". rewrite /ewpw. by iApply ewp_store. 
   Qed.
   
-  Lemma ewpw_replace E σ Φ l v w :
+  Lemma ewpw_replace E ρ Φ l v w :
     ▷ l ↦ v -∗
       ▷ (l ↦ w ={E}=∗ Φ v) -∗
-        EWPW (#l <!- w)%E @E <| σ |> {{ Φ }}.
+        EWPW (#l <!- w)%E @E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros "H". rewrite /ewpw. destruct σ.1; by iApply ewp_replace. 
+    iIntros "H". rewrite /ewpw. by iApply ewp_replace. 
   Qed.
   
-  Lemma ewpw_free E σ Φ l v :
+  Lemma ewpw_free E ρ Φ l v :
     ▷ l ↦ v -∗
       ▷ (|={E}=> Φ v) -∗
-        EWPW (Free #l)%E @E <| σ |> {{ Φ }}.
+        EWPW (Free #l)%E @E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros "H". rewrite /ewpw. destruct σ.1; by iApply ewp_free. 
+    iIntros "H". rewrite /ewpw. by iApply ewp_free. 
   Qed.
   
-  Lemma ewpw_atomic E1 E2 e σ Φ `{!Atomic StronglyAtomic e} :
+  Lemma ewpw_atomic E1 E2 e ρ Φ `{!Atomic StronglyAtomic e} :
     TCEq (to_eff e) None →
-      (|={E1,E2}=> EWPW e @E2 <| σ |> {{ v, |={E2,E1}=> Φ v }}) -∗
-        EWPW e @E1 <| σ |> {{ Φ }}.
+      (|={E1,E2}=> EWPW e @E2 <| ρ |> {{ v, |={E2,E1}=> Φ v }}) -∗
+        EWPW e @E1 <| ρ |> {{ Φ }}.
   Proof.
-    iIntros (?) "H". rewrite /ewpw. destruct σ.1; by iApply ewp_atomic. 
+    iIntros (?) "H". rewrite /ewpw. by iApply ewp_atomic. 
   Qed.
 
-  Lemma ewpw_eff_os E σ Φ v k :
+  Lemma ewpw_eff_os E ρ Φ v k :
     iEff_car (upcl OS σ) v (λ w, ▷ EWPW (fill k (Val w)) @ E <| (OS, σ) |> {{ Φ }}) -∗
     EWPW (of_eff OS v k) @ E <| (OS, σ) |> {{ Φ }}.
   Proof. 

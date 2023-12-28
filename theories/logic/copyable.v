@@ -15,7 +15,7 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From haffel.lang Require Import hazel.
+From haffel.lang Require Import haffel.
 From haffel.lang Require Import subst_map.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_sig.

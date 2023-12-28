@@ -96,6 +96,31 @@ Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
   (e1, x, xs, e2, e1 at level 200,
    format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
 
+Definition lft_def : val := (rec: "H" "e" :=
+                                  shallow-try: "e" #() with
+                                    effect (λ: "x" "k", if: UnOp IsContOS "k" then
+                                                            (λ: "y", "H" (λ: <>, "k" "y")) (Do OS (Fst "x", (Snd (Fst "x" + #1), Snd (Snd "x"))))
+                                                        else
+                                                            (λ: "y", "H" (λ: <>, "k" "y")) (Do MS (Fst "x", (Snd (Fst "x" + #1), Snd (Snd "x"))))
+                                                        )
+                                  | return (λ: "x", "x")
+                             end)%V.
+
+Notation "'lft' e" := (lft_def (λ: <>, e)%E #()) (at level 10) : expr_scope.
+
+Definition unlft_def : val := (rec: "H" "e" :=
+                                  shallow-try: "e" #() with
+                                    effect (λ: "x" "k", if: UnOp IsContOS "k" then
+                                                            (λ: "y", "H" (λ: <>, "k" "y")) (Do OS (Fst "x", (Snd (Fst "x" - #1), Snd (Snd "x"))))
+                                                        else
+                                                            (λ: "y", "H" (λ: <>, "k" "y")) (Do MS (Fst "x", (Snd (Fst "x" - #1), Snd (Snd "x"))))
+                                                        )
+                                  | return (λ: "x", "x")
+                             end)%V.
+                                                          
+Notation "'unlft' e" := (unlft_def (λ: <>, e)%E #()) (at level 10) : expr_scope.
+
+
 Definition from_binder (b : binder) (e : expr) : expr :=
   match b with
     BAnon => e

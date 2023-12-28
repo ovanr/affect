@@ -7,7 +7,7 @@
 
 (* Local imports *)
 From haffel.lib Require Import base.
-From haffel.lang Require Import hazel.
+From haffel.lang Require Import haffel.
 
 Fixpoint subst_map (vs : gmap string val) (e : expr) : expr :=
   match e with
