@@ -75,7 +75,7 @@ Section copyable_types.
   Lemma copy_ty_forallT C : ⊢ copy_ty (∀T: α, C α).
   Proof. iIntros "!# % #$". Qed.
 
-  Lemma copy_ty_forallS C : ⊢ copy_ty (∀S: θ, C θ).
+  Lemma copy_ty_forallR C : ⊢ copy_ty (∀R: θ, C θ).
   Proof. iIntros "!# % #$". Qed.
 
   Lemma copy_ty_ref τ : ⊢ copy_ty (Refᶜ τ).

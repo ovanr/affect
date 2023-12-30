@@ -51,23 +51,23 @@ Definition sem_ty_sum {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
 
 (* Affine Arrow type. *)
 Definition sem_ty_aarr `{heapGS Σ}
-  (σ : sem_sig Σ)
+  (ρ : sem_row Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
   (λ (v : val),
     ∀ (w : val),
       τ w -∗
-      EWPW (v w) <| σ |> {{ u, κ u }})%I.
+      EWPW (v w) <| ρ |> {{ u, κ u }})%I.
 
 (* Unrestricted Arrow type. *)
 Definition sem_ty_uarr `{heapGS Σ} 
-  (σ : sem_sig Σ)
+  (ρ : sem_row Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
   (λ (v : val), □ (
     ∀ (w : val),
       τ w -∗ 
-      EWPW (v w) <| σ |> {{ u, κ u}}))%I.
+      EWPW (v w) <| ρ |> {{ u, κ u}}))%I.
 
 (* Polymorphic type. *)
 Definition sem_ty_forall `{heapGS Σ} 
@@ -75,10 +75,8 @@ Definition sem_ty_forall `{heapGS Σ}
     (λ v, ∀ τ, □ EWPW (v <_>)%E {{ v, C τ v }})%I.
 
 (* Polymorphic effect type. *)
-(* why is value restriction also important here? *)
-(* example: ∀ θ, ∀ τ, (τ -{ θ }-> ()) -{ θ }-> () *)
-Definition sem_ty_sig_forall `{heapGS Σ} 
-  (A : sem_sig Σ → sem_ty Σ) : sem_ty Σ := 
+Definition sem_ty_row_forall `{heapGS Σ} 
+  (A : sem_row Σ → sem_ty Σ) : sem_ty Σ := 
     (λ v, ∀ θ, □ EWPW (v <_>)%E {{ v, A θ v }})%I.
 
 (* Existential type. *)
@@ -93,7 +91,6 @@ Global Instance sem_ty_rec_pre_contractive {Σ} (C : sem_ty Σ → sem_ty Σ) :
 Proof. solve_contractive. Qed.
 Definition sem_ty_rec {Σ} (C : sem_ty Σ -d> sem_ty Σ) : sem_ty Σ :=
   fixpoint (sem_ty_rec_pre C).
-
 
 Lemma sem_ty_rec_unfold {Σ} (C : sem_ty Σ → sem_ty Σ) `{!NonExpansive C} v :
   (sem_ty_rec C)%T v ⊣⊢ ▷ C (sem_ty_rec C)%T v. 
@@ -130,7 +127,7 @@ Notation "'Refᶜ' τ" := (sem_ty_ref_cpy τ%T)
 Notation "'∀T:' α , C " := (sem_ty_forall (λ α, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'∀S:' θ , C " := (sem_ty_sig_forall (λ θ, C%T)) 
+Notation "'∀R:' θ , C " := (sem_ty_row_forall (λ θ, C%T)) 
   (at level 180) : sem_ty_scope.
 
 Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T)) 
@@ -139,13 +136,13 @@ Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T))
 Notation "'μT:' α , C " := (sem_ty_rec (λ α, C%T))
   (at level 180) : sem_ty_scope.
 
-Notation "τ '-{' σ '}-∘' κ" := (sem_ty_aarr σ%S τ%T κ%T)
-  (at level 100, σ, κ at level 200) : sem_ty_scope.
+Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_aarr ρ%R τ%T κ%T)
+  (at level 100, ρ, κ at level 200) : sem_ty_scope.
 Notation "τ ⊸ κ" := (sem_ty_aarr ⊥ τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
-Notation "τ '-{' σ '}->' κ" := (sem_ty_uarr σ%S τ%T κ%T)
-  (at level 100, σ, κ at level 200) : sem_ty_scope.
+Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
+  (at level 100, ρ, κ at level 200) : sem_ty_scope.
 Notation "τ → κ" := (sem_ty_uarr ⊥ τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
@@ -207,9 +204,9 @@ Section types_properties.
          do 3 f_equiv. f_equiv. by apply non_dep_fun_dist.
   Qed.
 
-  Global Instance sem_ty_forall_sig_ne n :
-    Proper (pointwise_relation _ (dist n) ==> dist n) sem_ty_sig_forall.
-  Proof. intros ????. unfold sem_ty_sig_forall. 
+  Global Instance sem_ty_forall_row_ne n :
+    Proper (pointwise_relation _ (dist n) ==> dist n) sem_ty_row_forall.
+  Proof. intros ????. unfold sem_ty_row_forall. 
          do 3 f_equiv. f_equiv. by apply non_dep_fun_dist.
   Qed.
 
@@ -271,9 +268,9 @@ Section types_properties.
   Qed.
 
   Global Instance sem_ty_sig_forall_proper :
-    Proper (pointwise_relation _ (≡) ==> (≡)) sem_ty_sig_forall.
+    Proper (pointwise_relation _ (≡) ==> (≡)) sem_ty_row_forall.
   Proof. 
-    intros ????. unfold sem_ty_sig_forall; repeat f_equiv. 
+    intros ????. unfold sem_ty_row_forall; repeat f_equiv. 
     by apply non_dep_fun_equiv. 
   Qed.
 
@@ -313,7 +310,7 @@ Section sub_typing.
     ⊢ Void ≤T τ.
   Proof. iIntros "% !# []". Qed.
 
-  Lemma ty_le_cpy (τ : sem_ty Σ) :
+  Lemma ty_le_cpy_intro (τ : sem_ty Σ) :
     copy_ty τ -∗
     τ ≤T '! τ.
   Proof. 
@@ -322,7 +319,7 @@ Section sub_typing.
     iIntros "!# {$#Hτ'}". 
   Qed.
         
-  Lemma ty_le_cpy_inv (τ : sem_ty Σ) :
+  Lemma ty_le_cpy_elim (τ : sem_ty Σ) :
     ⊢ ('! τ) ≤T τ.
   Proof. iIntros "!# %v #$". Qed.
 
@@ -333,34 +330,34 @@ Section sub_typing.
     by iApply "Hττ'".
   Qed.
 
-  Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (σ : sem_sig Σ) :
-    ⊢ (τ -{ σ }-> κ) ≤T (τ -{ σ }-∘ κ).
+  Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (ρ : sem_row Σ) :
+    ⊢ (τ -{ ρ }-> κ) ≤T (τ -{ ρ }-∘ κ).
   Proof.
     iIntros "!# %v #Hτκ". iIntros (w) "Hτ /=".
     by iApply "Hτκ".
   Qed.
 
-  Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (σ σ' : sem_sig Σ) :
-    σ ≤S σ' -∗
+  Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
+    ρ ≤R ρ' -∗
     τ₂ ≤T τ₁ -∗
     κ₁ ≤T κ₂ -∗
-    (τ₁ -{ σ }-∘ κ₁) ≤T (τ₂ -{ σ' }-∘ κ₂).
+    (τ₁ -{ ρ }-∘ κ₁) ≤T (τ₂ -{ ρ' }-∘ κ₂).
   Proof.
-    iIntros "#Hσ  #Hτ₂₁ #Hκ₁₂ !# %v Hτκ₁ %w Hτ₂".
-    iApply (ewpw_sub with "Hσ").
+    iIntros "#Hρ  #Hτ₂₁ #Hκ₁₂ !# %v Hτκ₁ %w Hτ₂".
+    iApply (ewpw_sub with "Hρ").
     iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
     { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
     iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
   Qed.
   
-  Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (σ σ' : sem_sig Σ) :
-    σ ≤S σ' -∗
+  Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
+    ρ ≤R ρ' -∗
     τ₂ ≤T τ₁ -∗
     κ₁ ≤T κ₂ -∗
-    (τ₁ -{ σ }-> κ₁) ≤T (τ₂ -{ σ' }-> κ₂).
+    (τ₁ -{ ρ }-> κ₁) ≤T (τ₂ -{ ρ' }-> κ₂).
   Proof.
-    iIntros "#Hσ #Hτ₂₁ #Hκ₁₂ !# %v #Hτκ₁ %w !# Hτ₂".
-    iApply (ewpw_sub with "Hσ").
+    iIntros "#Hρ #Hτ₂₁ #Hκ₁₂ !# %v #Hτκ₁ %w !# Hτ₂".
+    iApply (ewpw_sub with "Hρ").
     iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
     { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
     iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
@@ -410,9 +407,9 @@ Section sub_typing.
     iIntros "!# % Hτ !>". by iApply "Hτ₁₂".
   Qed.
 
-  Lemma ty_le_sig_forall (τ₁ τ₂ : sem_sig Σ → sem_ty Σ) :
+  Lemma ty_le_sig_forall (τ₁ τ₂ : sem_row Σ → sem_ty Σ) :
     (∀ θ, τ₁ θ ≤T τ₂ θ) -∗
-    (∀S: θ, τ₁ θ) ≤T (∀S: θ, τ₂ θ).
+    (∀R: θ, τ₁ θ) ≤T (∀R: θ, τ₂ θ).
   Proof.
     iIntros "#Hτ₁₂ !# %v #Hτ₁ %σ !#".
     iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
@@ -454,6 +451,5 @@ Section sub_typing.
     iSplitL "Hτ₁"; [by iApply "Hτ₁₂"|by iApply "IH"].
   Qed.
   
-
 End sub_typing.
 

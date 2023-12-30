@@ -64,7 +64,7 @@ Ltac solve_copy :=
     iApply copy_ty_prod ||
     iApply copy_ty_sum ||
     iApply copy_ty_forallT || 
-    iApply copy_ty_forallS || 
+    iApply copy_ty_forallR || 
     iApply copy_ty_ref  || 
     iApply copy_ty_exists || 
     iApply copy_ty_rec || 

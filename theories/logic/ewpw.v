@@ -24,7 +24,7 @@ From haffel.logic Require Import sem_row.
 
 (* EWP wrapper *)
 Definition ewpw `{!heapGS Σ} (E : coPset) (e : expr) (ρ : sem_row Σ) (Φ : val -d> iPropO Σ) : iPropO Σ := 
-    (EWP e @ E <| ⟦ filter_row_to_os ρ ⟧ |> {| ⟦ ρ ⟧ |} {{ Φ }})%R%I.
+    (EWP e @ E <| ⟦ filter_os ρ ⟧ |> {| ⟦ ρ ⟧ |} {{ Φ }})%R%I.
 
 Global Opaque env_dom.
 
@@ -97,10 +97,10 @@ Section reasoning.
 
   Context `{!heapGS Σ}. 
 
-  Lemma filter_row_to_os_nil :
-    filter_row_to_os (⟨⟩ : sem_row Σ)%R = (⟨⟩ : sem_row Σ)%R.
+  Lemma filter_os_nil :
+    filter_os (⟨⟩ : sem_row Σ)%R = (⟨⟩ : sem_row Σ)%R.
   Proof.
-    rewrite /filter_row_to_os.
+    rewrite /filter_os.
     rewrite union_with_idemp; first done.
     intros ?? H. rewrite lookup_empty in H. inv H.
   Qed.
@@ -108,7 +108,7 @@ Section reasoning.
   Lemma ewpw_value (E : coPset) ρ Φ (v : val) :
     Φ v -∗ EWPW v @E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros "HΦ". rewrite /ewpw. destruct (sem_row_mode ρ); by iApply ewp_value. 
+    iIntros "HΦ". rewrite /ewpw. by iApply ewp_value. 
   Qed.
   
   Lemma ewpw_bot E e Φ :
@@ -118,7 +118,7 @@ Section reasoning.
     iIntros "Hewp". rewrite /ewpw /=.
     iApply ewp_ms_prot_mono.
     { iApply iEff_le_bottom. }
-    rewrite filter_row_to_os_nil.
+    rewrite filter_os_nil.
     iApply ewp_os_prot_mono.
     { iApply iEff_le_bottom. }
     iApply "Hewp".
@@ -130,11 +130,11 @@ Section reasoning.
   Proof. 
     iIntros "Hewp".
     rewrite /ewpw /=.
-    rewrite filter_row_to_os_nil.
+    rewrite filter_os_nil.
     iApply ewp_ms_prot_mono.
-    { iApply sem_row_to_prot_bot. }
+    { iApply row_nil_iEff_bot. }
     iApply ewp_os_prot_mono.
-    { iApply sem_row_to_prot_bot. }
+    { iApply row_nil_iEff_bot. }
     iApply "Hewp".
   Qed.
   
@@ -144,8 +144,9 @@ Section reasoning.
   Proof.
     iIntros "#Hρρ' Hewp".
     rewrite /ewpw.
-    iApply ewp_ms_prot_mono; first (iApply (row_le_interp with "Hρρ'")). 
-    by iApply ewp_os_prot_mono; first (iApply (row_le_interp_to_os with "Hρρ'")). 
+    iApply ewp_ms_prot_mono; first (iApply (row_le_iEff with "Hρρ'")). 
+    iApply ewp_os_prot_mono; last done. 
+    { iApply row_le_iEff. by iApply row_le_filter_os_mono. }
   Qed.
 
   Lemma ewp_mono_os E (ρ ρ' : sem_row Σ) e Φ Φ' `{! OSRow ρ } `{! OSRow ρ' } :
@@ -193,9 +194,9 @@ Section reasoning.
     EWPW e @E <| ρ |> {{ Φ' }}. 
   Proof.
     iIntros "Hewp HΦ". rewrite /ewpw.
-    assert (OSRow (filter_row_to_os ρ)).
-    { by apply sem_row_filter_row_to_os. }
-    iApply (@ewp_mono_os _ (filter_row_to_os ρ) ρ e Φ Φ' H _ with "Hewp HΦ").
+    assert (OSRow (filter_os ρ)).
+    { by apply sem_row_filter_os. }
+    iApply (@ewp_mono_os _ (filter_os ρ) ρ e Φ Φ' H _ with "Hewp HΦ").
   Qed.
   
   Lemma ewpw_mono E ρ e Φ Φ' :
@@ -273,143 +274,138 @@ Section reasoning.
   Qed.
 
   Lemma ewpw_eff_os E ρ Φ v k :
-    iEff_car (upcl OS σ) v (λ w, ▷ EWPW (fill k (Val w)) @ E <| (OS, σ) |> {{ Φ }}) -∗
-    EWPW (of_eff OS v k) @ E <| (OS, σ) |> {{ Φ }}.
+    iEff_car (upcl OS ⟦ filter_os ρ ⟧%R) v (λ w, ▷ EWPW (fill k (Val w)) @ E <| ρ |> {{ Φ }}) -∗
+    EWPW (of_eff OS v k) @ E <| ρ |> {{ Φ }}.
   Proof. 
     iIntros "H". rewrite /ewpw /=.
     by iApply ewp_eff_os.
   Qed.
 
-  Lemma ewpw_do_os E v σ Φ :
-    σ.1 ≡ OS -∗
-    iEff_car σ.2 v Φ -∗ EWPW (do: v) @ E <| σ |> {{ Φ }}.
+  Lemma ewpw_do_os E l s v ρ Φ :
+    iEff_car ⟦ filter_os ρ ⟧%R ((effect l, s), v)%V Φ -∗ 
+    EWPW (do: ((effect l, s), v)%V) @ E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros "HOS Hσ".
-    rewrite /ewpw /=. 
-    destruct σ.1 eqn:H; rewrite H; 
-    last (iDestruct "HOS" as "%HOS"; discriminate).
-    iApply ewp_do_os.
+    iIntros "Hρ".
+    rewrite /ewpw /=. iApply ewp_do_os.
     simpl. iExists Φ. iFrame. iIntros (w) "$".
   Qed.
 
-  Lemma ewpw_do_ms E v σ Φ :
-    iEff_car σ.2 v Φ -∗ EWPW (doₘ: v) @ E <| σ |> {{ Φ }}.
+  Lemma ewpw_do_ms E l s v ρ Φ :
+    iEff_car ⟦ ρ ⟧%R ((effect l, s), v)%V Φ -∗ 
+    EWPW (doₘ: ((effect l, s), v)%V) @ E <| ρ |> {{ Φ }}.
   Proof.
-    iIntros "Hσ".
+    iIntros "Hρ".
     rewrite /ewpw /=. 
-    destruct σ.1 eqn:H; iApply ewp_do_ms;
+    iApply ewp_do_ms;
     simpl; iExists Φ; iFrame; iIntros "!# % $".
   Qed.
 
   Definition shallow_handler_wrp
   (E : coPset)
-  (σ : sem_sig Σ)
+  (ρ : sem_row Σ)
   (Φ : val -d> iProp Σ)
   (h r : expr)
-  (σ' : sem_sig Σ)
+  (ρ' : sem_row Σ)
   (Φ' : val -d> iProp Σ) : iProp Σ :=
-    shallow_handler E (match σ.1 with OS => σ.2 | MS => ⊥ end) σ.2 Φ h r
-                      (match σ'.1 with OS => σ'.2 | MS => ⊥ end) σ'.2 Φ'.
+    shallow_handler E ⟦ filter_os ρ ⟧%R ⟦ ρ ⟧%R Φ h r
+                      ⟦ filter_os ρ' ⟧%R ⟦ ρ' ⟧%R Φ'.
 
   
   Definition shallow_handler_wrp_os
     (E : coPset)
-    (σ : sem_sig Σ)
+    (ρ : sem_row Σ)
     (Φ : val -d> iPropO Σ)
     (h r : expr)
-    (σ' : sem_sig Σ)
+    (ρ' : sem_row Σ)
     (Φ' : val -d> iPropO Σ) : iProp Σ :=
 
     (* Correctness of the return branch. *)
-    (∀ (y : val), Φ y -∗ EWPW r y @ E <| σ' |> {{ Φ' }}) ∧
+    (∀ (y : val), Φ y -∗ EWPW r y @ E <| ρ' |> {{ Φ' }}) ∧
 
     (* Correctness of the effect branch. *)
     (∀ (v k : val),
-       iEff_car (upcl OS σ.2) v (λ w, EWPW k w @ E <| σ |> {{ Φ }}) -∗
-         EWPW h v k @ E <| σ' |> {{ Φ' }}).
+       iEff_car (upcl OS ⟦ ρ ⟧%R) v (λ w, EWPW k w @ E <| ρ |> {{ Φ }}) -∗
+         EWPW h v k @ E <| ρ' |> {{ Φ' }}).
 
-  Lemma shallow_handler_wrp_os_impl E σ Φ h r σ' Φ' :
-    shallow_handler_wrp_os E σ Φ h r σ' Φ' -∗
-    shallow_handler_wrp E σ Φ h r σ' Φ'.
+  Lemma iEff_le_upcl_ms_os (Ψ : iEff Σ) :
+    ⊢ iEff_le (upcl MS Ψ) (upcl OS Ψ).
+  Proof.
+    iIntros (v Φ) "!# HMSΨ". rewrite /upcl /=.
+    iDestruct "HMSΨ" as "(%Φ' & HΨΦ' & #HPost)".
+    iExists Φ'. iFrame "#∗".
+  Qed.
+  
+  Lemma shallow_handler_wrp_os_impl E ρ Φ h r ρ' Φ' :
+    shallow_handler_wrp_os E ρ Φ h r ρ' Φ' -∗
+    shallow_handler_wrp E ρ Φ h r ρ' Φ'.
   Proof.
     iIntros "H". rewrite /shallow_handler_wrp_os /shallow_handler_wrp /ewpw.
     rewrite /shallow_handler. repeat iSplit.
-    - iDestruct "H" as "[H _]"; destruct σ'.1; iApply "H".
-    - iDestruct "H" as "[_ H]"; destruct σ'.1; iIntros (v k) "Hσ";
-      last (iApply ewp_os_prot_mono; first iApply iEff_le_bottom);
-      iApply "H"; destruct σ.1; try (iDestruct "Hσ" as "(%Φ''' & [] & _)");
-      iApply "Hσ".
-    - iDestruct "H" as "[_ H]"; destruct σ'.1; iIntros (v k) "Hσ";
-      iApply "H"; simpl; iDestruct "Hσ" as "(%Φ''' & Hσ & #HPost)";
-      iExists Φ'''; iFrame; iIntros (w) "HΦ".
-      + destruct σ.1; last (iApply ewp_os_prot_mono; first iApply iEff_le_bottom); 
-        by iApply "HPost".
-      + destruct σ.1; last (iApply ewp_os_prot_mono; first iApply iEff_le_bottom); 
-        by iApply "HPost".
+    - iDestruct "H" as "[H _]". iApply "H".
+    - iDestruct "H" as "[_ H]"; iIntros (v k) "Hρ"; iApply "H". 
+      iApply iEff_le_upcl; last done.
+      iApply row_le_iEff. iApply row_le_filter_os_elim.
+    - iDestruct "H" as "[_ H]"; iIntros (v k) "Hρ"; iApply "H".
+      by iApply iEff_le_upcl_ms_os.
   Qed.
 
-  Lemma ewpw_try_with E σ Φ σ' Φ' e h r :
-    EWPW e @ E <| σ |> {{ Φ }} -∗
-      shallow_handler_wrp E σ Φ h r σ' Φ' -∗
-        EWPW (TryWith e h r) @ E <| σ' |> {{ Φ' }}.
+  Lemma ewpw_try_with E ρ Φ ρ' Φ' e h r :
+    EWPW e @ E <| ρ |> {{ Φ }} -∗
+      shallow_handler_wrp E ρ Φ h r ρ' Φ' -∗
+        EWPW (TryWith e h r) @ E <| ρ' |> {{ Φ' }}.
   Proof.
     iIntros "Hewp H". rewrite /shallow_handler_wrp /ewpw. 
-    destruct σ.1 eqn:Hmd', σ'.1 eqn:Hmd;
     iApply (ewp_try_with with "Hewp"); iApply "H".
   Qed.
 
   Definition deep_handler_wrp
   (E : coPset)
-  (σ : sem_sig Σ)
+  (ρ : sem_row Σ)
   (Φ : val -d> iProp Σ)
   (h r : expr)
-  (σ' : sem_sig Σ)
+  (ρ' : sem_row Σ)
   (Φ' : val -d> iProp Σ) : iProp Σ :=
-    deep_handler E (match σ.1 with OS => σ.2 | MS => ⊥ end) σ.2 Φ h r
-                   (match σ'.1 with OS => σ'.2 | MS => ⊥ end) σ'.2 Φ'.
+    deep_handler E ⟦ filter_os ρ ⟧%R ⟦ ρ ⟧%R Φ h r
+                   ⟦ filter_os ρ' ⟧%R ⟦ ρ' ⟧%R Φ'.
 
   Definition deep_handler_wrp_os
     (E : coPset)
-    (σ : sem_sig Σ)
+    (ρ : sem_row Σ)
     (Φ : val -d> iPropO Σ)
     (h r : expr)
-    (σ' : sem_sig Σ)
+    (ρ' : sem_row Σ)
     (Φ' : val -d> iPropO Σ) : iProp Σ :=
 
     (* Correctness of the return branch. *)
-    (∀ (y : val), Φ y -∗ EWPW r y @ E <| σ' |> {{ Φ' }}) ∧
+    (∀ (y : val), Φ y -∗ EWPW r y @ E <| ρ' |> {{ Φ' }}) ∧
 
     (* Correctness of the effect branch. *)
     (∀ (v k : val),
-       iEff_car (upcl OS σ.2) v (λ w, ∀ Ψ' Ψ'' Φ'',
-          ▷ deep_handler E (match σ.1 with OS => σ.2 | MS => ⊥ end) σ.2 Φ h r Ψ' Ψ'' Φ'' -∗
+       iEff_car (upcl OS ⟦ ρ ⟧%R) v (λ w, ∀ Ψ' Ψ'' Φ'',
+          ▷ deep_handler E ⟦ filter_os ρ ⟧%R ⟦ ρ ⟧%R Φ h r Ψ' Ψ'' Φ'' -∗
           EWP k w @ E <| Ψ' |> {| Ψ'' |} {{ Φ'' }}) -∗
-         EWPW h v k @ E <| σ' |> {{ Φ' }}).
+         EWPW h v k @ E <| ρ' |> {{ Φ' }}).
 
-  Lemma deep_handler_wrp_os_impl E σ Φ h r σ' Φ' :
-    deep_handler_wrp_os E σ Φ h r σ' Φ' -∗
-    deep_handler_wrp E σ Φ h r σ' Φ'.
+  Lemma deep_handler_wrp_os_impl E ρ Φ h r ρ' Φ' :
+    deep_handler_wrp_os E ρ Φ h r ρ' Φ' -∗
+    deep_handler_wrp E ρ Φ h r ρ' Φ'.
   Proof.
     iIntros "H". rewrite /deep_handler_wrp_os /deep_handler_wrp /ewpw.
     rewrite deep_handler_unfold. repeat iSplit.
-    - iDestruct "H" as "[H _]"; destruct σ'.1; iApply "H".
-    - iDestruct "H" as "[_ H]"; destruct σ'.1; iIntros (v k) "Hσ";
-      last (iApply ewp_os_prot_mono; first iApply iEff_le_bottom);
-      iApply "H"; destruct σ.1; try (iDestruct "Hσ" as "(%Φ''' & [] & _)");
-      iApply "Hσ".
-    - iDestruct "H" as "[_ H]"; destruct σ'.1; iIntros (v k) "Hσ";
-      iApply "H"; simpl; iDestruct "Hσ" as "(%Φ''' & Hσ & #HPost)";
-      iExists Φ'''; iFrame; iIntros (w) "HΦ";
-      destruct σ.1; by iApply "HPost".
+    - iDestruct "H" as "[H _]"; iApply "H".
+    - iDestruct "H" as "[_ H]"; iIntros (v k) "Hρ".
+      iApply "H". iApply iEff_le_upcl; last done.
+      iApply row_le_iEff. iApply row_le_filter_os_elim.
+    - iDestruct "H" as "[_ H]". iIntros (v k) "H'".
+      iApply "H". by iApply iEff_le_upcl_ms_os. 
   Qed.
 
-  Lemma ewpw_deep_try_with E σ Φ (h r : val) σ' Φ' e :
-    EWPW e @ E <| σ |> {{ Φ }} -∗
-      deep_handler_wrp E σ Φ h r σ' Φ' -∗
-        EWPW DeepTryWithV e h r @ E <| σ' |> {{ Φ' }}.
+  Lemma ewpw_deep_try_with E ρ Φ (h r : val) ρ' Φ' e :
+    EWPW e @ E <| ρ |> {{ Φ }} -∗
+      deep_handler_wrp E ρ Φ h r ρ' Φ' -∗
+        EWPW DeepTryWithV e h r @ E <| ρ' |> {{ Φ' }}.
   Proof.
     iIntros "Hewp H". rewrite /deep_handler_wrp /ewpw. 
-    destruct σ.1 eqn:Hmd', σ'.1 eqn:Hmd;
     iApply (ewp_deep_try_with with "Hewp"); iApply "H".
   Qed.
 
