@@ -11,8 +11,6 @@ From hazel.program_logic Require Import weakest_precondition
 (* Local imports *)
 From haffel.lib Require Import logic.
 From haffel.lang Require Import haffel.
-From haffel.lang Require Import subst_map.
-From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
 
 Definition mode_mult m m' : mode :=
@@ -60,3 +58,10 @@ Proof. iIntros "Hm₁₁' Hm₂₂'". destruct m₁,m₂,m₁',m₂'; eauto. Qed
 Lemma mode_le_OS {Σ} (m : mode) : 
   ⊢ (m ≤M OS : iProp Σ).
 Proof. destruct m; eauto. Qed.
+
+Lemma mode_le_OS_inv {Σ} (m : mode) : 
+  (OS ≤M m : iProp Σ) -∗ m ≡ OS.
+Proof.
+  iIntros "H". destruct m; first done.
+  iDestruct "H" as "%H". inv H.
+Qed.

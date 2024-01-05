@@ -14,8 +14,6 @@ From hazel.program_logic Require Import weakest_precondition
 (* Local imports *)
 From haffel.lib Require Import logic.
 From haffel.lang Require Import haffel.
-From haffel.lang Require Import subst_map.
-From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import mode.
 
@@ -147,16 +145,32 @@ Notation "¡ σ" := (sem_sig_os σ) (at level 10) : sem_sig_scope.
 
 (* One-Shot Signatures *)
 
-Notation OSSig σ := (MonoProt σ.2).
+Definition mono_prot {Σ} (Ψ : iEff Σ) : iProp Σ := 
+  ∀ (v : val) (Φ Φ' : val → iPropI Σ),
+              (∀ w : val, Φ w -∗ Φ' w) -∗
+              iEff_car Ψ v Φ -∗ iEff_car Ψ v Φ'.
 
-Global Instance sem_rec_eff_os_os_sig {Σ} (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B} : 
+Class OSSig {Σ} (σ : sem_sig Σ) := { 
+  monotonic_prot : (⊢ mono_prot σ.2)
+}.
+
+Lemma mono_prot_os_sig {Σ} (σ : sem_sig Σ) `{!MonoProt σ.2 }: OSSig σ.
+Proof. inv MonoProt0. constructor. iIntros (v Φ Φ'). 
+       iApply (monotonic_prot0 v Φ Φ'). 
+Qed.
+  
+Global Instance sig_rec_eff_os_os_sig {Σ} (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B} : 
   OSSig (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S.
 Proof. 
+  apply mono_prot_os_sig.
   by apply sem_sig_eff_rec_mono_prot.
 Qed.
   
-Global Instance os_os_sig {Σ} (σ : sem_sig Σ) : OSSig (¡ σ)%S.
-Proof. apply upcl_mono_prot. Qed.
+Global Instance sig_os_os_sig {Σ} (σ : sem_sig Σ) : OSSig (¡ σ)%S.
+Proof. 
+  apply mono_prot_os_sig.
+  apply upcl_mono_prot.
+Qed.
 
 
 (* Sub-Typing on Signatures *)
@@ -201,16 +215,7 @@ Proof.
     iNext. iApply ("Hκ₂₁" with "IH Hκ₂").
 Qed.
 
-Lemma sig_le_os {Σ} (σ : sem_sig Σ) `{! OSSig σ} :
-  ⊢ ¡ σ ≤S σ.
-Proof.
-  rewrite /sem_sig_os. iSplit; [iApply mode_le_refl|].
-  iIntros (v Φ) "!# (%Φ' & Hσ & Himp)". simpl.
-  destruct OSSig0 as [].
-  iApply (monotonic_prot v Φ' Φ with "Himp Hσ"). 
-Qed.
-  
-Lemma sig_le_os_inv {Σ} (σ : sem_sig Σ) :
+Lemma sig_le_os_intro {Σ} (σ : sem_sig Σ) :
   ⊢ σ ≤S (¡ σ).
 Proof.
   rewrite /sem_sig_os. iSplit; [iApply mode_le_refl|].
@@ -218,6 +223,15 @@ Proof.
   iExists Φ. iFrame. iIntros "% $".
 Qed.
 
+Lemma sig_le_os_elim {Σ} (σ : sem_sig Σ) `{! OSSig σ} :
+  ⊢ ¡ σ ≤S σ.
+Proof.
+  rewrite /sem_sig_os. iSplit; [iApply mode_le_refl|].
+  iIntros (v Φ) "!# (%Φ' & Hσ & Himp)". simpl.
+  destruct OSSig0 as []. 
+  iApply (monotonic_prot0 with "Himp Hσ").
+Qed.
+  
 Lemma sig_le_os_comp {Σ} (σ σ' : sem_sig Σ) :
   σ ≤S σ' -∗ (¡ σ) ≤S (¡ σ').
 Proof.

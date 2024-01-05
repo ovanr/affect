@@ -42,3 +42,12 @@ Global Instance non_expansive2_from_constant {A B C : ofe} (c : A) :
 Proof.
   intros ???????. done.
 Qed.
+
+Lemma prod_equivI_1 {PROP : bi} `{!BiInternalEq PROP} {A B : ofe} (x y : A * B) : 
+    (x ≡ y : PROP) ⊢ x.1 ≡ y.1.
+Proof. rewrite prod_equivI. iIntros "[$ _]". Qed.
+
+Lemma prod_equivI_2 {PROP : bi} `{!BiInternalEq PROP} {A B : ofe} (x y : A * B) : 
+  (x ≡ y : PROP) ⊢ x.2 ≡ y.2.
+Proof. rewrite prod_equivI. iIntros "[_ $]". Qed.
+

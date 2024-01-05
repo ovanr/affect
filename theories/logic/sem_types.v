@@ -17,8 +17,6 @@ From hazel.program_logic Require Import weakest_precondition
 (* Local imports *)
 From haffel.lib Require Import logic.
 From haffel.lang Require Import haffel.
-From haffel.lang Require Import subst_map.
-From haffel.logic Require Import iEff.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_sig.
 From haffel.logic Require Import ewpw.

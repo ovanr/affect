@@ -16,10 +16,13 @@ From hazel.language Require Export eff_lang.
 From hazel.program_logic Require Import weakest_precondition 
                                         basic_reasoning_rules
                                         deep_handler_reasoning
+                                        tactics
                                         state_reasoning.
 
-From haffel.lib Require Export base.
-From haffel.lib Require Export logic.
+From haffel.lib Require Export base logic.
+From haffel.lang Require Export subst_map.
+From haffel.lang Require Export handler.
+From haffel.lang Require Export iEff.
 
 Definition pair_elim :=
   (λ: "x", λ: "f", "f" (Fst "x") (Snd "x"))%V.
@@ -73,18 +76,6 @@ Notation "'unfold:' e" := (rec_unfold e%E)
   (at level 200, e at level 200,
    format "'[' 'unfold:'  e ']'") : expr_scope.
 
-Definition rec_perform : val := (λ: "x", "x")%V.
-
-Notation "'perform:' ( l , e )" := (rec_perform (Do OS ((l, #0)%V, e%E)))%E
-  (at level 200, e at level 200,
-   format "'[' 'perform:' ( l , e ) ']'") : expr_scope.
-
-Notation "'performₘ:' ( l , e )" := (rec_perform (Do MS ((l, #0)%V, e%E)))%E
-  (at level 200, e at level 200,
-   format "'[' 'performₘ:' ( l , e ) ']'") : expr_scope.
-
-Notation "'effect' l" := (#(LitStr l))%V (at level 70) : val_scope.
-
 (** Notations for lists. *)
 Notation NIL := (InjL #()) (only parsing).
 Notation NILV := (InjLV #()) (only parsing).
@@ -97,31 +88,6 @@ Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
   (ListMatch e1 e2%E x%binder (Lam x%binder (Lam xs%binder e3%E)))
   (e1, x, xs, e2, e1 at level 200,
    format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
-
-Definition lft_def : val := (rec: "H" "e" :=
-                                  shallow-try: "e" #() with
-                                    effect (λ: "x" "k", if: UnOp IsContOS "k" then
-                                                            (λ: "y", "H" (λ: <>, "k" "y")) (Do OS (Fst "x", (Snd (Fst "x" + #1), Snd (Snd "x"))))
-                                                        else
-                                                            (λ: "y", "H" (λ: <>, "k" "y")) (Do MS (Fst "x", (Snd (Fst "x" + #1), Snd (Snd "x"))))
-                                                        )
-                                  | return (λ: "x", "x")
-                             end)%V.
-
-Notation "'lft' e" := (lft_def (λ: <>, e)%E #()) (at level 10) : expr_scope.
-
-Definition unlft_def : val := (rec: "H" "e" :=
-                                  shallow-try: "e" #() with
-                                    effect (λ: "x" "k", if: UnOp IsContOS "k" then
-                                                            (λ: "y", "H" (λ: <>, "k" "y")) (Do OS (Fst "x", (Snd (Fst "x" - #1), Snd (Snd "x"))))
-                                                        else
-                                                            (λ: "y", "H" (λ: <>, "k" "y")) (Do MS (Fst "x", (Snd (Fst "x" - #1), Snd (Snd "x"))))
-                                                        )
-                                  | return (λ: "x", "x")
-                             end)%V.
-                                                          
-Notation "'unlft' e" := (unlft_def (λ: <>, e)%E #()) (at level 10) : expr_scope.
-
 
 Definition from_binder (b : binder) (e : expr) : expr :=
   match b with
@@ -272,3 +238,33 @@ Proof.
   { by apply fill_not_val. }
   { by apply fill_not_eff. }
 Qed.
+
+Lemma ewp_if_false `{irisGS eff_lang Σ} E e₁ e₂ e₃ Ψ1 Ψ2 Φ :
+  EWP e₁ @ E <| Ψ1 |> {{ v, ⌜ v = #false ⌝ }} -∗ 
+  EWP e₃ @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }} -∗ EWP (if: e₁ then e₂ else e₃) @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }}.
+Proof.
+  iIntros "He₁ He₃".
+  iApply (ewp_bind [IfCtx _ _]); first done.
+  iApply ewp_ms_prot_mono; first iApply iEff_le_bottom.
+  iApply (ewp_mono with "He₁ [He₃]").
+  iIntros (v) "-> !> /=". by ewp_pure_steps.
+Qed.
+
+Lemma ewp_if_true `{irisGS eff_lang Σ} E e₁ e₂ e₃ Ψ1 Ψ2 Φ :
+  EWP e₁ @ E <| Ψ1 |> {{ v, ⌜ v = #true ⌝ }} -∗ 
+  EWP e₂ @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }} -∗ EWP (if: e₁ then e₂ else e₃) @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }}.
+Proof.
+  iIntros "He₁ He₂".
+  iApply (ewp_bind [IfCtx _ _]); first done.
+  iApply ewp_ms_prot_mono; first iApply iEff_le_bottom.
+  iApply (ewp_mono with "He₁ [He₂]").
+  iIntros (v) "-> !> /=". by ewp_pure_steps.
+Qed.
+
+Ltac ewp_pure_steps' := 
+  repeat (
+    ewp_pure_steps
+    || done
+    || (rewrite bool_decide_true; last done)
+    || (rewrite bool_decide_false; last (done || by (intros ?; simplify_eq)))
+  ).

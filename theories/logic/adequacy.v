@@ -10,9 +10,9 @@ From hazel.program_logic Require Import weakest_precondition
                                         tactics.
 (* Local imports *)
 From haffel.lang Require Import haffel.
-From haffel.lang Require Import subst_map.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_types.
+From haffel.logic Require Import sem_row.
 From haffel.logic Require Import sem_judgement.
 From haffel.logic Require Import ewpw.
 
@@ -89,8 +89,8 @@ Proof.
   set_solver.
 Qed.
 
-Lemma sem_typed_ewpw e τ σ:
-  (∀ `{heapGS Σ}, ⊨ e : σ : τ -∗ EWPW e <| σ |> {{ τ }}). 
+Lemma sem_typed_ewpw e τ ρ:
+  (∀ `{heapGS Σ}, ⊨ e : ρ : τ -∗ EWPW e <| ρ |> {{ τ }}). 
 Proof.
   iIntros (?) "He". unfold sem_typed. simpl.
   iAssert (emp)%I as "Hemp"; first done.
@@ -103,13 +103,27 @@ Proof.
   iApply (ewpw_mono with "[He]"); [iApply "He"|iIntros "!# % [$ _] //="].
 Qed.
 
+Lemma sem_typed_ewp_nil e τ :
+  (∀ `{heapGS Σ}, ⊨ e : ⟨⟩ : τ -∗ EWP e {{ τ }}). 
+Proof.
+  iIntros (?) "He". unfold sem_typed. simpl.
+  iAssert (emp)%I as "Hemp"; first done.
+  iAssert (∀ v, τ v ∗ emp -∗ τ v)%I as "Himp".
+  { iIntros (?) "[H _] {$H}". }
+  pose (@empty (@gmap string string_eq_dec string_countable val)
+          (@gmap_empty string string_eq_dec string_countable val)) as Hempty. 
+  iSpecialize ("He" $! ∅ with "[]"); first done. 
+  rewrite (subst_map_empty e). iApply (ewpw_bot_inv with "[He]").
+  iApply (ewpw_mono with "[He]"); [iApply "He"|iIntros "!# % [$ _] //="].
+Qed.
+
 Lemma sem_typed_adequacy `{!heapGpreS Σ} e τ σ :
-  (∀ `{!heapGS Σ}, ⊢ ⊨ e : ⊥ : τ) →
+  (∀ `{!heapGS Σ}, ⊢ ⊨ e : ⟨⟩ : τ) →
   ∀ e' σ', rtc erased_step ([e], σ) ([e'], σ') → 
            not_stuck e' σ'.
 Proof.
   intros He. 
   apply (eff_adequate_not_stuck _ _ τ).
-  iIntros (?) "". 
-  iApply (sem_typed_ewpw _ _ ⊥). iApply He.
+  iIntros (?). 
+  iApply (sem_typed_ewp_nil). iApply He.
 Qed.

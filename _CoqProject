@@ -5,10 +5,11 @@
 theories/lib/base.v
 theories/lib/logic.v
 
-theories/lang/haffel.v
 theories/lang/subst_map.v
+theories/lang/handler.v
+theories/lang/iEff.v
+theories/lang/haffel.v
 
-theories/logic/iEff.v
 theories/logic/sem_def.v
 theories/logic/mode.v
 theories/logic/sem_sig.v

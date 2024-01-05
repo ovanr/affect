@@ -15,8 +15,6 @@ From hazel.program_logic Require Import weakest_precondition
 (* Local imports *)
 From haffel.lib Require Import base.
 From haffel.lang Require Import haffel.
-From haffel.lang Require Import subst_map.
-From haffel.logic Require Import iEff.
 
 (* -------------------------------------------------------------------------- *)
 (** Inhabited. *)
@@ -47,7 +45,7 @@ Delimit Scope sem_sig_scope with S.
 
 (** * Semantic Effect Row. *)
 
-Definition sem_row Σ := (gmapO (stringO * natO) (sem_sig Σ))%type.
+Definition sem_row Σ := (gmapO (label * natO) (sem_sig Σ))%type.
 
 Declare Scope sem_row_scope.
 (* Bind Scope sem_row_scope with sem_row. *)
