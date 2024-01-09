@@ -946,7 +946,7 @@ Section compatibility.
   (* Effect handling rules *)
   
   Lemma sem_typed_perform_os Γ₁ Γ₂ e τ l ρ' (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) 
-    `{ NonExpansive2 A, NonExpansive2 B, OSRow ρ' } :
+    `{ NonExpansive2 A, NonExpansive2 B, ! OSRow ρ' } :
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S in
     let ρ := ((l, σ) · ρ')%R in
     Γ₁ ⊨ e : ρ : A σ τ ⊨ Γ₂ -∗
@@ -1011,7 +1011,7 @@ Section compatibility.
     iApply ewpw_unlft. by iApply "He".
   Qed.
 
-  Lemma sem_typed_shallow_try_os m Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B, OSRow ρ' }:
+  Lemma sem_typed_shallow_try_os m Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B, ! OSRow ρ' }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | m)%S in
     let ρ := ((l, σ) · ρ')%R in
@@ -1083,7 +1083,7 @@ Section compatibility.
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
-  Lemma sem_typed_shallow_try_ms_alt Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B, OSRow ρ' }:
+  Lemma sem_typed_shallow_try_ms_alt Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B, ! OSRow ρ' }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | MS)%S in
     let ρ := ((l, σ) · ρ')%R in

@@ -16,8 +16,9 @@ From haffel.lib Require Import base.
 From haffel.lang Require Import haffel.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_env.
-From haffel.logic Require Import sem_types.
 From haffel.logic Require Import sem_sig.
+From haffel.logic Require Import sem_row.
+From haffel.logic Require Import sem_types.
 From haffel.logic Require Import copyable.
 From haffel.logic Require Import sem_judgement.
 From haffel.logic Require Import sem_operators.
@@ -26,17 +27,10 @@ From haffel.logic Require Import tactics.
 
 Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
-Definition async : val := 
-  (Λ: λ: "c", match: perform: (InjL "c") with 
-                InjL "p" => "p"
-              | InjR "a" => ref (InjL "a")
-              end)%V.
-Definition await : val := 
-  (Λ: rec: "f" "p" := 
-        match: perform: (InjR "p") with 
-          InjL "p" => "f" "p"
-        | InjR "a" => "a"
-        end)%V.
+Definition async : val := (Λ: λ: "c", perform: (effect "async", "c"))%V.
+
+Definition await : val := (Λ: λ: "p", perform: (effect "await", "p"))%V.
+
 Definition yield : val := 
   (λ: <>, await <_> (async <_> (λ: <>, #())))%V. 
 
@@ -69,34 +63,35 @@ Definition runner : val :=
 
     let: "fulfill" := 
       (rec: "fulfill" <> := λ: "promise" "comp",   
-        deep-try: "comp" #() with
-          effect (λ: "x" "k", 
-            match: "x" with 
-              InjL "x" => 
-                (* async effect *) 
-                let: "new_prom" := ref (InjR NIL) in
-                "add" (λ: <>, "fulfill" <_> "new_prom" "x") ;;
-                "k" (InjL "new_prom")
-            | InjR "p" =>
-                (* await effect *) 
-                match: "p" <!- (InjR NIL) with
-                  InjL "v" => "p" <!- (InjL "v") ;; "k" (InjR "v")
-                | InjR "ks" => "p" <!- InjR (CONS (λ: "v", "k" (InjR "v")) "ks") ;; "next" #()
-                end
-            end
-          )%E
-        | return (λ: "x", 
-            let: "v" := "promise" <!- InjR NIL in
-            match: "v" with
-              InjL <> => impossible
-            | InjR "ks" =>
-                "promise" <!- InjL "x" ;;
-                iter <_> ("resume_task" <_> "x") "ks" ;;
-                "next" #()
-            end
-          )%E
-        end
-      )%E in
+        let: "hAwait" := λ: "e",
+          deep-try-ls: "e" #() handle "await" with
+            effect (λ: "x" "k", 
+                  match: "p" <!- (InjR NIL) with
+                    InjL "v" => "p" <!- (InjL "v") ;; "k" "v"
+                  | InjR "ks" => "p" <!- InjR (CONS (λ: "v", "k" (InjR "v")) "ks") ;; "next" #()
+                  end
+                )
+        | return (λ: "x", "x")
+        end in
+        let: "hAsync" := λ: "e", 
+          deep-try-ls: "e" #() handle "async" with
+            effect (λ: "x" "k", 
+                  let: "new_prom" := ref (InjR NIL) in
+                  "add" (λ: <>, "fulfill" <_> "new_prom" "x") ;;
+                  "k" "new_prom"
+            )%E
+          | return (λ: "x", 
+              let: "v" := "promise" <!- InjR NIL in
+              match: "v" with
+                InjL <> => impossible
+              | InjR "ks" =>
+                  "promise" <!- InjL "x" ;;
+                  iter <_> ("resume_task" <_> "x") "ks" ;;
+                  "next" #()
+              end)%E
+          end
+        in "hAwait" ("hAsync" "e"))%E
+      in
       let: "pmain" := ref (InjR NIL) in
       "fulfill" <_> "pmain" "main" ;;
       match: "pmain" <!- InjR NIL with
@@ -115,10 +110,14 @@ Section typing.
 
   Definition Promise τ := Refᶜ (Status τ).
 
-  Definition asig : sem_sig Σ := (μ∀TS: θ, α, ( () -{ θ }-∘ '! α ) + Promise ('! α) ⇒ 
-                                              Promise ('! α)       + '! α | OS)%S. 
+  Definition await_sig : sem_sig Σ := (μ∀TS: _, α, Promise ('! α) ⇒ '! α | OS)%S.
 
-  Definition iter_ty τ := (∀S: θ, (τ -{ ¡ θ }-> ()) → List τ -{ ¡ θ }-∘ ())%T.
+  Definition async_sig: sem_sig Σ := 
+    (μ∀TS: θ, α, ( () -{ ("async", θ) · ("await", await_sig) · ⟨⟩ }-∘ '! α ) ⇒ Promise ('! α) | OS)%S. 
+
+  Definition arow : sem_row Σ := (("async", async_sig) · ("await", await_sig) · ⟨⟩)%R.
+
+  Definition iter_ty τ := (∀R: θ, (τ -{ ¡ θ }-> ()) → List τ -{ ¡ θ }-∘ ())%T.
   
   Definition next_ty := (() → ())%T.
 
@@ -126,20 +125,39 @@ Section typing.
 
   Definition resume_task_ty := (∀T: α, '! α → ('! α ⊸ ()) → ())%T.
   
-  Definition runner_ty := (∀T: α, (() -{ asig }-∘ '! α) → '! α)%T.
+  Definition runner_ty := (∀T: α, (() -{ arow }-∘ '! α) → '! α)%T.
   
-
-  Local Instance asig_arg_ne :
+  Local Instance await_res_sig_ne :
     NonExpansive2
-      (λ (θ : sem_sig Σ) (α : sem_ty Σ), (() -{ θ }-∘ '! α) + Promise ('! α)).
+      (λ (_ : sem_sig Σ) (α : sem_ty Σ), '! α).
   Proof.
-    rewrite /Promise /Status; intros ???????; by repeat f_equiv.
+    intros ????????. apply non_dep_fun_dist. by repeat f_equiv.
   Qed.
 
-  Local Instance asig_res_ne :
-    NonExpansive2 (λ (_ : sem_sig Σ) (α : sem_ty Σ), Promise ('! α) + '! α).
+  Local Instance await_sig_ne :
+    NonExpansive2 
+    (λ (_ : sem_sig Σ) (α : sem_ty Σ), Promise ('! α)).
   Proof.
-    rewrite /Promise /Status; intros ???????; by repeat f_equiv.
+    rewrite /Promise /Status. intros ????????.
+    apply non_dep_fun_dist. by repeat f_equiv.
+  Qed.
+
+  Local Instance async_sig_ne :
+    NonExpansive2
+      (λ (θ : sem_sig Σ) (α : sem_ty Σ),
+        () -{ ("async", θ) · ("await", await_sig) · ⟨⟩ }-∘ '! α).
+  Proof.
+    intros ????????. apply non_dep_fun_dist.
+    do 2 f_equiv; try done. f_equiv. rewrite /sem_row_nil. 
+    f_equiv. intros ?. f_equiv.
+  Qed.
+
+  Local Instance arow_os_row : OSRow arow.
+  Proof.
+    rewrite /arow. apply row_ins_os_row.
+    { rewrite /async_sig. apply sig_rec_eff_os_os_sig; apply _. }
+    apply row_ins_os_row; last apply row_nil_os_row.
+    rewrite /await_sig. apply sig_rec_eff_os_os_sig; apply _.
   Qed.
 
   Lemma impossible_typed τ :
@@ -156,71 +174,69 @@ Section typing.
   Qed.
 
   Lemma async_typed :
-    ⊢ ⊨ᵥ async : (∀T: α , (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α)).
+    ⊢ ⊨ᵥ async : (∀T: α, (() -{ arow }-∘ '! α) -{ arow }-> Promise ('! α)).
   Proof.
     rewrite /async. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
     rewrite - {1} (app_nil_r []).
     iApply sem_typed_ufun; solve_sidecond. simpl.
-    iApply (sem_typed_match _ []); solve_sidecond.
-    - iApply (sem_typed_perform_os with "[]").
-        iApply sem_typed_left_inj.
-        iApply sem_typed_sub_nil.
-        iApply sem_typed_var.
-    - simpl. iApply sem_typed_sub_nil. iApply sem_typed_var.
-    - simpl. iApply sem_typed_alloc_cpy. iApply sem_typed_left_inj.
-      iApply sem_typed_sub_nil. iApply sem_typed_var.
+    rewrite /arow.
+    set A := (λ (θ : sem_sig Σ) α, 
+        ( () -{ ("async", θ) · ("await", await_sig) · ⟨⟩ }-∘ '! α )).
+    set B := (λ (_ : sem_sig Σ) α, Promise ('! α)).  
+    set σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S.
+    replace (Promise ('! α)) with (B σ α) by done.
+    iApply (sem_typed_perform_os _ _ _ _ "async" _).
+    iApply sem_typed_sub_nil. iApply sem_typed_var.
   Qed.
 
   Lemma await_typed :
-    ⊢ ⊨ᵥ await : (∀T: α, Promise ('! α) -{ asig }-> '! α).
+    ⊢ ⊨ᵥ await : (∀T: α, Promise ('! α) -{ arow }-> '! α).
   Proof.
     rewrite /await. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
     rewrite - {1} (app_nil_r []).
     iApply sem_typed_ufun; solve_sidecond. simpl.
-    iApply (sem_typed_match _ [("f", _)]); solve_sidecond.
-    - iApply (sem_typed_perform_os with "[]");
-      iApply sem_typed_sub_nil. iApply sem_typed_right_inj. iApply sem_typed_var. 
-    - simpl. iApply sem_typed_app.
-      { iApply sem_typed_sub_nil. 
-        iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|iApply sem_typed_var]. }
-      iApply sem_typed_sub_nil. iApply sem_typed_var.
-    - simpl. iApply sem_typed_sub_nil. 
-      iApply sem_typed_swap_second. iApply sem_typed_weaken.
-      iApply sem_typed_var.
+    set A := (λ (θ : sem_sig Σ) α, Promise ('! α)).  
+    set B := (λ (θ : sem_sig Σ) (α : sem_ty Σ), '! α).  
+    set σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S.
+    replace ('! α) with (B σ α) by done.
+    rewrite /arow. iApply sem_typed_sub_row.
+    { by iApply row_le_swap_second. }
+    iApply (sem_typed_perform_os _ _ _ _ "await" _).
+    iApply sem_typed_sub_nil. iApply sem_typed_var.
   Qed.
 
   Lemma yield_typed :
-    ⊢ ⊨ᵥ yield : ( () -{ asig }-> () ).
+    ⊢ ⊨ᵥ yield : ( () -{ arow }-> () ).
   Proof.
     iIntros. iApply sem_typed_closure; try done. simpl.
     iApply (sem_typed_app _ [] _ _ _ (Promise ('! ()))).
     - iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
       iApply sem_typed_sub_ty; [iApply ty_le_uarr|]; 
-        [iApply sig_le_refl|iApply ty_le_refl|iApply ty_le_cpy_inv|].
-      iApply sem_typed_sub_nil. simpl. rewrite -/asig.
-      set C := (λ α, (Promise ('! α)) -{ asig }-> ('! α)).
+        [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_cpy_elim|].
+      iApply sem_typed_sub_nil. simpl. rewrite -/arow.
+      set C := (λ α, (Promise ('! α)) -{ arow }-> ('! α)).
       rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
       iApply sem_typed_val. iApply await_typed.
-    - iApply (sem_typed_app _ [] _ _ _ (() -{ asig }-∘ '! ())).
+    - iApply (sem_typed_app _ [] _ _ _ (() -{ arow }-∘ '! ())).
       + iApply sem_typed_sub_nil. 
         iApply sem_typed_sub_ty; [iApply ty_le_u2aarr|].
-        set C := (λ α, (() -{ asig }-∘ '! α) -{ asig }-> Promise ('! α)).
+        set C := (λ α, (() -{ arow }-∘ '! α) -{ arow }-> Promise ('! α)).
         rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
         iApply sem_typed_val. iApply async_typed.
       + iApply sem_typed_sub_nil.
         rewrite - {1} (app_nil_r []).
         iApply sem_typed_afun; solve_sidecond. simpl.
         iApply sem_typed_sub_nil.
-        iApply sem_typed_sub_ty; [iApply ty_le_cpy; solve_copy|].
+        iApply sem_typed_sub_ty; [iApply ty_le_cpy_intro; solve_copy|].
         iApply sem_typed_unit.
   Qed.
 
   Lemma iter_typed τ :
     ⊢ ⊨ᵥ iter : iter_ty τ.
   Proof.
-    iApply sem_typed_Sclosure. iIntros (σ).
+    iApply sem_typed_Rclosure. iIntros (σ).
     iApply sem_typed_sub_nil.
     rewrite - {1} (app_nil_r []). 
     iApply sem_typed_ufun; solve_sidecond. simpl.
@@ -246,7 +262,7 @@ Section typing.
         iApply sem_typed_sub_nil.
         iApply sem_typed_sub_ty. 
         { iApply ty_le_trans; [|iApply ty_le_u2aarr].
-          iApply ty_le_uarr. { simpl. iApply sig_le_nil. }
+          iApply ty_le_uarr. { simpl. iApply row_le_nil. }
           iApply ty_le_refl. iApply ty_le_refl. }
         iApply sem_typed_var.
   Qed.
@@ -320,7 +336,7 @@ Section typing.
     iIntros. iApply sem_typed_Tclosure. iIntros (α).
     rewrite - {1} (app_nil_r []).
     iApply sem_typed_ufun; solve_sidecond. simpl.
-    set main := ("main", () -{ asig }-∘ '! α).
+    set main := ("main", () -{ arow }-∘ '! α).
     iApply (sem_typed_let _ [main]); solve_sidecond.
     { iApply (sem_typed_alloc_cpy _ _ _ _ (List (() ⊸ ()))). 
       iApply sem_typed_nil. }
@@ -348,16 +364,19 @@ Section typing.
     iApply (sem_typed_let _ [main]); solve_sidecond.
     - assert (Hrw : [resume_task;add;next;main] = [resume_task;add;next] ++ [main]) by done.
       rewrite Hrw. clear Hrw.
-      iApply (sem_typed_ufun_poly_rec _ _ _ _ _ (λ β, Promise ('! β)) (λ _, ⊥) (λ β, (() -{ asig }-∘ '! β) ⊸ ())); 
+      iApply (sem_typed_ufun_poly_rec _ _ _ _ _ (λ β, Promise ('! β)) (λ _, ⊥) (λ β, (() -{ arow }-∘ '! β) ⊸ ())); 
         solve_sidecond. simpl.
      iIntros (β) "/=". 
      set promise := ("promise", Promise ('! β)).
-     set fulfill := ("fulfill", ∀T: β', Promise ('! β') → (() -{ asig }-∘ '! β') ⊸ ()).
+     set fulfill := ("fulfill", ∀T: β', Promise ('! β') → (() -{ arow }-∘ '! β') ⊸ ()).
      rewrite -(app_nil_r [promise;fulfill;resume_task;add;next]).
      iApply sem_typed_afun; solve_sidecond. simpl.
-     set comp := ("comp", () -{ asig }-∘ '! β)%T.
+     set comp := ("comp", () -{ arow }-∘ '! β)%T.
+
      replace ([comp; promise; fulfill; resume_task; add;next]) with
              ([comp] ++ [promise; fulfill; resume_task; add;next]) by done.
+    iApply (sem_typed_let _ [q; main]); solve_sidecond.
+
      set A := λ (θ : sem_sig Σ) α, ( () -{ θ }-∘ '! α ) + Promise ('! α).
      set B := (λ (θ : sem_sig Σ) α, Promise ('! α) + '! α).
      iApply (sem_typed_deep_try_os OS _ [] _ _ _ _ _ _ _ A B _ _ ⊥); solve_sidecond.

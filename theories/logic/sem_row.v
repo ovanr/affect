@@ -193,10 +193,19 @@ Qed.
 
 (* One-Shot Rows *)
 
-Notation OSRow ρ := (MonoProt ⟦ ρ%R ⟧)%R.
+Class OSRow {Σ} (ρ : sem_row Σ) := { 
+  monotonic_prot : (⊢ mono_prot ⟦ ρ%R ⟧%R)
+}.
 
-Global Instance row_nil_os_row {Σ} :
-  OSRow (⟨⟩ : sem_row Σ).
+Arguments OSRow _ _%R.
+
+Lemma mono_prot_os_row {Σ} (ρ : sem_row Σ) `{!MonoProt ⟦ ρ ⟧%R }: OSRow ρ.
+Proof. inv MonoProt0. constructor. iIntros (v Φ Φ'). 
+       iApply (monotonic_prot0 v Φ Φ'). 
+Qed.
+
+Global Instance row_nil_os_row {Σ : gFunctors } :
+  @OSRow Σ ⟨⟩.
 Proof.
   constructor. rewrite /sem_row_iEff /= /sem_row_nil.
   iIntros (v Φ Φ') "_ (% & % & % & % & _ & H & _)".
@@ -207,7 +216,7 @@ Qed.
          if (l, 0) ∈ ρ then ρ(l, 0) does not need to be an OSSig.
    NOTE: we can have a separate gset of keys that we don't need to check,
          by creating a helper class *)
-Global Instance row_ins_os_row {Σ} (ρ : sem_row Σ) l (σ : sem_sig Σ) `{! OSSig σ, OSRow ρ } :
+Global Instance row_ins_os_row {Σ} (ρ : sem_row Σ) l (σ : sem_sig Σ) `{! OSSig σ, ! OSRow ρ } :
   OSRow ((l, σ) · ρ).
 Proof.
   constructor. iIntros (v Φ Φ') "HPost".
@@ -219,19 +228,18 @@ Proof.
     iSplitR; first done. iFrame "#". 
     iDestruct (option_equivI with "Hlookup'") as "#Hlookup''".
     inv OSSig0. 
-    iDestruct (monotonic_prot with "HPost") as "H".
+    iDestruct (monotonic_prot0 with "HPost") as "H".
     iDestruct (iEff_equivI σ.2 σ'.2) as "[Heq _]".
     iSpecialize ("Heq" with "[]"); first by iRewrite "Hlookup''".
     iRewrite - ("Heq" $! w Φ'). iApply "H". by iRewrite ("Heq" $! w Φ).
-  - inv OSRow0. rewrite /sem_row_iEff /= in monotonic_prot.
-    iDestruct (monotonic_prot (#(LitStr l'), #s', w)%V Φ Φ' with "HPost [Hσ']") as "(%w'' & %l'' & %s'' & %σ'' & %Heq & Hlookup & Hieff)".
+  - inv OSRow0. iDestruct (monotonic_prot0 $! (effect l', #s', w)%V Φ Φ' with "HPost [Hσ']") as "(%w'' & %l'' & %s'' & %σ'' & %Heq & Hlookup & Hieff)".
     { iExists w, l', s', σ'. iSplit; first done.
       rewrite lookup_insert_ne; last done. iFrame "∗#". }
     inv Heq. iExists w'', l'', s'', σ''. iSplitR; first done.
     rewrite /sem_row_ins lookup_insert_ne; last done. iFrame "∗".
 Qed.
 
-Global Instance row_tun_os_row {Σ} (l : label) (ρ : sem_row Σ) `{ OSRow ρ } :
+Global Instance row_tun_os_row {Σ} (l : label) (ρ : sem_row Σ) `{! OSRow ρ } :
   OSRow ⦗ ρ | l ⦘.
 Proof.
   constructor. rewrite /sem_row_iEff /=. 
@@ -240,15 +248,15 @@ Proof.
   destruct (decide (l = l')) as [->|Hll']. 
   - iDestruct (row_tun_lookup with "Hlookup") as "(%s'' & -> & Hlookup')".
     inv OSRow0.
-    iDestruct (monotonic_prot (effect l', #s'', v')%V Φ Φ' with "HPost [Hσ']") as "(%w & %l'' & %s''' & %σ'' & Heq' & Hlookup'' & Hσ'')".
+    iDestruct (monotonic_prot0 $! (effect l', #s'', v')%V Φ Φ' with "HPost [Hσ']") as "(%w & %l'' & %s''' & %σ'' & Heq' & Hlookup'' & Hσ'')".
     { iExists v', l', s'', σ'. by iFrame "#∗". }
     iExists v', l', (S s''), σ''. iDestruct "Heq'" as "%". inv H.
     iFrame "#∗". iRewrite "Hlookup'" in "Hlookup''".
     iDestruct (option_equivI with "Hlookup''") as "Heq'".
     by iRewrite "Heq'" in "Hlookup". 
   - rewrite (row_tun_lookup_ne ρ σ' l' l s'); last done.
-    inv OSRow0. rewrite /sem_row_iEff /= in monotonic_prot.
-    iDestruct (monotonic_prot (effect l', #s', v')%V Φ Φ' with "HPost [Hσ']") as "(%w & %l'' & %s'' & %σ'' & Heq' & Hlookup'' & Hσ'')".
+    inv OSRow0. 
+    iDestruct (monotonic_prot0 $! (effect l', #s', v')%V Φ Φ' with "HPost [Hσ']") as "(%w & %l'' & %s'' & %σ'' & Heq' & Hlookup'' & Hσ'')".
     { iExists v', l', s', σ'. by iFrame "#∗". }
     iExists v', l', s', σ''. iDestruct "Heq'" as "%". inv H.
     iRewrite "Heq"; iSplitR; first done. iFrame.
@@ -266,11 +274,11 @@ Proof.
   iPoseProof (iEff_equivI with "Heq'") as "H".
   iRewrite ("H" $! v' Φ'). 
   pose proof (upcl_mono_prot σ'.2) as [].
-  iApply (monotonic_prot with "HPost").
+  iApply (monotonic_prot0 with "HPost").
   by iRewrite - ("H" $! v' Φ).
 Qed.
 
-Lemma row_filter_os_os_row {Σ} (ρ : sem_row Σ) `{ OSRow ρ } :
+Global Instance row_filter_os_os_row {Σ} (ρ : sem_row Σ) `{! OSRow ρ } :
   OSRow (filter_os ρ).
 Proof.
   constructor. iIntros (v Φ Φ') "HPost Hρ".
@@ -278,9 +286,7 @@ Proof.
   iDestruct "Hρ" as "(% & % & % & % & #Heq & #Hlookup & Hσ)".
   iDestruct (filter_os_lookup ρ l s σ) as "[H _]".
   iDestruct ("H" with "Hlookup") as "[Hlookup' HσOS]".
-  inv OSRow0. iPoseProof (monotonic_prot v Φ Φ' with "HPost") as "H'".
-  rewrite /sem_row_iEff /=.
-  iDestruct ("H'" with "[Hσ]") as "(%w & %l' & %s' & %σ' & #Heq' & #Hlookup'' & Hσ')".
+  inv OSRow0. iDestruct (monotonic_prot0 $! v Φ Φ' with "HPost [Hσ]") as "(%w & %l' & %s' & %σ' & #Heq' & #Hlookup'' & Hσ')".
   { iExists v', l, s, σ. iFrame "∗#". }
   iExists w, l', s', σ'. iFrame "#∗".
   iDestruct "Heq'" as "%".
@@ -290,12 +296,12 @@ Proof.
   iRewrite "Heqσ". iFrame "#".
 Qed.
 
-Lemma os_row_mono_prot {Σ} (ρ : sem_row Σ) l s (σ : sem_sig Σ) `{ OSRow ρ } :
+Lemma os_row_mono_prot {Σ} (ρ : sem_row Σ) l s (σ : sem_sig Σ) `{! OSRow ρ } :
   ρ !! (l, s) ≡ Some σ -∗ mono_prot σ.2.
 Proof.
   inv OSRow0.
   iIntros "#Hlookup % % % HPost Hσ". 
-  iDestruct (monotonic_prot (effect l, #s, v)%V Φ Φ' with "HPost") as "H".
+  iDestruct (monotonic_prot0 $! (effect l, #s, v)%V Φ Φ' with "HPost") as "H".
   iDestruct ("H" with "[Hσ]") as "H".
   { iExists v, l, s, σ. by iFrame "#∗". }
   iDestruct "H" as "(%v' & %l' & %s' & %σ' & %Heq & Hlookup' & Hσ')".
@@ -527,7 +533,7 @@ Proof.
   iExists σ. by iFrame "#".
 Qed.
 
-Lemma row_le_os_elim {Σ} (ρ : sem_row Σ) `{OSRow ρ}:
+Lemma row_le_os_elim {Σ} (ρ : sem_row Σ) `{! OSRow ρ}:
   ⊢ ¡ ρ ≤R ρ. 
 Proof. 
   iIntros (l s σ) "#Hlookup".
