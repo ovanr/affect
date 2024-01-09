@@ -193,89 +193,6 @@ Proof.
     iApply ("IH" with "[HΦ'' HPost] Hdeep"); by iApply "HPost".
 Qed.
 
-Definition shallow_try_eff : label → val → val → val → mode → val := λ l' h r H m, 
-      (λ: "x" "k",
-          let: "l" := Fst (Fst "x") in
-          let: "s" := Snd (Fst "x") in
-          let: "x" := Snd "x" in
-          if: ("l" = (effect l')%V) && ("s" = #0) then
-            h "x" "k"
-          else
-            (λ: "y", H (λ: <>, "k" "y") (effect l')%V h r) (Do m ("l", "s", "x"))
-      )%V.
-
-Definition shallow_try_ls : val := (
-  rec: "H" "e" "l'" "h" "r" :=
-    shallow_try_mode "e" 
-      (λ: "x" "k",
-          let: "l" := Fst (Fst "x") in
-          let: "s" := Snd (Fst "x") in
-          let: "x" := Snd "x" in
-          if: ("l" = "l'") && ("s" = #0) then
-            "h" "x" "k"
-          else
-            (λ: "y", "H" (λ: <>, "k" "y") "l'" "h" "r") (Do OS ("l", "s", "x"))
-      )%E
-      (λ: "x" "k",
-          let: "l" := Fst (Fst "x") in
-          let: "s" := Snd (Fst "x") in
-          let: "x" := Snd "x" in
-          if: ("l" = "l'") && ("s" = #0) then
-            "h" "x" "k"
-          else
-            (λ: "y", "H" (λ: <>, "k" "y") "l'" "h" "r") (Do MS ("l", "s", "x"))
-      )%E
-      "r"
-)%V.
-
-Arguments shallow_try_ls : simpl never.
-
-Definition ShallowTryLS (e : expr) (l : label) (h r : expr) : expr :=
-  shallow_try_ls (λ: <>, e)%E (effect l)%V h r.
-
-Definition ShallowTryLSV (e : expr) (l : label) (h r : expr) : expr :=
-  shallow_try_ls (λ: <>, e)%V (effect l)%V h r.
-
-Notation "'shallow-try-ls:' e 'handle' l 'with' 'effect' h | 'return' r 'end'" :=
-  (ShallowTryLS e l h r)
-  (e, l, h, r at level 200, only parsing) : expr_scope.
-
-Definition deep_try_ls : val := (
-  λ: "e" "l'" "h" "r",
-    deep_try_mode "e"
-      (λ: "x" "k", 
-          let: "l" := Fst (Fst "x") in
-          let: "s" := Snd (Fst "x") in
-          let: "x" := Snd "x" in
-          if: ("l" = "l'") && ("s" = #0) then
-            "h" "x" "k"
-          else
-            "k" (Do OS ("l", "s", "x"))
-      )
-      (λ: "x" "k", 
-          let: "l" := Fst (Fst "x") in
-          let: "s" := Snd (Fst "x") in
-          let: "x" := Snd "x" in
-          if: ("l" = "l'") && ("s" = #0) then
-            "h" "x" "k"
-          else
-            "k" (Do MS ("l", "s", "x"))
-      )
-      "r" 
-)%V.
-            
-Arguments deep_try_ls : simpl never.
-
-Definition DeepTryLS (e : expr) (l : label) (h r : expr) : expr :=
-  deep_try_ls (λ: <>, e)%E (effect l)%V h r.
-
-Definition DeepTryLSV (e : expr) (l : label) (h r : expr) : expr :=
-  deep_try_ls (λ: <>, e)%V (effect l)%V h r.
-
-Notation "'deep-try-ls:' e 'handle' l 'with' 'effect' h | 'return' r 'end'" :=
-  (DeepTryLS e l h r)
-  (e, l, h, r at level 200, only parsing) : expr_scope.
-
 Definition lft_def : val := 
   (λ: "l'" "e", 
      deep-try-mode: "e" #() with
@@ -329,3 +246,75 @@ Definition unlft_def : val :=
 )%V.
 
 Notation "'unlft:' ( l , e )" := (unlft_def l%V (λ: <>, e)%E) (at level 10) : expr_scope.
+
+Definition shallow_try_ls : val := (
+  rec: "H" "e" "l'" "h" "r" :=
+    shallow_try_mode "e" 
+      (λ: "x" "k",
+          let: "l" := Fst (Fst "x") in
+          let: "s" := Snd (Fst "x") in
+          let: "x" := Snd "x" in
+          if: ("l" = "l'") && ("s" = #0) then
+            "h" "x" "k"
+          else
+            (λ: "y", "H" (λ: <>, "k" "y") "l'" "h" "r") (unlft: ("l'", Do OS ("l", "s", "x")))
+      )%E
+      (λ: "x" "k",
+          let: "l" := Fst (Fst "x") in
+          let: "s" := Snd (Fst "x") in
+          let: "x" := Snd "x" in
+          if: ("l" = "l'") && ("s" = #0) then
+            "h" "x" "k"
+          else
+            (λ: "y", "H" (λ: <>, "k" "y") "l'" "h" "r") (unlft: ("l'", Do MS ("l", "s", "x")))
+      )%E
+      "r"
+)%V.
+
+Arguments shallow_try_ls : simpl never.
+
+Definition ShallowTryLS (e : expr) (l : label) (h r : expr) : expr :=
+  shallow_try_ls (λ: <>, e)%E (effect l)%V h r.
+
+Definition ShallowTryLSV (e : expr) (l : label) (h r : expr) : expr :=
+  shallow_try_ls (λ: <>, e)%V (effect l)%V h r.
+
+Notation "'shallow-try-ls:' e 'handle' l 'with' 'effect' h | 'return' r 'end'" :=
+  (ShallowTryLS e l h r)
+  (e, l, h, r at level 200, only parsing) : expr_scope.
+
+Definition deep_try_ls : val := (
+  λ: "e" "l'" "h" "r",
+    deep_try_mode "e"
+      (λ: "x" "k", 
+          let: "l" := Fst (Fst "x") in
+          let: "s" := Snd (Fst "x") in
+          let: "x" := Snd "x" in
+          if: ("l" = "l'") && ("s" = #0) then
+            "h" "x" "k"
+          else
+            "k" (unlft: ("l'", Do OS ("l", "s", "x")))
+      )
+      (λ: "x" "k", 
+          let: "l" := Fst (Fst "x") in
+          let: "s" := Snd (Fst "x") in
+          let: "x" := Snd "x" in
+          if: ("l" = "l'") && ("s" = #0) then
+            "h" "x" "k"
+          else
+            "k" (unlft: ("l'", Do MS ("l", "s", "x")))
+      )
+      "r" 
+)%V.
+            
+Arguments deep_try_ls : simpl never.
+
+Definition DeepTryLS (e : expr) (l : label) (h r : expr) : expr :=
+  deep_try_ls (λ: <>, e)%E (effect l)%V h r.
+
+Definition DeepTryLSV (e : expr) (l : label) (h r : expr) : expr :=
+  deep_try_ls (λ: <>, e)%V (effect l)%V h r.
+
+Notation "'deep-try-ls:' e 'handle' l 'with' 'effect' h | 'return' r 'end'" :=
+  (DeepTryLS e l h r)
+  (e, l, h, r at level 200, only parsing) : expr_scope.

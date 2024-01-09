@@ -948,7 +948,7 @@ Section compatibility.
   Lemma sem_typed_perform_os Γ₁ Γ₂ e τ l ρ' (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) 
     `{ NonExpansive2 A, NonExpansive2 B, ! OSRow ρ' } :
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | OS)%S in
-    let ρ := ((l, σ) · ρ')%R in
+    let ρ := ((l, σ) ·: ρ')%R in
     Γ₁ ⊨ e : ρ : A σ τ ⊨ Γ₂ -∗
     Γ₁ ⊨ (perform: (effect l, e) ) : ρ : B σ τ ⊨ Γ₂.
   Proof.
@@ -956,7 +956,7 @@ Section compatibility.
     iApply (ewpw_bind [AppRCtx _; DoCtx OS; PairRCtx _]); simpl; first done.
     assert (HOS : OSRow ((l, σ) · ρ')).
     { apply row_ins_os_row; [apply _|done]. }
-    iApply (@ewpw_mono_os _ _ _ ((l, σ) · ρ')%R _ _ _ HOS with "[HΓ₁]"); [by iApply "He"|]. 
+    iApply (ewpw_mono_os with "[HΓ₁]"); [by iApply "He"|].
     iIntros "%v [Hι HΓ₂] //= !>". rewrite /rec_perform.
     iApply (ewpw_bind [AppRCtx _]); first done.
     ewpw_pure_steps. iApply ewpw_do_os.
@@ -975,7 +975,7 @@ Section compatibility.
   Lemma sem_typed_perform_ms Γ₁ Γ₂ e τ l ρ' m (A B : sem_sig Σ → sem_ty Σ → sem_ty Σ) 
     `{ NonExpansive2 A, NonExpansive2 B } :
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | m)%S in
-    let ρ := ((l, σ) · ρ')%R in
+    let ρ := ((l, σ) ·: ρ')%R in
     copy_env Γ₂ -∗
     Γ₁ ⊨ e : ρ : A σ τ ⊨ Γ₂ -∗
     Γ₁ ⊨ (performₘ: (effect l, e)) : ρ : B σ τ ⊨ Γ₂.
@@ -995,9 +995,9 @@ Section compatibility.
     iIntros "%b Hκ"; ewpw_pure_steps; iFrame "∗#".
   Qed.
 
-  Lemma sem_typed_lft Γ₁ Γ₂ e l ρ τ :
+  Lemma sem_typed_lft Γ₁ Γ₂ e l σ ρ τ :
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    Γ₁ ⊨ (lft: (effect l, e)) : ⦗ ρ | l ⦘ : τ ⊨ Γ₂.
+    Γ₁ ⊨ (lft: (effect l, e)) : ((l, σ) ·: ρ)%R : τ ⊨ Γ₂.
   Proof.
     iIntros "#He !# %vs HΓ₁ /=".
     iApply ewpw_lft. by iApply "He".
@@ -1014,7 +1014,7 @@ Section compatibility.
   Lemma sem_typed_shallow_try_os m Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B, ! OSRow ρ' }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | m)%S in
-    let ρ := ((l, σ) · ρ')%R in
+    let ρ := ((l, σ) ·: ρ')%R in
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
     (∀ α, (x, A σ α) :: (k, B σ α -{ ρ }-∘ τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
@@ -1049,7 +1049,7 @@ Section compatibility.
   Lemma sem_typed_shallow_try_ms Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | MS)%S in
-    let ρ := ((l, σ) · ρ')%R in
+    let ρ := ((l, σ) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
@@ -1086,7 +1086,7 @@ Section compatibility.
   Lemma sem_typed_shallow_try_ms_alt Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B, ! OSRow ρ' }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | MS)%S in
-    let ρ := ((l, σ) · ρ')%R in
+    let ρ := ((l, σ) ·: ρ')%R in
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
     (∀ α, (x, A σ α) :: (k, B σ α -{ ρ }-> τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
@@ -1121,7 +1121,7 @@ Section compatibility.
   Lemma sem_typed_deep_try_os m Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B}:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | m)%S in
-    let ρ := ((l, σ) · ρ')%R in
+    let ρ := ((l, σ) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
@@ -1160,7 +1160,7 @@ Section compatibility.
   Lemma sem_typed_deep_try_ms Γ₁ Γ₂ Γ₃ Γ' x l k e h r A B τ τ' ρ' ρ'' `{NonExpansive2 A, NonExpansive2 B}:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
     let σ := (μ∀TS: θ, α, A θ α ⇒ B θ α | MS)%S in
-    let ρ := ((l, σ) · ρ')%R in
+    let ρ := ((l, σ) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗

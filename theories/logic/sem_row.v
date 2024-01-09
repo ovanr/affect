@@ -30,9 +30,12 @@ Definition sem_row_os {Σ} (ρ : sem_row Σ) : sem_row Σ :=
 
 Definition sem_row_tun_f l := 
   (λ k : label * nat, if decide (l = k.1) then (k.1, S k.2)
-                                            else (k.1, k.2)).
+                                          else (k.1, k.2)).
 Definition sem_row_tun {Σ} (l : label) (ρ : sem_row Σ) : sem_row Σ := 
   kmap (sem_row_tun_f l) ρ. 
+
+Definition sem_row_cons {Σ} (l : label) (σ : sem_sig Σ) (ρ : sem_row Σ) : sem_row Σ := 
+  sem_row_ins l σ (sem_row_tun l ρ).
 
 Local Instance inj_sem_row_tun l : Inj eq eq (sem_row_tun_f l).
 Proof. 
@@ -43,7 +46,7 @@ Proof.
 Qed.
 
 Program Definition sem_row_iEff {Σ} (ρ : sem_row Σ) : iEff Σ :=
-  IEff (λ v, λne Φ, ∃ v' l (s : nat) σ, (v ≡ ((#(LitStr l), #s), v')%V) ∗ 
+  IEff (λ v, λne Φ, ∃ v' l (s : nat) σ, (v ≡ (effect l, #s, v')%V) ∗ 
                                 lookup (l, s) ρ ≡ Some σ ∗ 
                                 iEff_car σ.2 v' Φ)%I.
 Next Obligation.
@@ -60,6 +63,7 @@ Definition filter_os {Σ} (ρ : gmap (label * nat) (sem_sig Σ)) : sem_row Σ :=
 
 Notation "⟨⟩" := (sem_row_nil) : sem_row_scope.
 Notation "lσ · ρ" := (sem_row_ins lσ.1%S lσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
+Notation "lσ ·: ρ" := (sem_row_cons lσ.1%S lσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
 Notation "¡ ρ" := (sem_row_os ρ%R) (at level 10) : sem_row_scope.
 Notation "⦗ ρ | l ⦘" := (sem_row_tun l%string ρ%R) (at level 5) : sem_row_scope.
 Notation "⟦ ρ ⟧" := (sem_row_iEff ρ%R) : sem_row_scope.
@@ -212,10 +216,6 @@ Proof.
   rewrite lookup_empty. iDestruct "H" as "%". inv H. 
 Qed.
   
-(* TODO: This needs to be generalised, 
-         if (l, 0) ∈ ρ then ρ(l, 0) does not need to be an OSSig.
-   NOTE: we can have a separate gset of keys that we don't need to check,
-         by creating a helper class *)
 Global Instance row_ins_os_row {Σ} (ρ : sem_row Σ) l (σ : sem_sig Σ) `{! OSSig σ, ! OSRow ρ } :
   OSRow ((l, σ) · ρ).
 Proof.
@@ -261,6 +261,14 @@ Proof.
     iExists v', l', s', σ''. iDestruct "Heq'" as "%". inv H.
     iRewrite "Heq"; iSplitR; first done. iFrame.
     rewrite - (row_tun_lookup_ne ρ σ'' l'' l s'') //.
+Qed.
+
+Global Instance row_cons_os_row {Σ} (ρ : sem_row Σ) l (σ : sem_sig Σ) `{! OSSig σ, ! OSRow ρ } :
+  OSRow ((l, σ) ·: ρ).
+Proof.
+  rewrite /sem_row_cons. simpl.
+  apply row_ins_os_row; first done.
+  by apply row_tun_os_row.
 Qed.
 
 Global Instance row_os_os_row {Σ} (ρ : sem_row Σ) :
@@ -500,6 +508,42 @@ Proof.
       iFrame. iApply sig_le_refl.
 Qed.
 
+Lemma row_le_tun_ne {Σ} (ρ : sem_row Σ) (l : label) :
+  (∀ s, ρ !! (l, s) ≡ None) -∗
+  ρ ≤R ⦗ ρ | l ⦘.
+Proof. 
+  iIntros "#Hlookup".
+  iIntros (l' s' σ') "#Hlookup'".
+  iExists σ'. iSplit; last iApply sig_le_refl.
+  destruct (decide (l = l')) as [->|Hneq].
+  - iSpecialize ("Hlookup" $! s').
+    destruct (ρ !! (l', s')); first iRewrite "Hlookup" in "Hlookup'";
+    iDestruct "Hlookup'" as "%H"; inv H.
+  - rewrite row_tun_lookup_ne //.
+Qed.
+
+Lemma row_le_cons_comp {Σ} l σ σ' (ρ ρ' : sem_row Σ) :
+  σ ≤S σ' -∗
+  ρ ≤R ρ' -∗
+  (l, σ) ·: ρ ≤R (l, σ') ·: ρ'.
+Proof. 
+  iIntros "#Hσle #Hρle".
+  rewrite /sem_row_cons.
+  iApply (row_le_ins_comp with "[] Hσle"). simpl.
+  by iApply row_le_tun_comp.
+Qed.
+
+Lemma row_le_cons {Σ} (ρ : sem_row Σ) (l : label) (σ : sem_sig Σ) : 
+  (∀ s, ρ !! (l, s) ≡ None) -∗
+  ρ ≤R (l, σ) ·: ρ. 
+Proof. 
+  iIntros "#Hlookup". rewrite /sem_row_cons /=.
+  iApply row_le_trans.
+  { iApply row_le_ins. iApply "Hlookup". }
+  iApply row_le_ins_comp; last iApply sig_le_refl.
+  iApply (row_le_tun_ne with "Hlookup").
+Qed.
+
 Lemma row_os_ins_eq {Σ} l s σ (ρ : sem_row Σ) :
   (¡ (insert (l, s) σ ρ))%R = insert (l, s) (¡ σ)%S (¡ ρ)%R.
 Proof. rewrite /sem_row_os fmap_insert //. Qed.
@@ -561,7 +605,15 @@ Corollary row_le_os_tun {Σ} (l : label) (ρ : sem_row Σ) :
   ⊢  ¡ ⦗ ρ | l ⦘ ≤R ⦗ (¡ ρ) | l ⦘.
 Proof. rewrite row_os_tun_eq. iApply row_le_refl. Qed.
 
-Lemma row_le_swap_second {Σ} (l l' : label) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
+Lemma row_le_cons_os {Σ} l σ (ρ : sem_row Σ) :
+   ⊢ (l, ¡ σ)%S ·: (¡ ρ) ≤R ¡ ((l, σ) ·: ρ).
+Proof. 
+  rewrite /sem_row_cons.
+  rewrite row_os_ins_eq /= row_os_tun_eq. 
+  iApply row_le_refl. 
+Qed.
+
+Lemma row_le_ins_swap_second {Σ} (l l' : label) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
   l ≠ l' →
   ⊢ (l, σ) · (l', σ') · ρ ≤R (l', σ') · (l, σ) · ρ. 
 Proof. 
@@ -570,7 +622,20 @@ Proof.
   intros ?. inv H.
 Qed.
 
-Lemma row_le_swap_third {Σ} (l l' l'' : label) (σ σ' σ'' : sem_sig Σ) (ρ : sem_row Σ) : 
+Lemma row_le_swap_second {Σ} (l l' : label) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
+  l ≠ l' →
+  ⊢ (l, σ) ·: (l', σ') ·: ρ ≤R (l', σ') ·: (l, σ) ·: ρ. 
+Proof. 
+  iIntros (Heq). rewrite /sem_row_cons /=. 
+  iApply row_le_trans; [iApply row_le_ins_comp; last iApply sig_le_refl|].
+  { iApply row_le_tun_ins_ne; done. }
+  iApply row_le_trans; first iApply row_le_ins_swap_second; first done.
+  iApply row_le_ins_comp; last iApply sig_le_refl. 
+  iApply row_le_trans; [iApply row_le_ins_comp; first iApply row_le_tun_comm|].
+  iApply sig_le_refl. iApply row_le_ins_tun_ne; last done.
+Qed.
+
+Lemma row_le_ins_swap_third {Σ} (l l' l'' : label) (σ σ' σ'' : sem_sig Σ) (ρ : sem_row Σ) : 
   l ≠ l' → l' ≠ l'' → l'' ≠ l →
   ⊢ (l, σ) · (l', σ') · (l'', σ'') · ρ ≤R 
     (l'', σ'') · (l, σ) · (l', σ') · ρ. 
@@ -580,7 +645,17 @@ Proof.
   iApply row_le_refl. 
 Qed.
 
-Lemma row_le_swap_fourth {Σ} (l l' l'' l''' : label) (σ σ' σ'' σ''': sem_sig Σ) (ρ : sem_row Σ) : 
+Lemma row_le_swap_third {Σ} (l l' l'' : label) (σ σ' σ'' : sem_sig Σ) (ρ : sem_row Σ) : 
+  l ≠ l' → l' ≠ l'' → l'' ≠ l →
+  ⊢ (l, σ) ·: (l', σ') ·: (l'', σ'') ·: ρ ≤R 
+    (l'', σ'') ·: (l, σ) ·: (l', σ') ·: ρ. 
+Proof. 
+  iIntros (???). 
+  iApply row_le_trans; [iApply row_le_cons_comp; first iApply sig_le_refl|].
+  iApply row_le_swap_second; last done. by iApply row_le_swap_second.
+Qed.
+
+Lemma row_le_ins_swap_fourth {Σ} (l l' l'' l''' : label) (σ σ' σ'' σ''': sem_sig Σ) (ρ : sem_row Σ) : 
   l ≠ l' → l ≠ l'' → l ≠ l''' → l' ≠ l'' → l' ≠ l''' → l'' ≠ l''' → 
   ⊢ (l, σ) · (l', σ') · (l'', σ'') · (l''', σ''') · ρ ≤R 
     (l''', σ''') · (l, σ) · (l', σ') · (l'', σ'') · ρ.
@@ -590,4 +665,15 @@ Proof.
   rewrite (insert_commute _ (l', 0) (l''', 0)); last (intros H'; inv H').
   rewrite (insert_commute _ (l, 0) (l''', 0)); last (intros H'; inv H').
   iApply row_le_refl. 
+Qed.
+
+Lemma row_le_swap_fourth {Σ} (l l' l'' l''' : label) (σ σ' σ'' σ''': sem_sig Σ) (ρ : sem_row Σ) : 
+  l ≠ l' → l ≠ l'' → l ≠ l''' → l' ≠ l'' → l' ≠ l''' → l'' ≠ l''' → 
+  ⊢ (l, σ) ·: (l', σ') ·: (l'', σ'') ·: (l''', σ''') ·: ρ ≤R 
+    (l''', σ''') ·: (l, σ) ·: (l', σ') ·: (l'', σ'') ·: ρ.
+Proof. 
+  iIntros (??????).
+  iApply row_le_trans; [iApply row_le_cons_comp; first iApply sig_le_refl|].
+  iApply row_le_swap_third; try done.
+  by iApply row_le_swap_second.
 Qed.

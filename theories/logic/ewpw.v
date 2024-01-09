@@ -291,9 +291,9 @@ Proof.
   simpl; iExists Φ; iFrame; iIntros "!# % $".
 Qed.
 
-Lemma ewpw_lft l ρ e Φ :
-  EWPW e <| ρ |> {{ Φ }} -∗
-  EWPW (lft: (effect l, e)) <| ⦗ ρ | l ⦘ |> {{ Φ }}.
+Lemma ewpw_lft E l σ ρ e Φ :
+  EWPW e @E  <| ρ |> {{ Φ }} -∗
+  EWPW (lft: (effect l, e)) @E <| (l, σ) ·: ρ |> {{ Φ }}.
 Proof. 
   iIntros "He".
   rewrite /lft_def. rewrite /ewpw. ewp_pure_steps.
@@ -310,13 +310,16 @@ Proof.
     + ewp_pure_steps'. iApply ewp_do_os. 
       rewrite filter_os_lookup. iExists Φ'. simpl.
       iSplitL "Hσ'".
-      { iExists w, l', (S s'), σ'. rewrite filter_os_lookup row_tun_lookup_alt. iFrame "#∗". 
+      { iExists w, l', (S s'), σ'. rewrite /sem_row_cons. 
+        rewrite filter_os_lookup /sem_row_ins lookup_insert_ne // row_tun_lookup_alt. iFrame "#∗". 
         by replace (Z.add (Z.of_nat s') (Zpos xH)) with (Z.of_nat (S s')) by lia. }
       iIntros (v') "HΦ'". iApply ("HPost" with "HΦ'"). by iNext.
     + ewp_pure_steps'. iApply ewp_do_os. 
       rewrite filter_os_lookup. iExists Φ'. simpl.
       iSplitL "Hσ'".
-      { iExists w, l', s', σ'. rewrite filter_os_lookup row_tun_lookup_ne //. by iFrame "#∗".  }
+      { iExists w, l', s', σ'. 
+        rewrite filter_os_lookup /sem_row_cons /sem_row_ins lookup_insert_ne //; last (intros H; inv H).
+        rewrite row_tun_lookup_ne //. by iFrame "#∗".  }
       iIntros (v') "HΦ'". iApply ("HPost" with "HΦ'"). by iNext.
   - iIntros (v k) "Hρ". simpl.
     iDestruct "Hρ" as "(%Φ' & (%w & %l' & %s' & %σ' & -> & #Hlookup' & Hσ') & #HPost)". 
@@ -325,18 +328,20 @@ Proof.
     + ewp_pure_steps'. iApply ewp_do_ms. 
       iExists Φ'. simpl.
       iSplitL "Hσ'".
-      { iExists w, l', (S s'), σ'. rewrite row_tun_lookup_alt. iFrame "#∗". 
+      { iExists w, l', (S s'), σ'. rewrite /sem_row_cons /sem_row_ins lookup_insert_ne // row_tun_lookup_alt. iFrame "#∗". 
         by replace (Z.add (Z.of_nat s') (Zpos xH)) with (Z.of_nat (S s')) by lia. }
       iIntros "!# %v' HΦ'". iApply ("HPost" with "HΦ'"). by iNext.
     + ewp_pure_steps'. iApply ewp_do_ms. iExists Φ'. simpl.
       iSplitL "Hσ'".
-      { iExists w, l', s', σ'. rewrite row_tun_lookup_ne //. by iFrame "#∗".  }
+      { iExists w, l', s', σ'. 
+        rewrite /sem_row_cons /sem_row_ins lookup_insert_ne; last (intros H; inv H). 
+        rewrite row_tun_lookup_ne //. by iFrame "#∗".  }
       iIntros "!# %v' HΦ'". iApply ("HPost" with "HΦ'"). by iNext.
 Qed.
 
-Lemma ewpw_unlft l ρ e Φ :
-  EWPW e <| ⦗ ρ | l ⦘ |> {{ Φ }} -∗
-  EWPW (unlft: (effect l, e)) <| ρ |> {{ Φ }}.
+Lemma ewpw_unlft E l ρ e Φ :
+  EWPW e @E <| ⦗ ρ | l ⦘ |> {{ Φ }} -∗
+  EWPW (unlft: (effect l, e)) @E <| ρ |> {{ Φ }}.
 Proof.
   iIntros "He".
   rewrite /unlft_def. rewrite /ewpw. ewp_pure_steps.
@@ -411,12 +416,12 @@ Definition shallow_handler_ls
 
   (* Correctness of the effect branch. *)
   (∀ (v k : val),
-     iEff_car (upcl σ.1 σ.2) v (λ w, EWPW k w @ E <| (l, σ) · ρ |> {{ Φ }}) -∗
+     iEff_car (upcl σ.1 σ.2) v (λ w, EWPW k w @ E <| (l, σ) ·: ρ |> {{ Φ }}) -∗
        EWPW h v k @ E <| ρ' |> {{ Φ' }}))
   )%I.
 
 Lemma ewpw_shallow_try_ls E (l : label) m σ ρ ρ' e (h r : val) Φ Φ' :
-  EWPW e @ E <| (l, σ) · ρ |> {{ Φ }} -∗
+  EWPW e @ E <| (l, σ) ·: ρ |> {{ Φ }} -∗
   shallow_handler_ls E l σ ρ m Φ h r ρ' Φ' -∗
   EWPW (ShallowTryLSV e l h r) @E <| ρ' |> {{ Φ' }}.
 Proof.
@@ -442,14 +447,13 @@ Proof.
       iRewrite "HσOS". simpl. iIntros (w) "Φ''". by iApply "HPost".
     + do 19 ewp_value_or_step. iApply (ewp_if_false with "[]").
       { by iApply handler_effect_propagated_cond. }
-      ewp_pure_steps.
-      iApply ewp_do_os. iExists Φ''. simpl. 
-      iPoseProof (row_le_filter_os_mono with "Hle") as "Hlef".
+      iApply (ewp_bind [AppRCtx _]); first done.
+      iApply (ewpw_sub with "Hle"). iApply ewpw_unlft. rewrite /ewpw.
+      ewp_pure_steps. iApply ewp_do_os. iExists Φ''. simpl. 
       rewrite filter_os_lookup lookup_insert_ne; last (intros H'; inv H'; tauto).
-      rewrite - filter_os_lookup.
-      iDestruct ("Hlef" with "Hlookup'") as "(%σ'' & Hlookup'' & [Hmle'' Hle''])".
       iSplitR "HPost Hbr".
-      { iExists v', l', s', σ''. iFrame "#∗". iSplit; first done. by iApply "Hle''". }
+      { iExists v', l', s', σ'. iFrame "#∗". iSplit; first done. 
+        rewrite filter_os_lookup. iFrame. }
       iIntros (w) "HΦ''". do 5 ewp_value_or_step.
       iApply ("IH" with "[HΦ'' HPost] [Hbr]"); first by iApply "HPost".
       by iFrame "#∗".
@@ -465,22 +469,22 @@ Proof.
       destruct σ.1; simpl; last iIntros "!#"; iIntros (w) "Φ''"; by iApply "HPost".
     + do 19 ewp_value_or_step. iApply (ewp_if_false with "[]").
       { by iApply handler_effect_propagated_cond. }
+      iApply (ewp_bind [AppRCtx _]); first done.
+      iApply (ewpw_sub with "Hle"). iApply ewpw_unlft. rewrite /ewpw.
       ewp_pure_steps. rewrite lookup_insert_ne; last (intros H'; inv H'; tauto).
       iApply ewp_do_ms. destruct m; simpl.
       * specialize (HOS eq_refl).
-        iDestruct (os_row_mono_prot ρ l' s' σ' with "Hlookup'") as "Hmono".
-        iAssert (shallow_handler_ls E l σ ρ OS Φ h r ρ' Φ') with "[Hbr]" as "H".
+        iDestruct (os_row_mono_prot _ l' s' σ' with "Hlookup'") as "Hmono".
+        iAssert (shallow_handler_ls E l σ _ OS Φ h r ρ' Φ') with "[Hbr]" as "H".
         { rewrite /shallow_handler_ls. simpl. by iFrame "#∗". }
         iExists (λ v, Φ'' v ∗ shallow_handler_ls E l σ ρ OS Φ h r ρ' Φ')%I.
         iSplitL; [|iIntros "!# %w [HΦ'' H]"; do 5 ewp_value_or_step; 
                    iSpecialize ("HPost" with "HΦ''"); iApply ("IH" with "HPost H")].
-        iDestruct ("Hle" with "Hlookup'") as "(%σ'' & Hlookup'' & [Hmle'' Hle''])".
-        iExists v', l', s', σ''. iFrame "#∗".
-        iSplit; [done|iApply "Hle''"]. iApply ("Hmono" with "[H] Hσ'"). iIntros (w) "$ //".
+        iExists v', l', s', σ'. iFrame "#∗".
+        iSplit; [done|]. iApply ("Hmono" with "[H] Hσ'"). iIntros (w) "$ //".
       * iDestruct "Hbr" as "#Hbr".
-        iDestruct ("Hle" with "Hlookup'") as "(%σ'' & Hlookup'' & [Hmle'' Hle''])".
         iExists Φ''. iSplitL "Hσ'".
-        { iExists v', l', s', σ''. iFrame "#∗". iSplit; first done. by iApply "Hle''". }
+        { iExists v', l', s', σ'. by iFrame "#∗". }
         iIntros (w) "!# HΦ''". do 5 ewp_value_or_step.
         iApply ("IH" with "[HΦ'' HPost] [Hbr]"); first by iApply "HPost".
         by iFrame "#∗".
@@ -531,7 +535,7 @@ Proof.
 Qed.
 
 Lemma ewpw_deep_try_ls E (l : label) m σ ρ ρ' e (h r : val) Φ Φ' :
-  EWPW e @ E <| (l, σ) · ρ |> {{ Φ }} -∗
+  EWPW e @ E <| (l, σ) ·: ρ |> {{ Φ }} -∗
   deep_handler_ls E l σ ρ m Φ h r ρ' Φ' -∗
   EWPW (DeepTryLSV e l h r) @E <| ρ' |> {{ Φ' }}.
 Proof.
@@ -559,13 +563,12 @@ Proof.
       iNext. iApply ("IH" with "Hdeep"). 
     + do 19 ewp_value_or_step.
       iApply (ewp_if_false with "[]"); first by iApply handler_effect_propagated_cond.
+      iApply (ewp_bind [AppRCtx _]); first done.
+      iApply (ewpw_sub with "Hle"). iApply ewpw_unlft. rewrite /ewpw.
       ewp_pure_steps. iApply ewp_do_os. iExists Φ''. simpl. 
-      iPoseProof (row_le_filter_os_mono with "Hle") as "Hlef".
-      rewrite filter_os_lookup lookup_insert_ne; last (intros H'; inv H'; tauto).
-      rewrite - filter_os_lookup.
-      iDestruct ("Hlef" with "Hlookup'") as "(%σ'' & Hlookup'' & [Hmle'' Hle''])".
+      rewrite filter_os_lookup lookup_insert_ne //; last (intros H'; inv H'; tauto).
       iSplitR "HPost Hbr".
-      { iExists v', l', s', σ''. iFrame "#∗". iSplit; first done. by iApply "Hle''". }
+      { iExists v', l', s', σ'. iFrame "#∗". iSplit; first done. rewrite filter_os_lookup //. }
       iIntros (w) "HΦ''". iApply ("HPost" with "HΦ''"). iNext. iApply ("IH" with "[Hbr]").
       destruct m; rewrite deep_handler_ls_unfold /deep_handler_ls_pre; iFrame "#∗"; eauto.
   - iIntros (v k) "Hρ". ewp_pure_steps. 
@@ -580,21 +583,21 @@ Proof.
       iIntros (w) "HΦ'' % %Φ''' Hdeep"; iApply ("HPost" with "HΦ''"); iNext; by iApply "IH".
     + do 19 ewp_value_or_step.
       iApply (ewp_if_false with "[]"); first by iApply handler_effect_propagated_cond.
+      iApply (ewp_bind [AppRCtx _]); first done.
+      iApply (ewpw_sub with "Hle"). iApply ewpw_unlft. rewrite /ewpw.
       ewp_pure_steps. rewrite lookup_insert_ne; last (intros H'; inv H'; tauto).
       iApply ewp_do_ms. destruct m; simpl.
       * specialize (HOS eq_refl).
-        iDestruct (os_row_mono_prot ρ l' s' σ' with "Hlookup'") as "Hmono".
+        iDestruct (os_row_mono_prot _ l' s' σ' with "Hlookup'") as "Hmono".
         iAssert (deep_handler_ls E l σ ρ OS Φ h r ρ' Φ') with "[Hbr]" as "H".
         { rewrite deep_handler_ls_unfold /deep_handler_ls_pre. simpl. by iFrame "#∗". }
         iExists (λ v, Φ'' v ∗ deep_handler_ls E l σ ρ OS Φ h r ρ' Φ')%I.
         iSplitL; [|iIntros "!# %w [HΦ'' Hdeep]"; iApply ("HPost" with "HΦ''"); iNext; by iApply "IH"].
-        iDestruct ("Hle" with "Hlookup'") as "(%σ'' & Hlookup'' & [Hmle'' Hle''])".
-        iExists v', l', s', σ''. iFrame "#∗".
-        iSplit; [done|iApply "Hle''"]. iApply ("Hmono" with "[H] Hσ'"). iIntros (w) "$ //".
+        iExists v', l', s', σ'. iFrame "#∗". iSplit; [done|]. 
+        iApply ("Hmono" with "[H] Hσ'"). iIntros (w) "$ //".
       * iDestruct "Hbr" as "#Hbr".
-        iDestruct ("Hle" with "Hlookup'") as "(%σ'' & Hlookup'' & [Hmle'' Hle''])".
         iExists Φ''. iSplitL "Hσ'".
-        { iExists v', l', s', σ''. iFrame "#∗". iSplit; first done. by iApply "Hle''". }
+        { iExists v', l', s', σ'. by iFrame "#∗". }
         iIntros (w) "!# HΦ''". iApply ("HPost" with "HΦ''").
         iNext. iApply "IH".
         rewrite deep_handler_ls_unfold /deep_handler_ls_pre. simpl. by iFrame "#∗". 
