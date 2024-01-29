@@ -37,6 +37,39 @@ Definition sem_row_tun {Σ} (l : label) (ρ : sem_row Σ) : sem_row Σ :=
 Definition sem_row_cons {Σ} (l : label) (σ : sem_sig Σ) (ρ : sem_row Σ) : sem_row Σ := 
   sem_row_ins l σ (sem_row_tun l ρ).
 
+Definition sem_row_rec_pre {Σ} (A : gmap (label * nat) (mode * (sem_row Σ -d> iEff Σ))) : sem_row Σ -d> sem_row Σ := (λ rec, (λ mx, (mx.1, mx.2 rec)) <$> A).
+
+Global Instance sem_row_rec_pre_contractive {Σ} (n : nat) 
+  (A : gmap (label * nat) (mode * (sem_row Σ → iEff Σ))) :
+  map_Forall (λ _ f, Contractive f.2) A →
+  Contractive (@sem_row_rec_pre Σ A).
+Proof.
+  intros H ????. rewrite /sem_row_rec_pre. intros ?.
+  specialize (H i). rewrite !lookup_fmap. destruct (A !! i) eqn:HA; rewrite HA; last done.
+  simpl. do 2 f_equiv. by apply H.
+Qed.
+
+Definition sem_row_rec {Σ} (A : gmap (label * nat) (mode * (sem_row Σ → iEff Σ))) `{! Contractive (sem_row_rec_pre A) } : sem_row Σ :=
+  fixpoint (sem_row_rec_pre A).
+
+Definition sem_row_rec_alt_pre {Σ} (A : sem_row Σ -d> sem_row Σ) : sem_row Σ -d> sem_row Σ := (λ rec, A rec).
+
+Global Instance sem_row_rec_alt_pre_contractive {Σ} (n : nat) 
+  (A : sem_row Σ → sem_row Σ) `{! Contractive A }:
+  Contractive (@sem_row_rec_alt_pre Σ A).
+Proof.
+  intros ????. rewrite /sem_row_rec_alt_pre. by f_contractive.
+Qed.
+
+Definition sem_row_rec_alt {Σ} (A : sem_row Σ → sem_row Σ) `{ Contractive A } : sem_row Σ :=
+  fixpoint (sem_row_rec_alt_pre A).
+
+Lemma sem_row_rec_alt_unfold {Σ} (A : sem_row Σ → sem_row Σ) `{ Contractive A } :
+  (sem_row_rec_alt A) ≡ A (sem_row_rec_alt A).
+Proof. 
+  rewrite /sem_row_rec_alt /sem_row_rec_alt_pre {1} fixpoint_unfold //.
+Qed.
+
 Local Instance inj_sem_row_tun l : Inj eq eq (sem_row_tun_f l).
 Proof. 
   intros k1 k2 H. 
@@ -66,6 +99,7 @@ Notation "lσ · ρ" := (sem_row_ins lσ.1%S lσ.2%S ρ%R) (at level 80, right a
 Notation "lσ ·: ρ" := (sem_row_cons lσ.1%S lσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
 Notation "¡ ρ" := (sem_row_os ρ%R) (at level 10) : sem_row_scope.
 Notation "⦗ ρ | l ⦘" := (sem_row_tun l%string ρ%R) (at level 5) : sem_row_scope.
+Notation "'μR:' θ , ρ " := (sem_row_rec_alt (λ θ, ρ%R)) (at level 50) : sem_row_scope.
 Notation "⟦ ρ ⟧" := (sem_row_iEff ρ%R) : sem_row_scope.
 
 (*  Properties *)
@@ -542,6 +576,12 @@ Proof.
   { iApply row_le_ins. iApply "Hlookup". }
   iApply row_le_ins_comp; last iApply sig_le_refl.
   iApply (row_le_tun_ne with "Hlookup").
+Qed.
+
+Lemma row_le_rec {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:
+  ⊢ (μR: θ, ρ θ) ≤R ρ (μR: θ, ρ θ).
+Proof. 
+  rewrite {1} sem_row_rec_alt_unfold. iApply row_le_refl.
 Qed.
 
 Lemma row_os_ins_eq {Σ} l s σ (ρ : sem_row Σ) :
