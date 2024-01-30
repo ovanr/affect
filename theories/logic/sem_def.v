@@ -29,7 +29,7 @@ Canonical Structure stringO := leibnizO string.
 
 (* We equip sem_ty with the OFE structure val -d> iPropO
  * which is the OFE of non-dependently-typed functions over a discrete domain *)
-Definition sem_ty Σ := (val -d> (iPropO Σ))%type.
+Definition sem_ty Σ := (val -d> iPropO Σ)%type.
 
 Declare Scope sem_ty_scope.
 (* Bind Scope sem_ty_scope with sem_ty. *)

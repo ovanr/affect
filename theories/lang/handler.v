@@ -318,3 +318,45 @@ Definition DeepTryLSV (e : expr) (l : label) (h r : expr) : expr :=
 Notation "'deep-try-ls:' e 'handle' l 'with' 'effect' h | 'return' r 'end'" :=
   (DeepTryLS e l h r)
   (e, l, h, r at level 200, only parsing) : expr_scope.
+
+Definition deep_try_ls_2 : val := (
+  λ: "e" "l1" "h1" "l2" "h2" "r",
+    deep_try_mode "e"
+      (λ: "x" "k", 
+          let: "l" := Fst (Fst "x") in
+          let: "s" := Snd (Fst "x") in
+          let: "x" := Snd "x" in
+          if: ("l" = "l1") && ("s" = #0) then
+            "h1" "x" "k"
+          else
+            if: ("l" = "l2") && ("s" = #0) then
+              "h2" "x" "k"
+            else
+              "k" (unlft: ("l2", unlft: ("l1", Do OS ("l", "s", "x"))))
+      )
+      (λ: "x" "k", 
+          let: "l" := Fst (Fst "x") in
+          let: "s" := Snd (Fst "x") in
+          let: "x" := Snd "x" in
+          if: ("l" = "l1") && ("s" = #0) then
+            "h1" "x" "k"
+          else
+            if: ("l" = "l2") && ("s" = #0) then
+              "h2" "x" "k"
+            else
+              "k" (unlft: ("l2", unlft: ("l1", Do MS ("l", "s", "x"))))
+      )
+      "r" 
+)%V.
+            
+Arguments deep_try_ls_2 : simpl never.
+
+Definition DeepTryLS2 (e : expr) (l1 l2 : label) (h1 h2 r : expr) : expr :=
+  deep_try_ls_2 (λ: <>, e)%E (effect l1)%V h1 (effect l2)%V h2 r.
+
+Definition DeepTryLS2V (e : expr) (l1 l2 : label) (h1 h2 r : expr) : expr :=
+  deep_try_ls_2 (λ: <>, e)%V (effect l1)%V h1 (effect l2)%V h2 r.
+
+Notation "'deep-try-ls2:' e 'with' 'effect' l1 '=>' h1 | 'effect' l2 '=>' h2 | 'return' r 'end'" :=
+  (DeepTryLS2 e l1 l2 h1 h2 r)
+  (e, l1, h1, l2, h2, r at level 200, only parsing) : expr_scope.

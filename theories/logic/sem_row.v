@@ -37,37 +37,13 @@ Definition sem_row_tun {Σ} (l : label) (ρ : sem_row Σ) : sem_row Σ :=
 Definition sem_row_cons {Σ} (l : label) (σ : sem_sig Σ) (ρ : sem_row Σ) : sem_row Σ := 
   sem_row_ins l σ (sem_row_tun l ρ).
 
-Definition sem_row_rec_pre {Σ} (A : gmap (label * nat) (mode * (sem_row Σ -d> iEff Σ))) : sem_row Σ -d> sem_row Σ := (λ rec, (λ mx, (mx.1, mx.2 rec)) <$> A).
+Definition sem_row_rec {Σ} (C : sem_row Σ → sem_row Σ) `{ Contractive C } : sem_row Σ :=
+  fixpoint C.
 
-Global Instance sem_row_rec_pre_contractive {Σ} (n : nat) 
-  (A : gmap (label * nat) (mode * (sem_row Σ → iEff Σ))) :
-  map_Forall (λ _ f, Contractive f.2) A →
-  Contractive (@sem_row_rec_pre Σ A).
-Proof.
-  intros H ????. rewrite /sem_row_rec_pre. intros ?.
-  specialize (H i). rewrite !lookup_fmap. destruct (A !! i) eqn:HA; rewrite HA; last done.
-  simpl. do 2 f_equiv. by apply H.
-Qed.
-
-Definition sem_row_rec {Σ} (A : gmap (label * nat) (mode * (sem_row Σ → iEff Σ))) `{! Contractive (sem_row_rec_pre A) } : sem_row Σ :=
-  fixpoint (sem_row_rec_pre A).
-
-Definition sem_row_rec_alt_pre {Σ} (A : sem_row Σ -d> sem_row Σ) : sem_row Σ -d> sem_row Σ := (λ rec, A rec).
-
-Global Instance sem_row_rec_alt_pre_contractive {Σ} (n : nat) 
-  (A : sem_row Σ → sem_row Σ) `{! Contractive A }:
-  Contractive (@sem_row_rec_alt_pre Σ A).
-Proof.
-  intros ????. rewrite /sem_row_rec_alt_pre. by f_contractive.
-Qed.
-
-Definition sem_row_rec_alt {Σ} (A : sem_row Σ → sem_row Σ) `{ Contractive A } : sem_row Σ :=
-  fixpoint (sem_row_rec_alt_pre A).
-
-Lemma sem_row_rec_alt_unfold {Σ} (A : sem_row Σ → sem_row Σ) `{ Contractive A } :
-  (sem_row_rec_alt A) ≡ A (sem_row_rec_alt A).
+Lemma sem_row_rec_unfold {Σ} (C : sem_row Σ → sem_row Σ) `{ Contractive C } :
+  (sem_row_rec C) ≡ C (sem_row_rec C).
 Proof. 
-  rewrite /sem_row_rec_alt /sem_row_rec_alt_pre {1} fixpoint_unfold //.
+  rewrite /sem_row_rec {1} fixpoint_unfold //.
 Qed.
 
 Local Instance inj_sem_row_tun l : Inj eq eq (sem_row_tun_f l).
@@ -80,12 +56,10 @@ Qed.
 
 Program Definition sem_row_iEff {Σ} (ρ : sem_row Σ) : iEff Σ :=
   IEff (λ v, λne Φ, ∃ v' l (s : nat) σ, (v ≡ (effect l, #s, v')%V) ∗ 
-                                lookup (l, s) ρ ≡ Some σ ∗ 
-                                iEff_car σ.2 v' Φ)%I.
+                                (lookup (l, s) ρ ≡ Some σ ∗ iEff_car σ.2 v' Φ))%I.
 Next Obligation.
-  intros ???????. by repeat f_equiv. 
+  intros ???????. by repeat f_equiv.
 Qed.
-
 
 Definition filter_os {Σ} (ρ : gmap (label * nat) (sem_sig Σ)) : sem_row Σ :=
   union_with (λ (σ : sem_sig Σ) _, match σ.1 with 
@@ -99,7 +73,7 @@ Notation "lσ · ρ" := (sem_row_ins lσ.1%S lσ.2%S ρ%R) (at level 80, right a
 Notation "lσ ·: ρ" := (sem_row_cons lσ.1%S lσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
 Notation "¡ ρ" := (sem_row_os ρ%R) (at level 10) : sem_row_scope.
 Notation "⦗ ρ | l ⦘" := (sem_row_tun l%string ρ%R) (at level 5) : sem_row_scope.
-Notation "'μR:' θ , ρ " := (sem_row_rec_alt (λ θ, ρ%R)) (at level 50) : sem_row_scope.
+Notation "'μR:' θ , ρ " := (sem_row_rec (λ θ, ρ%R)) (at level 50) : sem_row_scope.
 Notation "⟦ ρ ⟧" := (sem_row_iEff ρ%R) : sem_row_scope.
 
 (*  Properties *)
@@ -235,21 +209,32 @@ Class OSRow {Σ} (ρ : sem_row Σ) := {
   monotonic_prot : (⊢ mono_prot ⟦ ρ%R ⟧%R)
 }.
 
+Global Instance mono_prot_ne {Σ} :
+  NonExpansive (@mono_prot Σ).
+Proof.
+  intros ????. rewrite /mono_prot. do 9 f_equiv; apply non_dep_fun_dist; by f_equiv.
+Qed.
+
+Global Instance mono_prot_proper {Σ} :
+  Proper ((≡) ==> (≡)) (@mono_prot Σ).
+Proof. apply ne_proper. apply _. Qed.
+
 Arguments OSRow _ _%R.
 
 Lemma mono_prot_os_row {Σ} (ρ : sem_row Σ) `{!MonoProt ⟦ ρ ⟧%R }: OSRow ρ.
-Proof. inv MonoProt0. constructor. iIntros (v Φ Φ'). 
-       iApply (monotonic_prot0 v Φ Φ'). 
+Proof. inv MonoProt0. constructor. iIntros (v Φ Φ') "HPost Hρ".
+       iApply (monotonic_prot0 v Φ Φ' with "HPost Hρ").
 Qed.
 
 Global Instance row_nil_os_row {Σ : gFunctors } :
   @OSRow Σ ⟨⟩.
 Proof.
-  constructor. rewrite /sem_row_iEff /= /sem_row_nil.
-  iIntros (v Φ Φ') "_ (% & % & % & % & _ & H & _)".
-  rewrite lookup_empty. iDestruct "H" as "%". inv H. 
+  constructor. rewrite /sem_row_iEff /= /sem_row_nil /mono_prot.
+  iIntros (v Φ Φ') "_ H". simpl. 
+  iDestruct "H" as "(% & % & % & % & -> & H & _)".
+  rewrite lookup_empty. iDestruct "H" as "%H". inv H.
 Qed.
-  
+
 Global Instance row_ins_os_row {Σ} (ρ : sem_row Σ) l (σ : sem_sig Σ) `{! OSSig σ, ! OSRow ρ } :
   OSRow ((l, σ) · ρ).
 Proof.
@@ -338,6 +323,16 @@ Proof.
   iRewrite "Heqσ". iFrame "#".
 Qed.
 
+Global Instance row_rec_os_row {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:  
+  (∀ θ, OSRow (ρ θ)) →
+  OSRow (μR: θ, ρ θ)%R.
+Proof.
+  intros H. 
+  constructor.  iIntros. rewrite sem_row_rec_unfold.
+  specialize (H (μR: θ, ρ θ)%R).
+  inv H. iApply monotonic_prot0.
+Qed.
+
 Lemma os_row_mono_prot {Σ} (ρ : sem_row Σ) l s (σ : sem_sig Σ) `{! OSRow ρ } :
   ρ !! (l, s) ≡ Some σ -∗ mono_prot σ.2.
 Proof.
@@ -385,9 +380,8 @@ Lemma row_nil_iEff_bot {Σ} :
   ⊢ iEff_le (⟦ ⟨⟩ ⟧)%R (⊥ : iEff Σ).
 Proof.
   rewrite /sem_row_iEff. iIntros (??) "!#".
-  simpl. iIntros "(% & % & % & % & _ & H & _)".
-  rewrite lookup_empty. 
-  iDestruct "H" as "%". inversion H.
+  simpl. iIntros "(% & % & % & % & -> & H & _)".
+  rewrite /sem_row_nil. rewrite lookup_empty. iDestruct "H" as "%H". inv H.
 Qed.
 
 Lemma row_le_iEff {Σ} (ρ ρ' : sem_row Σ) :
@@ -447,7 +441,7 @@ Proof.
     iFrame "#".
 Qed.
 
-Lemma row_le_ins {Σ} (ρ : sem_row Σ) (l : label) (σ : sem_sig Σ) : 
+Lemma row_le_ins {Σ} (ρ : sem_row Σ) (l : label) (σ : sem_sig Σ) :
   ρ !! (l, 0) ≡ None -∗
   ρ ≤R (l, σ) · ρ. 
 Proof. 
@@ -578,10 +572,16 @@ Proof.
   iApply (row_le_tun_ne with "Hlookup").
 Qed.
 
-Lemma row_le_rec {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:
+Lemma row_le_rec_unfold {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:
   ⊢ (μR: θ, ρ θ) ≤R ρ (μR: θ, ρ θ).
 Proof. 
-  rewrite {1} sem_row_rec_alt_unfold. iApply row_le_refl.
+  rewrite {1} sem_row_rec_unfold. iApply row_le_refl.
+Qed.
+
+Lemma row_le_rec_fold {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:
+  ⊢ ρ (μR: θ, ρ θ) ≤R (μR: θ, ρ θ).
+Proof. 
+  rewrite - {1} sem_row_rec_unfold. iApply row_le_refl.
 Qed.
 
 Lemma row_os_ins_eq {Σ} l s σ (ρ : sem_row Σ) :

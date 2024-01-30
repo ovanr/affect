@@ -603,4 +603,159 @@ Proof.
         rewrite deep_handler_ls_unfold /deep_handler_ls_pre. simpl. by iFrame "#∗". 
 Qed.
 
+Notation deep_handler_ls_2_type Σ :=
+  (coPset -d> label -d> sem_sig Σ -d> label -d> sem_sig Σ -d> sem_row Σ -d> mode -d> (val -d> iPropO Σ) 
+          -d> expr  -d> expr -d> expr
+          -d> sem_row Σ -d> (val -d> iPropO Σ) -d> iPropO Σ) (only parsing).
+
+Definition deep_handler_ls_2_pre `{irisGS eff_lang Σ} : 
+  deep_handler_ls_2_type Σ → deep_handler_ls_2_type Σ := (
+  λ deep_handler_ls_2 E l1 σ1 l2 σ2 ρ m Φ h1 h2 r ρ' Φ',
+
+  (* Subsumption on row *)
+  (ρ ≤R ρ') ∗
+
+  ⌜ l1 ≠ l2 ⌝ ∗
+
+  (* One-Shot Row *)
+  (⌜ m = OS → OSRow ρ ⌝) ∗
+
+  □?m (
+  (* Correctness of the return branch. *)
+  (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}) ∧
+
+  (* Correctness of the effect branch 1. *)
+  (∀ (v k : val),
+     iEff_car (upcl σ1.1 σ1.2) v (λ w, 
+        ∀ ρ'' Φ'', 
+          ▷ deep_handler_ls_2 E l1 σ1 l2 σ2 ρ m Φ h1 h2 r ρ'' Φ'' -∗
+          EWPW k w @ E <| ρ'' |> {{ Φ'' }}
+     ) -∗
+       EWPW h1 v k @ E <| ρ' |> {{ Φ' }}) ∧
+
+  (* Correctness of the effect branch 2. *)
+  (∀ (v k : val),
+     iEff_car (upcl σ2.1 σ2.2) v (λ w, 
+        ∀ ρ'' Φ'', 
+          ▷ deep_handler_ls_2 E l1 σ1 l2 σ2 ρ m Φ h1 h2 r ρ'' Φ'' -∗
+          EWPW k w @ E <| ρ'' |> {{ Φ'' }}
+     ) -∗
+       EWPW h2 v k @ E <| ρ' |> {{ Φ' }})
+  ))%I.
+
+Local Instance deep_handler_ls_2_pre_contractive `{irisGS eff_lang Σ} : Contractive deep_handler_ls_2_pre.
+Proof.
+  rewrite /deep_handler_ls_2_pre => n deep deep' Hne E l1 σ1 l2 σ2 ρ m Φ h1 h2 r ρ' Φ'.
+  repeat (f_contractive || f_equiv). intros ?; simpl.
+  repeat (f_contractive || f_equiv); apply Hne.
+  intros ?. repeat (f_contractive || f_equiv); apply Hne.
+Qed.
+Definition deep_handler_ls_2 `{irisGS eff_lang Σ} := fixpoint deep_handler_ls_2_pre.
+Arguments deep_handler_ls_2 _ _%V _%S _%V _%S _%R _%I _%E _%E _%E _%R _%I.
+
+Global Lemma deep_handler_ls_2_unfold `{irisGS eff_lang Σ} E l1 σ1 l2 σ2 ρ m Φ h1 h2 r ρ' Φ' :
+  deep_handler_ls_2 E l1 σ1 l2 σ2 ρ m Φ h1 h2 r ρ' Φ' ⊣⊢
+    deep_handler_ls_2_pre deep_handler_ls_2 E l1 σ1 l2 σ2 ρ m Φ h1 h2 r ρ' Φ'.
+Proof.
+  by apply (fixpoint_unfold deep_handler_ls_2_pre).
+Qed.
+
+Lemma ewpw_deep_try_ls_2 E (l1 l2 : label) m σ1 σ2 ρ ρ' e (h1 h2 r : val) Φ Φ' :
+  EWPW e @ E <| (l1, σ1) ·: (l2, σ2) ·: ρ |> {{ Φ }} -∗
+  deep_handler_ls_2 E l1 σ1 l2 σ2 ρ m Φ h1 h2 r ρ' Φ' -∗
+  EWPW (DeepTryLS2V e l1 l2 h1 h2 r) @E <| ρ' |> {{ Φ' }}.
+Proof.
+  iIntros "He H". rewrite /DeepTryLS2V /deep_try_ls_2 /ewpw. 
+  ewp_pure_steps.
+  iApply (ewp_deep_try_with_mode with "He").
+  iLöb as "IH" forall (ρ' Φ'). rewrite deep_handler_ls_2_unfold.
+  iDestruct "H" as "(#Hle & %Hneq & %HOS & Hbr)". 
+  rewrite deep_handler_mode_unfold /deep_handler_mode_pre.
+  iSplit; last iSplit.
+  - rewrite bi.intuitionistically_if_elim. iDestruct "Hbr" as "[$ _]".
+  - iIntros (v k) "Hρ". ewp_pure_steps. 
+    iDestruct "Hρ" as "(%Φ'' & (%v' & %l' & %s' & %σ' & %Heq' & Hlookup' & Hσ') & HPost)".
+    inv Heq'. destruct (decide (l1 = l' ∧ s' = 0)) as [[-> ->]|Hneg].
+    + ewp_pure_steps'.
+      rewrite bi.intuitionistically_if_elim. iDestruct "Hbr" as "[_ H]".
+      iApply "H". iExists Φ''. 
+      rewrite filter_os_lookup lookup_insert.
+      iDestruct "Hlookup'" as "[#Heq #HσOS]".
+      rewrite option_equivI. iRewrite - "Heq" in "HσOS".
+      rewrite prod_equivI_2 (iEff_equivI σ1.2 σ'.2).
+      iRewrite - ("Heq" $! v' Φ'') in "Hσ'". iFrame. 
+      iRewrite "HσOS". simpl. iIntros (w) "HΦ''". 
+      iIntros (ρ'' Φ''') "Hdeep". iApply ("HPost" with "HΦ''").
+      iNext. iApply ("IH" with "Hdeep"). 
+    + destruct (decide (l2 = l' ∧ s' = 0)) as [[-> ->]|Hneg'].
+      * ewp_pure_steps'.
+        rewrite bi.intuitionistically_if_elim. iDestruct "Hbr" as "[_ [_ H]]".
+        iApply "H". iExists Φ''. 
+        rewrite filter_os_lookup lookup_insert_ne; last (intros ?; simplify_eq). 
+        rewrite row_tun_lookup_ne // lookup_insert.
+        iDestruct "Hlookup'" as "[#Heq #HσOS]".
+        rewrite option_equivI. iRewrite - "Heq" in "HσOS".
+        rewrite prod_equivI_2 (iEff_equivI σ2.2 σ'.2).
+        iRewrite - ("Heq" $! v' Φ'') in "Hσ'". iFrame. 
+        iRewrite "HσOS". simpl. iIntros (w) "HΦ''". 
+        iIntros (ρ'' Φ''') "Hdeep". iApply ("HPost" with "HΦ''").
+        iNext. iApply ("IH" with "Hdeep"). 
+      * do 19 ewp_value_or_step.
+        iApply (ewp_if_false with "[]"); first by iApply handler_effect_propagated_cond.
+        iApply (ewp_if_false with "[]"); first by iApply handler_effect_propagated_cond.
+        iApply (ewp_bind [AppRCtx _]); first done. simpl.
+        iApply (ewpw_sub with "Hle"). simpl. do 2 iApply ewpw_unlft. rewrite /ewpw.
+        ewp_pure_steps. iApply ewp_do_os. iExists Φ''. simpl. 
+        rewrite filter_os_lookup lookup_insert_ne //; last (intros H'; inv H'; tauto).
+        iSplitR "HPost Hbr".
+        { iExists v', l', s', σ'. iFrame "#∗". iSplit; first done. rewrite filter_os_lookup //. 
+          rewrite /sem_row_cons row_tun_ins_eq_ne // lookup_insert_ne; first iFrame.
+          intros H. inv H; apply Hneg'; eauto. }
+      iIntros (w) "HΦ''". iApply ("HPost" with "HΦ''"). iNext. iApply ("IH" with "[Hbr]").
+      destruct m; rewrite deep_handler_ls_2_unfold /deep_handler_ls_2_pre; iFrame "#∗"; eauto.
+  - iIntros (v k) "Hρ". ewp_pure_steps. 
+    iDestruct "Hρ" as "(%Φ'' & (%v' & %l' & %s' & %σ' & %Heq' & #Hlookup' & Hσ') & #HPost)".
+    inv Heq'. destruct (decide (l1 = l' ∧ s' = 0)) as [[-> ->]|Hneg].
+    + ewp_pure_steps'.
+      rewrite bi.intuitionistically_if_elim. iDestruct "Hbr" as "[_ H]".
+      iApply "H". iExists Φ''. 
+      rewrite lookup_insert option_equivI prod_equivI_2 iEff_equivI.
+      iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
+      destruct σ1.1; simpl; last iIntros "!#"; 
+      iIntros (w) "HΦ'' % %Φ''' Hdeep"; iApply ("HPost" with "HΦ''"); iNext; by iApply "IH".
+    + destruct (decide (l2 = l' ∧ s' = 0)) as [[-> ->]|Hneg'].
+      * ewp_pure_steps'.
+        rewrite bi.intuitionistically_if_elim. iDestruct "Hbr" as "[_ [_ H]]". 
+        iApply "H". iExists Φ''. 
+        rewrite lookup_insert_ne; last (intros ?; simplify_eq).  
+        rewrite row_tun_ins_eq_ne. 
+        2: { intros ?. apply Hneg; eauto. }
+        rewrite lookup_insert option_equivI prod_equivI_2 iEff_equivI.
+        iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
+        destruct σ2.1; simpl; last iIntros "!#"; 
+        iIntros (w) "HΦ'' % %Φ''' Hdeep"; iApply ("HPost" with "HΦ''"); iNext; by iApply "IH".
+      * do 19 ewp_value_or_step.
+        do 2 (iApply (ewp_if_false with "[]"); first by iApply handler_effect_propagated_cond).
+        iApply (ewp_bind [AppRCtx _]); first done.
+        iApply (ewpw_sub with "Hle"). do 2 iApply ewpw_unlft. rewrite /ewpw.
+        ewp_pure_steps. rewrite lookup_insert_ne; last (intros H'; inv H'; tauto).
+        rewrite /sem_row_cons row_tun_ins_eq_ne // lookup_insert_ne; first iFrame "#".
+        2: { intros H. inv H; apply Hneg'; eauto. }
+        iApply ewp_do_ms. destruct m; simpl.
+        ** specialize (HOS eq_refl).
+          iDestruct (os_row_mono_prot _ l' s' σ' with "Hlookup'") as "Hmono".
+          iAssert (deep_handler_ls_2 E l1 σ1 l2 σ2 ρ OS Φ h1 h2 r ρ' Φ') with "[Hbr]" as "H".
+          { rewrite deep_handler_ls_2_unfold /deep_handler_ls_2_pre. simpl. by iFrame "#∗". }
+          iExists (λ v, Φ'' v ∗ deep_handler_ls_2 E l1 σ1 l2 σ2 ρ OS Φ h1 h2 r ρ' Φ')%I.
+          iSplitL; [|iIntros "!# %w [HΦ'' Hdeep]"; iApply ("HPost" with "HΦ''"); iNext; by iApply "IH"].
+          iExists v', l', s', σ'. iFrame "#∗". iSplit; [done|]. 
+          iApply ("Hmono" with "[H] Hσ'"). iIntros (w) "$ //".
+        ** iDestruct "Hbr" as "#Hbr".
+           iExists Φ''. iSplitL "Hσ'".
+           { iExists v', l', s', σ'. by iFrame "#∗". }
+        iIntros (w) "!# HΦ''". iApply ("HPost" with "HΦ''").
+        iNext. iApply "IH".
+        rewrite deep_handler_ls_2_unfold /deep_handler_ls_2_pre. simpl. by iFrame "#∗". 
+Qed.
+
 End reasoning.
