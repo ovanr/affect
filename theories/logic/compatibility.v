@@ -941,8 +941,8 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂ %vs !# /= HΓ₁ /=".
     iApply (ewpw_bind [StoreRCtx _]); first done. simpl.
-    iApply (ewpw_mono_os with "[HΓ₁]"); [by iApply "He₂"|].
-    iIntros "%w [Hτ HΓ₂] !>". 
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He₂"|].
+    iIntros "!# %w [Hτ HΓ₂] !>". 
     iApply (ewpw_bind [StoreLCtx _]); first done. simpl.
     iApply (ewpw_mono_os with "[HΓ₂]"); [by iApply "He₁"|].
     iIntros "%u [(%l & -> & Hinv) HΓ₃] !>".
@@ -953,7 +953,7 @@ Section compatibility.
     iMod ("Hclose" with "[Hl Hτ]"); solve_env.
   Qed.
 
-  Lemma sem_typed_replace_cpy τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ `{! OSRow ρ}: 
+  Lemma sem_typed_replace_cpy_os τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ `{! OSRow ρ}: 
     Γ₂ ⊨ e₁ : ρ : Refᶜ τ ⊨ Γ₃ -∗
     Γ₁ ⊨ e₂ : ρ : τ ⊨ Γ₂ -∗
     Γ₁ ⊨ (e₁ <!- e₂) : ρ : τ ⊨ Γ₃.
@@ -974,6 +974,29 @@ Section compatibility.
     iIntros "!>". iFrame.
   Qed.
   
+  Lemma sem_typed_replace_cpy_ms τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ :
+    copy_ty τ -∗
+    Γ₂ ⊨ e₁ : ρ : Refᶜ τ ⊨ Γ₃ -∗
+    Γ₁ ⊨ e₂ : ρ : τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ (e₁ <!- e₂) : ρ : τ ⊨ Γ₃.
+  Proof.
+    iIntros "#Hcpy #He₁ #He₂ %vs !# /= HΓ₁ /=".
+    iApply (ewpw_bind [ReplaceRCtx _]); first done. simpl.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He₂"|].
+    iIntros "!# %w [Hτ HΓ₂] !>". 
+    iApply (ewpw_bind [ReplaceLCtx _]); first done. simpl.
+    iDestruct ("Hcpy" with "Hτ") as "#Hτ'". 
+    iApply (ewpw_mono with "[HΓ₂]"); [by iApply "He₁"|].
+    iIntros "!# %u [(%l & -> & Hinv) HΓ₃] !>".
+    iApply (ewpw_atomic _ (⊤ ∖ ↑tyN.@l)).
+    iMod (inv_acc _ (tyN.@l) with "Hinv") as "[(%u & >Hl & Hu) Hclose]"; first done.
+    iModIntro. iApply (ewpw_replace with "Hl"). 
+    iIntros "!> Hl !>".  
+    iMod ("Hclose" with "[Hl]").
+    { iExists w. iFrame "#∗". } 
+    iIntros "!>". iFrame.
+  Qed.
+
   (* Effect handling rules *)
   
   Lemma sem_typed_perform_os τ ρ' l (A B : sem_ty Σ → sem_ty Σ) Γ₁ Γ₂ e

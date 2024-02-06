@@ -79,7 +79,7 @@ Section typing.
       iApply sem_typed_ufun; solve_sidecond. simpl.
       iApply (sem_typed_let cont_ty _ _ _ [("cont", Refᶜ cont_ty)]); solve_sidecond.
       + iApply sem_typed_contraction; solve_sidecond.
-        iApply sem_typed_replace_cpy; first iApply sem_typed_var'.
+        iApply sem_typed_replace_cpy_os; first iApply sem_typed_var'.
         do 2 (iApply sem_typed_frame). rewrite -(app_nil_r []).
         iApply sem_typed_afun; solve_sidecond.
         simpl. iApply sem_typed_unit'.
