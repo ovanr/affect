@@ -42,7 +42,7 @@ Section compatibility.
   Context `{!heapGS Σ}.
   
   Lemma sem_typed_val τ Γ v : 
-    ⊨ᵥ v : τ -∗ Γ ⊨ v : ⊥ : τ ⊨ Γ.
+    ⊨ᵥ v : τ -∗ Γ ⊨ v : ⟨⟩ : τ ⊨ Γ.
   Proof.
     iIntros "#Hv !# %vs HΓ /=". 
     iApply ewpw_bot.
@@ -54,7 +54,7 @@ Section compatibility.
   (* Base rules *)
   
   Lemma sem_typed_unit Γ : 
-    ⊢ Γ ⊨ #() : ⊥ : () ⊨ Γ.
+    ⊢ Γ ⊨ #() : ⟨⟩ : () ⊨ Γ.
   Proof.
     iIntros (vs) "!# HΓ₁ //=". 
     iApply ewpw_bot.
@@ -62,7 +62,7 @@ Section compatibility.
   Qed.
   
   Lemma sem_typed_bool Γ (b : bool) : 
-    ⊢ Γ ⊨ #b : ⊥ : 𝔹 ⊨ Γ.
+    ⊢ Γ ⊨ #b : ⟨⟩ : 𝔹 ⊨ Γ.
   Proof.
     iIntros (vs) "!# HΓ₁ //=". 
     iApply ewpw_bot.
@@ -71,7 +71,7 @@ Section compatibility.
   Qed.
   
   Lemma sem_typed_int Γ (i : Z) : 
-    ⊢ Γ ⊨ #i : ⊥ : ℤ ⊨ Γ.
+    ⊢ Γ ⊨ #i : ⟨⟩ : ℤ ⊨ Γ.
   Proof.
     iIntros (vs) "!# HΓ₁ //=". 
     iApply ewpw_bot.
@@ -80,7 +80,7 @@ Section compatibility.
   Qed.
   
   Lemma sem_typed_var τ Γ x : 
-    ⊢ (x, τ) :: Γ ⊨ x : ⊥ : τ ⊨ Γ.
+    ⊢ (x, τ) :: Γ ⊨ x : ⟨⟩ : τ ⊨ Γ.
   Proof.
     iIntros (vs) "!# /= [%v (%Hrw & Hτ & HΓ₁)] /=". 
     iApply ewpw_bot.
@@ -88,7 +88,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_void_in_env τ Γ₁ Γ₂ e x : 
-    ⊢ (x, Void) :: Γ₁ ⊨ e : ⊥ : τ ⊨ Γ₂.
+    ⊢ (x, Void) :: Γ₁ ⊨ e : ⟨⟩ : τ ⊨ Γ₂.
   Proof.
     iIntros (vs) "!# /= [%v (%Hrw & [] & _)] /=". 
   Qed.
@@ -117,7 +117,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_Tclosure τ e :
-    (∀ α, ⊨ e : ⊥ : τ α) -∗ 
+    (∀ α, ⊨ e : ⟨⟩ : τ α) -∗ 
     ⊨ᵥ (Λ: e) : (∀T: α, τ α).
   Proof.
     iIntros "#He !# %u !#". ewpw_pure_steps.
@@ -129,7 +129,7 @@ Section compatibility.
 
   (* Signature abstraction and application *)
   Lemma sem_typed_Rclosure C e : 
-    (∀ θ, ⊨ e : ⊥ : C θ) -∗
+    (∀ θ, ⊨ e : ⟨⟩ : C θ) -∗
     ⊨ᵥ (Λ: e) : (∀R: θ , C θ)%T.
   Proof.
     iIntros "#He !# %ρ !# /=".
@@ -184,7 +184,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_sub_nil Γ₁ Γ₂ e τ ρ :
-    (Γ₁ ⊨ e : ⊥ : τ ⊨ Γ₂) -∗ Γ₁ ⊨ e : ρ : τ ⊨ Γ₂.
+    (Γ₁ ⊨ e : ⟨⟩ : τ ⊨ Γ₂) -∗ Γ₁ ⊨ e : ρ : τ ⊨ Γ₂.
   Proof. iApply sem_typed_sub_row. iApply row_le_nil. Qed.
   
   Lemma sem_typed_sub_u2aarr Γ₁ Γ₂ e τ κ ρ ρ' :
@@ -329,7 +329,7 @@ Section compatibility.
   Lemma sem_typed_afun τ ρ Γ₁ Γ₂ x e κ: 
     x ∉ (env_dom Γ₁) → x ∉ (env_dom Γ₂) →
     (x,τ) ::? Γ₁ ⊨ e : ρ : κ ⊨ [] -∗
-    Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⊥ : (τ -{ ρ }-∘ κ) ⊨ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-∘ κ) ⊨ Γ₂.
   Proof.
     iIntros (??) "#He !# %vs HΓ₁₂ //=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
@@ -345,7 +345,7 @@ Section compatibility.
     match f with BNamed f => BNamed f ≠ x | BAnon => True end →
     copy_env Γ₁ -∗
     (x, τ) ::? (f, τ -{ ρ }-> κ) ::? Γ₁ ⊨ e : ρ : κ ⊨ [] -∗
-    Γ₁ ++ Γ₂ ⊨ (rec: f x := e) : ⊥ : (τ -{ ρ }-> κ) ⊨ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ (rec: f x := e) : ⟨⟩ : (τ -{ ρ }-> κ) ⊨ Γ₂.
   Proof.
     iIntros (???) "#HcpyΓ₁ #He !# %vs HΓ₁₂ //=".
     ewpw_pure_steps.
@@ -378,7 +378,7 @@ Section compatibility.
     match x with BNamed x => BNamed x ≠ f | BAnon => True end →
     copy_env Γ₁ -∗
     (∀ ι, (x, τ ι) ::? (f, ∀T: α, τ α -{ ρ α }-> κ α) ::? Γ₁ ⊨ e : ρ ι : κ ι ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ (rec: f <> := λ: x, e) : ⊥ : (∀T: α, τ α -{ ρ α }-> κ α) ⊨ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ (rec: f <> := λ: x, e) : ⟨⟩ : (∀T: α, τ α -{ ρ α }-> κ α) ⊨ Γ₂.
   Proof.
     iIntros (???) "#HcpyΓ₁ #He !# %vs HΓ₁₂ //=".
     ewpw_pure_steps. rewrite env_sem_typed_app. 
@@ -586,7 +586,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_none τ Γ₁: 
-    ⊢ Γ₁ ⊨ NONE : ⊥ : Option τ ⊨ Γ₁.
+    ⊢ Γ₁ ⊨ NONE : ⟨⟩ : Option τ ⊨ Γ₁.
   Proof.
     iIntros. iApply sem_typed_left_inj. iApply sem_typed_unit. 
   Qed.
@@ -658,8 +658,8 @@ Section compatibility.
   (* Type abstraction and application *)
   Lemma sem_typed_TLam C Γ₁ Γ₂ e : 
     copy_env Γ₁ -∗
-    (∀ α, Γ₁ ⊨ e : ⊥ : C α ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⊥ : (∀T: α , C α)%T ⊨ Γ₂.
+    (∀ α, Γ₁ ⊨ e : ⟨⟩ : C α ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀T: α , C α)%T ⊨ Γ₂.
   Proof.
     iIntros "#Hcpy #He !# %vs HΓ₁₂ //=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
@@ -685,8 +685,8 @@ Section compatibility.
   (* Signature abstraction and application *)
   Lemma sem_typed_RLam C Γ₁ Γ₂ e : 
     copy_env Γ₁ -∗
-    (∀ θ, Γ₁ ⊨ e : ⊥ : C θ ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⊥ : (∀R: θ , C θ)%T ⊨ Γ₂.
+    (∀ θ, Γ₁ ⊨ e : ⟨⟩ : C θ ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀R: θ , C θ)%T ⊨ Γ₂.
   Proof.
     iIntros "#Hcpy #He !# %vs HΓ₁₂ /=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
@@ -767,7 +767,7 @@ Section compatibility.
 
   (* List type rules *)
   Lemma sem_typed_nil τ Γ : 
-    ⊢ Γ ⊨ NIL : ⊥ : List τ ⊨ Γ.
+    ⊢ Γ ⊨ NIL : ⟨⟩ : List τ ⊨ Γ.
   Proof.
     iIntros "!# %vs HΓ //=". 
     ewpw_pure_steps. unfold sem_ty_list. 
@@ -862,7 +862,7 @@ Section compatibility.
   Qed.
   
   Lemma sem_typed_load τ Γ x : 
-    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⊥ : τ ⊨ (x, Ref Moved) :: Γ).
+    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⊨ (x, Ref Moved) :: Γ).
   Proof.
     iIntros "%vs !# //= [%v (%Hrw & (%w & -> & (%l & Hl & Hτ)) & HΓ)]".
     rewrite Hrw. iApply (ewpw_load with "Hl").
@@ -871,7 +871,7 @@ Section compatibility.
   
   Lemma sem_typed_load_copy τ Γ x :
     copy_ty τ -∗
-    ((x, Ref τ) :: Γ ⊨ !x : ⊥ : τ ⊨ (x, Ref τ) :: Γ).
+    ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⊨ (x, Ref τ) :: Γ).
   Proof.
     iIntros "#Hcpy %vs !# //= [%v (%Hrw & (%w & -> & (%l & Hl & Hτ)) & HΓ)]".
     rewrite Hrw. iApply (ewpw_load with "Hl").
