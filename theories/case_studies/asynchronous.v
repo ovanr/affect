@@ -72,7 +72,7 @@ Definition runner : val :=
           | effect "await" => (λ: "x" "k", 
                   match: "x" <!- (InjR NIL) with
                     InjL "v" => "x" <!- (InjL "v") ;; "k" "v"
-                  | InjR "ks" => "x" <!- InjR (CONS (λ: "v", "k" "v") "ks") ;; "next" #()
+                  | InjR "ks" => "x" <!- InjR (CONS "k" "ks") ;; "next" #()
                   end
                 )
           | return (λ: "x", 
@@ -425,8 +425,6 @@ Section typing.
             iApply sem_typed_cons; [|iApply sem_typed_var]. 
             assert (Hrw : [k; x; next] = [k] ++ [x;next]) by done.
             rewrite Hrw. clear Hrw.
-            iApply sem_typed_afun; solve_sidecond. simpl.
-            iApply sem_typed_app; [iApply sem_typed_var|].
             iApply sem_typed_var.
           ** iApply sem_typed_app; [|iApply sem_typed_unit].
              iApply sem_typed_sub_u2aarr; iApply sem_typed_var.
