@@ -109,12 +109,12 @@ Section typing.
   Definition async_sig (θ : sem_row Σ) : sem_sig Σ := 
     (∀S: α, ( () -{ θ }-∘ '! α ) ⇒ Promise ('! α) | OS)%S. 
 
-  Definition arow_pre (θ : sem_row Σ) : sem_row Σ := 
+  Definition coop_pre (θ : sem_row Σ) : sem_row Σ := 
     (("async", async_sig θ) ·: ("await", await_sig) ·: ⟨⟩)%R.
   
-  Local Instance contractive_arow_pre : Contractive arow_pre.
+  Local Instance contractive_coop_pre : Contractive coop_pre.
   Proof.
-    intros ????. rewrite /arow_pre. rewrite /sem_row_cons /= /sem_row_ins.
+    intros ????. rewrite /coop_pre. rewrite /sem_row_cons /= /sem_row_ins.
     intros ?. destruct (decide (i = ("async", 0))) as [->|Hneg].
     - rewrite !lookup_insert. f_equiv. rewrite /async_sig.
       rewrite /sem_sig_eff. f_equiv. f_equiv. intros ??. 
@@ -124,7 +124,7 @@ Section typing.
       rewrite (lookup_insert_ne _ ("async", 0) i (async_sig x)) //. 
   Qed.
 
-  Definition arow : sem_row Σ := (μR: θ, arow_pre θ)%R.
+  Definition coop : sem_row Σ := (μR: θ, coop_pre θ)%R.
 
   Local Instance await_res_sig_ne :
     NonExpansive
@@ -149,10 +149,10 @@ Section typing.
     do 2 f_equiv; try done. 
   Qed.
 
-  Local Instance arow_os_row : OSRow arow.
+  Local Instance coop_os_row : OSRow coop.
   Proof.
-    rewrite /arow. apply row_rec_os_row. iIntros (θ).
-    rewrite /arow_pre. apply row_ins_os_row.
+    rewrite /coop. apply row_rec_os_row. iIntros (θ).
+    rewrite /coop_pre. apply row_ins_os_row.
     { rewrite /async_sig. apply sig_eff_os_os_sig; apply _. }
     simpl. apply row_tun_os_row. apply row_cons_os_row; last apply row_nil_os_row.
     apply sig_eff_os_os_sig; apply _.
@@ -166,7 +166,7 @@ Section typing.
 
   Definition resume_task_ty := (∀T: α, '! α → ('! α ⊸ ()) → ())%T.
   
-  Definition runner_ty := (∀T: α, (() -{ arow }-∘ '! α) → '! α)%T.
+  Definition runner_ty := (∀T: α, (() -{ coop }-∘ '! α) → '! α)%T.
 
   Lemma impossible_typed τ :
     ⊢ ⊨ impossible : ⊥ : τ.
@@ -182,47 +182,47 @@ Section typing.
   Qed.
 
   Lemma async_typed :
-    ⊢ ⊨ᵥ async : (∀T: α, (() -{ arow }-∘ '! α) -{ arow }-> Promise ('! α)).
+    ⊢ ⊨ᵥ async : (∀T: α, (() -{ coop }-∘ '! α) -{ coop }-> Promise ('! α)).
   Proof.
     rewrite /async. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
     rewrite - {1} (app_nil_r []).
-    iApply sem_typed_ufun; solve_sidecond. simpl. rewrite /arow.
+    iApply sem_typed_ufun; solve_sidecond. simpl. rewrite /coop.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
-    rewrite /arow_pre -/arow.
-    iApply (sem_typed_perform_os α _ "async" (λ α, () -{ arow }-∘ '! α) (λ α, Promise ('! α))).
+    rewrite /coop_pre -/coop.
+    iApply (sem_typed_perform_os α _ "async" (λ α, () -{ coop }-∘ '! α) (λ α, Promise ('! α))).
     iApply sem_typed_var'.
   Qed.
 
   Lemma await_typed :
-    ⊢ ⊨ᵥ await : (∀T: α, Promise ('! α) -{ arow }-> '! α).
+    ⊢ ⊨ᵥ await : (∀T: α, Promise ('! α) -{ coop }-> '! α).
   Proof.
     rewrite /await. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
     rewrite - {1} (app_nil_r []).
     iApply sem_typed_ufun; solve_sidecond. simpl.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
-    rewrite /arow_pre -/arow. 
+    rewrite /coop_pre -/coop. 
     iApply sem_typed_sub_row; first iApply row_le_swap_second; first done.
     iApply (sem_typed_perform_os α _ "await" (λ α, Promise ('! α)) (λ α, '! α)).
     iApply sem_typed_var'.
   Qed.
 
   Lemma yield_typed :
-    ⊢ ⊨ᵥ yield : ( () -{ arow }-> () ).
+    ⊢ ⊨ᵥ yield : ( () -{ coop }-> () ).
   Proof.
     iIntros. iApply sem_typed_closure; try done. simpl.
     iApply (sem_typed_app (Promise ('! ()))).
     - iApply sem_typed_sub_u2aarr.
       iApply sem_typed_sub_ty; [iApply ty_le_uarr|]; 
         [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_cpy_elim|].
-      iApply sem_typed_sub_nil. simpl. rewrite -/arow.
-      set C := (λ α, (Promise ('! α)) -{ arow }-> ('! α)).
+      iApply sem_typed_sub_nil. simpl. rewrite -/coop.
+      set C := (λ α, (Promise ('! α)) -{ coop }-> ('! α)).
       rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
       iApply sem_typed_val. iApply await_typed.
-    - iApply (sem_typed_app (() -{ arow }-∘ '! ())).
+    - iApply (sem_typed_app (() -{ coop }-∘ '! ())).
       + iApply sem_typed_sub_nil. iApply sem_typed_sub_u2aarr.
-        set C := (λ α, (() -{ arow }-∘ '! α) -{ arow }-> Promise ('! α)).
+        set C := (λ α, (() -{ coop }-∘ '! α) -{ coop }-> Promise ('! α)).
         rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
         iApply sem_typed_val. iApply async_typed.
       + iApply sem_typed_sub_nil.
@@ -329,7 +329,7 @@ Section typing.
     iIntros. iApply sem_typed_Tclosure. iIntros (α).
     rewrite - {1} (app_nil_r []).
     iApply sem_typed_ufun; solve_sidecond. simpl.
-    set main := ("main", () -{ arow }-∘ '! α).
+    set main := ("main", () -{ coop }-∘ '! α).
     iApply (sem_typed_let _ _ _ _  [main]); solve_sidecond.
     { iApply (sem_typed_alloc_cpy (List (() ⊸ ()))). iApply sem_typed_nil. }
     iApply sem_typed_contraction; solve_sidecond.
@@ -356,27 +356,27 @@ Section typing.
     iApply (sem_typed_let _ _ _ _ [main]); solve_sidecond.
     - assert (Hrw : [resume_task;add;next;main] = [resume_task;add;next] ++ [main]) by done.
       rewrite Hrw. clear Hrw.
-      iApply (sem_typed_ufun_poly_rec (λ β, Promise ('! β)) (λ _, ⊥) (λ β, (() -{ arow }-∘ '! β) ⊸ ())); 
+      iApply (sem_typed_ufun_poly_rec (λ β, Promise ('! β)) (λ _, ⊥) (λ β, (() -{ coop }-∘ '! β) ⊸ ())); 
         solve_sidecond. simpl.
      iIntros (β) "/=". 
      set promise := ("promise", Promise ('! β)).
-     set fulfill := ("fulfill", ∀T: β', Promise ('! β') → (() -{ arow }-∘ '! β') ⊸ ()).
+     set fulfill := ("fulfill", ∀T: β', Promise ('! β') → (() -{ coop }-∘ '! β') ⊸ ()).
      rewrite -(app_nil_r [promise;fulfill;resume_task;add;next]).
      iApply sem_typed_afun; solve_sidecond. simpl.
-     set comp := ("comp", () -{ arow }-∘ '! β)%T.
+     set comp := ("comp", () -{ coop }-∘ '! β)%T.
      replace ([comp; promise; fulfill; resume_task; add;next]) with
              ([comp] ++ [promise; fulfill; resume_task; add;next]) by done.
-     iApply (sem_typed_deep_try_2_os OS "async" "await" (λ α, () -{ arow }-∘ '! α) (λ α, Promise ('! α)) (λ α, Promise ('! α)) (λ α, '! α)  _ _ _ _ [comp] []); solve_sidecond.
+     iApply (sem_typed_deep_try_2_os OS "async" "await" (λ α, () -{ coop }-∘ '! α) (λ α, Promise ('! α)) (λ α, Promise ('! α)) (λ α, '! α)  _ _ _ _ [comp] []); solve_sidecond.
      { iApply row_le_refl. }
      + iApply (sem_typed_app () _ ('! β)); [iApply sem_typed_var'|]. 
-       rewrite -/await_sig -/(async_sig arow) -/arow. 
+       rewrite -/await_sig -/(async_sig coop) -/coop. 
        iApply sem_typed_sub_env_final; first iApply env_le_cons; first iApply env_le_refl; 
-       [iApply ty_le_aarr; try iApply ty_le_refl; iApply (row_le_rec_unfold arow_pre)|].
-       rewrite -/arow. iApply sem_typed_unit'.
+       [iApply ty_le_aarr; try iApply ty_le_refl; iApply (row_le_rec_unfold coop_pre)|].
+       rewrite -/coop. iApply sem_typed_unit'.
      + iIntros (β').
        iApply sem_typed_swap_third. iApply sem_typed_weaken.
        iApply sem_typed_swap_fourth. iApply sem_typed_weaken.
-       set x := ("x", () -{ arow }-∘ '! β').
+       set x := ("x", () -{ coop }-∘ '! β').
        set k := ("k", Promise ('!β') ⊸ ()).
        rewrite -/x -/k -/fulfill -/add -/next.
        iApply (sem_typed_let (Promise ('! β')) _ _ _ [x;k;fulfill;add;next]); solve_sidecond. 
@@ -393,7 +393,7 @@ Section typing.
          rewrite Hrw. clear Hrw.
          iApply sem_typed_afun; solve_sidecond. simpl.
          do 2 (iApply sem_typed_swap_second; iApply sem_typed_app; [|iApply sem_typed_var]).
-         set C := (λ β, Promise ('! β) → (() -{ arow }-∘ '! β) ⊸ ())%T.
+         set C := (λ β, Promise ('! β) → (() -{ coop }-∘ '! β) ⊸ ())%T.
          iApply sem_typed_sub_u2aarr. rewrite -/(C β').
          iApply sem_typed_TApp; first solve_copy. iApply sem_typed_var.
       * simpl.
@@ -469,7 +469,7 @@ Section typing.
            rewrite -/(C ⊥).
            iApply sem_typed_RApp; first solve_copy. 
            iApply sem_typed_val. iApply iter_typed.
-  - set fulfill := ("fulfill", ∀T: α, Promise ('! α) → (() -{ arow }-∘ '! α) ⊸ ()).
+  - set fulfill := ("fulfill", ∀T: α, Promise ('! α) → (() -{ coop }-∘ '! α) ⊸ ()).
     iApply (sem_typed_let _ _ _ _ [fulfill; main]); solve_sidecond.
     { iApply (sem_typed_alloc_cpy (Status ('! α))). 
       iApply sem_typed_right_inj. iApply sem_typed_nil. }
@@ -479,7 +479,7 @@ Section typing.
     iApply (sem_typed_seq ()).
     + do 2 (iApply sem_typed_app; [|iApply sem_typed_var]). 
       iApply sem_typed_sub_u2aarr. 
-      set C := (λ α, Promise ('! α) → (() -{ arow }-∘ '! α) ⊸ ())%T.
+      set C := (λ α, Promise ('! α) → (() -{ coop }-∘ '! α) ⊸ ())%T.
       rewrite -/(C α).
       iApply sem_typed_TApp. rewrite /C /Promise.
       iApply sem_typed_var.
