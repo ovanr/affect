@@ -19,6 +19,7 @@ From haffel.lib Require Import logic.
 From haffel.lang Require Import haffel.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import sem_sig.
+From haffel.logic Require Import sem_env.
 From haffel.logic Require Import ewpw.
 
 (* Base types. *)
@@ -29,6 +30,7 @@ Definition sem_ty_int {Σ} : sem_ty Σ := (λ v, ∃ n : Z, ⌜ v = #n ⌝)%I.
 Definition sem_ty_moved {Σ} : sem_ty Σ := (λ v, True)%I.
 
 Definition sem_ty_cpy {Σ} (τ : sem_ty Σ) : sem_ty Σ := (λ v, □ τ v)%I.
+Definition sem_env_cpy {Σ} (Γ : env Σ) : env Σ := (map (λ xτ, (xτ.1, sem_ty_cpy xτ.2)) Γ).
 
 (* Copyable Reference Type *)
 Definition tyN := nroot .@ "ty".
@@ -112,6 +114,8 @@ Notation "'ℤ'" := (sem_ty_int) : sem_ty_scope.
 Notation "'Moved'" := (sem_ty_moved) : sem_ty_scope.
 Notation "'! τ " := (sem_ty_cpy τ)
   (at level 10) : sem_ty_scope.
+Notation "'! Γ " := (sem_env_cpy Γ)
+  (at level 10) : sem_env_scope.
 Notation "τ '×' κ" := (sem_ty_prod τ%T κ%T)
   (at level 120, κ at level 200) : sem_ty_scope.
 Infix "+" := (sem_ty_sum) : sem_ty_scope.

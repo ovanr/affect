@@ -140,9 +140,9 @@ Proof.
   { iApply row_le_iEff. by iApply row_le_filter_os_mono. }
 Qed.
 
-Lemma ewp_mono_os E (ρ ρ' : sem_row Σ) e Φ Φ' `{! OSRow ρ } `{! OSRow ρ' } :
-  EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ v }} -∗
-  (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ' v }}.
+Lemma ewp_mono_os E (Ψ Ψ' : iEff Σ) e Φ Φ' `{! MonoProt Ψ' } :
+  EWP e @ E <| Ψ |> {| Ψ' |} {{ v, Φ v }} -∗
+  (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ EWP e @ E <| Ψ |> {| Ψ' |} {{ v, Φ' v }}.
 Proof.
   iIntros "Hewp Himp". 
   iLöb as "IH" forall (e).
@@ -151,17 +151,18 @@ Proof.
   { iMod "Hewp" as "Hewp". by iApply "Himp". }
   destruct (to_eff e) eqn:?.
   - simpl. destruct p eqn:?, p0 eqn:?, m;
-    iDestruct "Hewp" as "(%Φ'' & HΨ & Hps)";
-    iExists (λ w, Φ'' w ∗ (∀ v, Φ v ={E}=∗ Φ' v)%I)%I;
-    iSplitL "HΨ Himp".
-    2, 4: try (iDestruct "Hps" as "#Hps"; iModIntro);
-          iIntros "% (HΦ'' & Himp)"; 
-          iSpecialize ("Hps" with "HΦ''"); iNext;
-          iApply ("IH" with "Hps Himp").
-    + destruct OSRow0 as [];
-      iApply (monotonic_prot with "[Himp] HΨ"); iIntros "% $ {$Himp}".
-    + destruct OSRow1 as [];
-      iApply (monotonic_prot with "[Himp] HΨ"); iIntros "% $ {$Himp}".
+    iDestruct "Hewp" as "(%Φ'' & HΨ & Hps)".
+    + iExists Φ''. iFrame.
+      iIntros (?) "HΦ''". iSpecialize ("Hps" $! w with "HΦ''").
+      iNext. iApply ("IH" with "Hps Himp").
+    + iExists (λ w, Φ'' w ∗ (∀ v, Φ v ={E}=∗ Φ' v)%I)%I;
+      iSplitL "HΨ Himp".
+      { destruct MonoProt0 as [].
+        iApply (monotonic_prot with "[Himp] HΨ"); iIntros "% $ {$Himp}". }
+      try (iDestruct "Hps" as "#Hps"; iModIntro).
+      iIntros "% (HΦ'' & Himp)". 
+      iSpecialize ("Hps" with "HΦ''"); iNext;
+      iApply ("IH" with "Hps Himp").
   - iIntros (σ₁ ns κ' κs nt) "Hstate".
     iSpecialize ("Hewp" $! σ₁ ns κ' κs nt with "Hstate"). 
     iMod "Hewp" as "Hewp". iModIntro.
@@ -179,6 +180,15 @@ Proof.
     do 2 iModIntro. iNext. iApply "IH".
 Qed.
 
+Corollary ewp_mono_os_row E (ρ ρ' : sem_row Σ) e Φ Φ' `{! OSRow ρ' } :
+  EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ v }} -∗
+  (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ' v }}.
+Proof.
+  iIntros "Hewp Himp". 
+  iApply (ewp_mono_os with "Hewp Himp").
+  destruct OSRow0. constructor. iApply monotonic_prot.
+Qed.
+
 Lemma ewpw_mono_os E ρ e Φ Φ' `{! OSRow ρ} :
   EWPW e @ E <| ρ |> {{ Φ }} -∗
   (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ 
@@ -187,7 +197,7 @@ Proof.
   iIntros "Hewp HΦ". rewrite /ewpw.
   assert (OSRow (filter_os ρ)).
   { by apply row_filter_os_os_row. }
-  iApply (@ewp_mono_os _ (filter_os ρ) ρ e Φ Φ' H _ with "Hewp HΦ").
+  iApply (@ewp_mono_os_row _ (filter_os ρ) ρ e Φ Φ' _ with "Hewp HΦ").
 Qed.
 
 Lemma ewpw_mono E ρ e Φ Φ' :

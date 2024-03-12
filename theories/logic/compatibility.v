@@ -40,7 +40,7 @@ Open Scope ieff_scope.
 Section compatibility.
 
   Context `{!heapGS Σ}.
-  
+
   Lemma sem_typed_val τ Γ v : 
     ⊨ᵥ v : τ -∗ Γ ⊨ v : ⟨⟩ : τ ⊨ Γ.
   Proof.
@@ -265,6 +265,15 @@ Section compatibility.
     iApply sem_typed_sub_env; [iApply env_le_weaken|iApply "He"].
   Qed.
 
+  Lemma sem_typed_weaken_env Γ Γ₁ Γ₂ e ρ τ :
+    (Γ₁ ⊨ e : ρ : τ ⊨ Γ₂) -∗ (Γ ++ Γ₁ ⊨ e : ρ : τ ⊨ Γ₂).
+  Proof.
+    iIntros "#He".
+    iInduction Γ as [|[x κ] Γ'] "IH"; simpl.
+    { iApply "He". }
+    iApply sem_typed_sub_env; [iApply env_le_weaken|iApply "IH"].
+  Qed.
+
   Lemma sem_typed_frame Γ₁ e ρ x τ κ Γ₂ `{! OSRow ρ}:
     Γ₁ ⊨ e : ρ : κ ⊨ Γ₂ -∗
     (x, τ) :: Γ₁ ⊨ e : ρ : κ ⊨ (x, τ) :: Γ₂.
@@ -298,6 +307,20 @@ Section compatibility.
     iApply (ewpw_mono_os with "[HΓ'' HΓ₁]").
     { iApply ("IH" with "HΓ'' HΓ₁"). }
     iIntros (w) "[$ HΓ] !>". solve_env.
+  Qed.
+
+  Lemma sem_typed_frame_env_ms Γ₁ Γ' e ρ τ Γ₂ :
+    copy_env Γ' -∗
+    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
+    Γ' ++ Γ₁ ⊨ e : ρ : τ ⊨ Γ' ++ Γ₂.
+  Proof.
+    iIntros "#HcpyΓ' #He %vs !# HΓ'Γ₁".
+    iDestruct (env_sem_typed_app with "HΓ'Γ₁") as "[HΓ' HΓ₁]".
+    iDestruct ("HcpyΓ'" with "HΓ'") as "#HΓ''".
+    iApply (ewpw_mono _ _ _ (λ v, τ v ∗ ⟦ Γ₂ ⟧ vs) with "[HΓ₁]").
+    { by iApply "He". }
+    iIntros "!# % [Hτ HΓ₂] !> {$Hτ}".
+    rewrite env_sem_typed_app. iFrame "∗#".
   Qed.
 
   Lemma sem_typed_unit' Γ ρ : 
@@ -381,7 +404,7 @@ Section compatibility.
     Γ₁ ++ Γ₂ ⊨ (rec: f <> := λ: x, e) : ⟨⟩ : (∀T: α, τ α -{ ρ α }-> κ α) ⊨ Γ₂.
   Proof.
     iIntros (???) "#HcpyΓ₁ #He !# %vs HΓ₁₂ //=".
-    ewpw_pure_steps. rewrite env_sem_typed_app. 
+    ewpw_pure_steps. rewrite env_sem_typed_app.
     iDestruct "HΓ₁₂" as "[HΓ₁' $]".
     iDestruct ("HcpyΓ₁" with "HΓ₁'") as "#HΓ₁".
     iLöb as "IH".
@@ -424,7 +447,39 @@ Section compatibility.
     solve_env.
   Qed.
 
-  Lemma sem_typed_app τ ρ κ Γ₁ Γ₂ Γ₃ e₁ e₂ `{! OSRow ρ}: 
+  Lemma sem_typed_app τ ρ' ρ κ Γ₁ Γ₂ e₁ e₂ :
+    ¡ ρ' ≤R ρ -∗
+    Γ₂ ⊨ e₁ : ¡ ρ' : (τ -{ ρ }-∘ κ) ⊨ [] -∗
+    Γ₁ ⊨ e₂ : ρ : τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ [].
+  Proof.
+    iIntros "#Hρ'ρ #He₁ #He₂ !# %vs HΓ₁ /=".
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₂").
+    iIntros "!# % [Hτ HΓ₂] !> /=".
+    iApply (ewpw_bind [AppLCtx _]); first done.
+    iApply ewpw_sub; first iApply "Hρ'ρ".
+    iApply (ewpw_mono_os with "[HΓ₂]").
+    { by iApply "He₁". }
+    iIntros "%w [Hτκ HΓ₃] !> /=".
+    iApply (ewpw_mono with "[Hτκ Hτ]").
+    {  by iApply "Hτκ".  }
+    iIntros "!# % $ !> //=".
+  Qed.
+
+  Lemma sem_typed_app_nil τ ρ κ Γ₁ Γ₂ e₁ e₂ :
+    Γ₂ ⊨ e₁ : ⟨⟩ : (τ -{ ρ }-∘ κ) ⊨ [] -∗
+    Γ₁ ⊨ e₂ : ρ : τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ [].
+  Proof.
+    iIntros "#He₁ #He₂".
+    iApply (sem_typed_app _ ⟨⟩%R).
+    { iApply row_le_trans; [iApply row_le_os_elim|iApply row_le_nil]. }
+    { iApply sem_typed_sub_nil. iApply "He₁". }
+    iApply "He₂".
+  Qed.
+
+  Lemma sem_typed_app_os τ ρ κ Γ₁ Γ₂ Γ₃ e₁ e₂ `{! OSRow ρ}: 
     Γ₂ ⊨ e₁ : ρ : (τ -{ ρ }-∘ κ) ⊨ Γ₃ -∗
     Γ₁ ⊨ e₂ : ρ : τ ⊨ Γ₂ -∗
     Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ Γ₃.
@@ -436,7 +491,7 @@ Section compatibility.
     iApply (ewpw_bind [AppLCtx _]); first done.
     iApply (ewpw_mono_os with "[HΓ₂]").
     { by iApply "He₁". }
-    iIntros (w) "[Hτκ HΓ₃] !> /=".
+    iIntros "%w [Hτκ HΓ₃] !> /=".
     iApply (ewpw_mono_os with "[Hτκ Hτ]").
     { by iApply "Hτκ". }
     iIntros "% $ !> //=".

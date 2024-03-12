@@ -24,6 +24,9 @@ theories/logic/tactics.v
 theories/logic/compatibility.v
 theories/logic/adequacy.v
 
+theories/case_studies/app.v
+theories/case_studies/c.v
+theories/case_studies/verboseClose.v
 theories/case_studies/state.v
 theories/case_studies/generator_iterator.v
 theories/case_studies/cooperative_concurrency.v

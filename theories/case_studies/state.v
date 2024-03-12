@@ -130,7 +130,7 @@ Section typing.
       iApply sem_typed_swap_third. iApply sem_typed_swap_second.
       iApply (sem_typed_seq _ _ _ _  [("k", _)]).
       { iApply sem_typed_store_cpy; iApply sem_typed_var'. }
-      iApply sem_typed_app; [iApply sem_typed_sub_u2aarr; iApply sem_typed_var'|].
+      iApply sem_typed_app_os; [iApply sem_typed_sub_u2aarr; iApply sem_typed_var'|].
       iApply sem_typed_unit.
     - simpl. iApply sem_typed_weaken. iApply (sem_typed_load_cpy ℤ); solve_sidecond.
       iApply sem_typed_var'.

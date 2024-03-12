@@ -79,7 +79,12 @@ the same variable occurs twice in Γ we get that:
 *)
 
 
-Notation env Σ := (list (string * sem_ty Σ)).
+Definition env Σ := (list (string * sem_ty Σ)).
+
+Declare Scope sem_env_scope.
+(* Bind Scope sem_env_scope with sem_env. *)
+
+Delimit Scope sem_env_scope with EN.
 
 (* Copyable types *)
 Definition copy_ty {Σ} (τ : sem_ty Σ) := 
