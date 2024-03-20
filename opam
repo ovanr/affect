@@ -1,5 +1,5 @@
-name: "coq-affine-tes"
-synopsis: "An affine Type And Effect System"
+name: "coq-haffel"
+synopsis: "A Substructural Type And Effect System"
 opam-version: "2.0"
 maintainer: "Orpheas van Rooij(orpheas.vanrooij@ru.nl)"
 bug-reports: "Anonymous"

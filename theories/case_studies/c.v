@@ -54,9 +54,8 @@ Section typing.
     rewrite - (app_nil_r [("y", _); ("x", _)]).
     iApply sem_typed_afun; solve_sidecond. simpl.
     iApply sem_typed_swap_second.
-    iApply (sem_typed_app α θ); solve_sidecond.
-    { iApply row_le_refl. }
-    { iApply sem_typed_app; first iApply row_le_refl; iApply sem_typed_var'. }
+    iApply (sem_typed_app_os α (¡θ)%R); solve_sidecond.
+    { iApply sem_typed_app_os; iApply sem_typed_var'. }
     iApply sem_typed_var'.
   Qed.
 
