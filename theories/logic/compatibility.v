@@ -79,6 +79,15 @@ Section compatibility.
     iSplitR; first (iExists i); done.
   Qed.
   
+  Lemma sem_typed_string Γ (s : string) : 
+    ⊢ Γ ⊨ #(LitStr s) : ⟨⟩ : Str ⊨ Γ.
+  Proof.
+    iIntros (vs) "!# HΓ₁ //=". 
+    iApply ewpw_bot.
+    iApply ewp_value. 
+    iSplitR; first (iExists s); done.
+  Qed.
+
   Lemma sem_typed_var τ Γ x : 
     ⊢ (x, τ) :: Γ ⊨ x : ⟨⟩ : τ ⊨ Γ.
   Proof.
@@ -341,6 +350,12 @@ Section compatibility.
     iApply sem_typed_sub_nil. iApply sem_typed_int.
   Qed.
   
+  Lemma sem_typed_string' Γ ρ (s : string) : 
+    ⊢ Γ ⊨ #(LitStr s) : ρ : Str ⊨ Γ.
+  Proof.
+    iApply sem_typed_sub_nil. iApply sem_typed_string.
+  Qed.
+
   Lemma sem_typed_var' τ Γ ρ x : 
     ⊢ (x, τ) :: Γ ⊨ x : ρ : τ ⊨ Γ.
   Proof.
@@ -563,6 +578,20 @@ Section compatibility.
     { by iApply "He₁". }
     iIntros "!# %w [Hκw HΓ₃] //= !>". ewpw_pure_steps.
     solve_env.
+  Qed.
+
+  Lemma sem_typed_fst x τ κ Γ : 
+    ⊢ (x, τ × κ) :: Γ ⊨ Fst x : ⟨⟩ : τ ⊨ (x, ⊤ × κ) :: Γ.
+  Proof.
+    iIntros "!# %vs /= (% & % & [(% & % & % & Hτ & Hκ) HΓ]) //=". rewrite H H0.
+    ewpw_pure_steps. solve_env.
+  Qed.
+
+  Lemma sem_typed_snd x τ κ Γ : 
+    ⊢ (x, τ × κ) :: Γ ⊨ Snd x : ⟨⟩ : κ ⊨ (x, τ × ⊤) :: Γ.
+  Proof.
+    iIntros "!# %vs /= (% & % & [(% & % & % & Hτ & Hκ) HΓ]) //=". rewrite H H0.
+    ewpw_pure_steps. solve_env.
   Qed.
 
   Lemma sem_typed_pair_elim τ ρ κ ι Γ₁ Γ₂ Γ₃ x₁ x₂ e₁ e₂ :
@@ -917,7 +946,7 @@ Section compatibility.
   Qed.
   
   Lemma sem_typed_load τ Γ x : 
-    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⊨ (x, Ref Moved) :: Γ).
+    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⊨ (x, Ref ⊤) :: Γ).
   Proof.
     iIntros "%vs !# //= [%v (%Hrw & (%w & -> & (%l & Hl & Hτ)) & HΓ)]".
     rewrite Hrw. iApply (ewpw_load with "Hl").
@@ -1247,12 +1276,12 @@ Section compatibility.
     { iApply ("He" with "HΓ₁"). }
     iLöb as "IH".
     rewrite deep_handler_ls_unfold /deep_handler_pre.
-    repeat iSplit; eauto. simpl. iIntros "!#". iSplit.
+    repeat iSplit; eauto. simpl. iIntros "!#". 
     - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
       iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". solve_env.
-    - iIntros (v k') "(%Φ & Hρ & HPost)".
+    - iIntros (v k') "!# (%Φ & Hρ & HPost)".
       rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
@@ -1286,12 +1315,12 @@ Section compatibility.
     { iApply ("He" with "HΓ₁"). }
     iLöb as "IH".
     rewrite deep_handler_ls_unfold /deep_handler_pre.
-    repeat iSplit; eauto. simpl. iIntros "!#". iSplit.
+    repeat iSplit; eauto. simpl. iIntros "!#". 
     - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
       iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". solve_env.
-    - iIntros (v k') "(%Φ & Hρ & HPost)".
+    - iIntros (v k') "!# (%Φ & Hρ & HPost)".
       rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
@@ -1328,7 +1357,7 @@ Section compatibility.
     { iApply ("He" with "HΓ₁"). }
     iLöb as "IH".
     rewrite deep_handler_ls_2_unfold.
-    repeat iSplit; eauto. simpl. iIntros "!#". iSplit; last iSplit.
+    repeat iSplit; eauto; simpl; iIntros "!#"; last iSplit.
     - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
       iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
@@ -1382,7 +1411,7 @@ Section compatibility.
     { iApply ("He" with "HΓ₁"). }
     iLöb as "IH".
     rewrite deep_handler_ls_2_unfold.
-    repeat iSplit; eauto. simpl. iIntros "!#". iSplit; last iSplit.
+    repeat iSplit; eauto; simpl; iIntros "!#"; last iSplit.
     - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
       iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }

@@ -27,7 +27,8 @@ Definition sem_ty_void {Σ} : sem_ty Σ := (λ v, False)%I.
 Definition sem_ty_unit {Σ} : sem_ty Σ := (λ v, ⌜ v = #() ⌝)%I.
 Definition sem_ty_bool {Σ} : sem_ty Σ := (λ v, ∃ b : bool, ⌜ v = #b ⌝)%I.
 Definition sem_ty_int {Σ} : sem_ty Σ := (λ v, ∃ n : Z, ⌜ v = #n ⌝)%I.
-Definition sem_ty_moved {Σ} : sem_ty Σ := (λ v, True)%I.
+Definition sem_ty_string {Σ} : sem_ty Σ := (λ v, ∃ s : string, ⌜ v = #(LitStr s)⌝)%I.
+Definition sem_ty_top {Σ} : sem_ty Σ := (λ v, True)%I.
 
 Definition sem_ty_cpy {Σ} (τ : sem_ty Σ) : sem_ty Σ := (λ v, □ τ v)%I.
 Definition sem_env_cpy {Σ} (Γ : env Σ) : env Σ := (map (λ xτ, (xτ.1, sem_ty_cpy xτ.2)) Γ).
@@ -111,7 +112,8 @@ Notation "'Void'" := sem_ty_void : sem_ty_scope.
 Notation "()" := sem_ty_unit : sem_ty_scope.
 Notation "'𝔹'" := (sem_ty_bool) : sem_ty_scope.
 Notation "'ℤ'" := (sem_ty_int) : sem_ty_scope.
-Notation "'Moved'" := (sem_ty_moved) : sem_ty_scope.
+Notation "'Str'" := (sem_ty_string) : sem_ty_scope.
+Notation "⊤" := (sem_ty_top) : sem_ty_scope.
 Notation "'! τ " := (sem_ty_cpy τ)
   (at level 10) : sem_ty_scope.
 Notation "'! Γ " := (sem_env_cpy Γ)

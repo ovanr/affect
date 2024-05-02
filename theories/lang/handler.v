@@ -360,3 +360,4 @@ Definition DeepTryLS2V (e : expr) (l1 l2 : label) (h1 h2 r : expr) : expr :=
 Notation "'deep-try-ls2:' e 'with' 'effect' l1 '=>' h1 | 'effect' l2 '=>' h2 | 'return' r 'end'" :=
   (DeepTryLS2 e l1 l2 h1 h2 r)
   (e, l1, h1, l2, h2, r at level 200, only parsing) : expr_scope.
+

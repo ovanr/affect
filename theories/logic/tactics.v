@@ -56,7 +56,7 @@ Ltac solve_copy :=
     iApply copy_ty_unit ||
     iApply copy_ty_bool ||
     iApply copy_ty_nat  ||
-    iApply copy_ty_moved ||
+    iApply copy_ty_top ||
     iApply copy_ty_cpy  ||
     iApply copy_ty_uarr ||
     iApply copy_ty_prod ||

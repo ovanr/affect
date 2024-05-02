@@ -516,9 +516,11 @@ Definition deep_handler_ls_pre `{irisGS eff_lang Σ} :
 
   □?m (
   (* Correctness of the return branch. *)
-  (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}) ∧
+  (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }})
+  ) ∧
 
   (* Correctness of the effect branch. *)
+  □ (
   (∀ (v k : val),
      iEff_car (upcl σ.1 σ.2) v (λ w, 
         ∀ ρ'' Φ'', 
@@ -527,6 +529,12 @@ Definition deep_handler_ls_pre `{irisGS eff_lang Σ} :
      ) -∗
        EWPW h v k @ E <| ρ' |> {{ Φ' }}))
   )%I.
+
+(*            osrow *)
+(*         | OS  | MS *)   
+(*    ------------------- *)
+(*    | OS | ros | rms *)
+(* m  | MS | rms | rms *)
 
 Local Instance deep_handler_ls_pre_contractive `{irisGS eff_lang Σ} : Contractive deep_handler_ls_pre.
 Proof.
@@ -632,9 +640,11 @@ Definition deep_handler_ls_2_pre `{irisGS eff_lang Σ} :
 
   □?m (
   (* Correctness of the return branch. *)
-  (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}) ∧
+  (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }})
+  ) ∧
 
   (* Correctness of the effect branch 1. *)
+  □ (
   (∀ (v k : val),
      iEff_car (upcl σ1.1 σ1.2) v (λ w, 
         ∀ ρ'' Φ'', 
@@ -767,5 +777,5 @@ Proof.
         iNext. iApply "IH".
         rewrite deep_handler_ls_2_unfold /deep_handler_ls_2_pre. simpl. by iFrame "#∗". 
 Qed.
-
+     
 End reasoning.

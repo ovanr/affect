@@ -38,7 +38,7 @@ Lemma sem_sig_eff_unfold_1 {Σ} m (A B : sem_ty Σ → sem_ty Σ) `{NonExpansive
   (sem_sig_eff m A B).1 ≡ m.
 Proof. by rewrite sem_sig_eff_unfold. Qed.
 
-Lemma sem_sig_eff_rec_unfold_2 {Σ} m (A B : sem_ty Σ -d> sem_ty Σ) `{ NonExpansive A, NonExpansive B } :
+Lemma sem_sig_eff_unfold_2 {Σ} m (A B : sem_ty Σ -d> sem_ty Σ) `{ NonExpansive A, NonExpansive B } :
   (sem_sig_eff m A B).2 ≡
     (>> (α : sem_ty Σ) (a : val) >> ! a {{ ▷ (A α a) }}; 
      << (b : val)                << ? b {{ ▷ (B α b) }} @m)%ieff.
@@ -66,7 +66,7 @@ Proof.
   by rewrite (iEff_tele_eq' [tele _ _] [tele _]) /=. 
 Qed.
 
-(* The sem_sig_eff_rec protocol is monotonic. *)
+(* The sem_sig_eff protocol is monotonic. *)
 Global Instance sem_sig_eff_mono_prot {Σ} A B `{ NonExpansive A, NonExpansive B }:
   MonoProt (@sem_sig_eff Σ OS A B).2.
 Proof.
@@ -77,7 +77,7 @@ Proof.
   iIntros (b) "Hκ". iApply "HΦ'". by iApply "HκΦ".
 Qed.
 
-(* The sem_sig_eff_rec protocol is persistently monotonic. *)
+(* The sem_sig_eff protocol is persistently monotonic. *)
 Global Instance sem_sig_eff_pers_mono_prot {Σ} A B `{ NonExpansive A, NonExpansive B }:
   PersMonoProt (@sem_sig_eff Σ MS A B).2.
 Proof.
@@ -103,6 +103,85 @@ Qed.
 Notation "'∀S:' α , τ ⇒ κ | m " := (sem_sig_eff m (λ α, τ%T) (λ α, κ%T))
   (at level 100, m, τ, κ at level 200) : sem_sig_scope.
 
+(* 2 Effect Signature *)
+Definition sem_sig_eff_2 {Σ} m (A B : sem_ty Σ -d> sem_ty Σ -d> sem_ty Σ) : sem_sig Σ :=
+  (m, >> (α β : sem_ty Σ) (a : val) >> ! a {{ ▷ (A α β a) }}; 
+      << (b : val)                  << ? b {{ ▷ (B α β b) }} @m)%ieff.
+
+Lemma sem_sig_eff_2_unfold {Σ} m (A B : sem_ty Σ → sem_ty Σ → sem_ty Σ) `{NonExpansive2 A, NonExpansive2 B} :
+  (sem_sig_eff_2 m A B) ≡ 
+    (m, >> (α β : sem_ty Σ) (a : val) >> ! a {{ ▷ (A α β a) }}; 
+        << (b : val)                  << ? b {{ ▷ (B α β b) }} @m)%ieff.
+Proof. rewrite {1} /sem_sig_eff_2 //. Qed.
+
+Lemma sem_sig_eff_2_unfold_1 {Σ} m (A B : sem_ty Σ → sem_ty Σ → sem_ty Σ) `{NonExpansive2 A, NonExpansive2 B} :
+  (sem_sig_eff_2 m A B).1 ≡ m.
+Proof. by rewrite sem_sig_eff_2_unfold. Qed.
+
+Lemma sem_sig_eff_2_unfold_2 {Σ} m (A B : sem_ty Σ → sem_ty Σ -d> sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B } :
+  (sem_sig_eff_2 m A B).2 ≡
+    (>> (α β : sem_ty Σ) (a : val) >> ! a {{ ▷ (A α β a) }}; 
+     << (b : val)                  << ? b {{ ▷ (B α β b) }} @m)%ieff.
+Proof. by rewrite sem_sig_eff_2_unfold. Qed.
+
+Lemma sem_sig_eff_2_unfold_iEff {Σ} m (A B : sem_ty Σ -d> sem_ty Σ -d> sem_ty Σ) `{ NonExpansive2 A, NonExpansive2 B } v Φ:
+  iEff_car (sem_sig_eff_2 m A B).2 v Φ ⊣⊢
+    iEff_car (>> (α β : sem_ty Σ) (a : val) >> ! a {{ ▷ (A α β a) }}; 
+              << (b : val)                  << ? b {{ ▷ (B α β b) }} @m)%ieff v Φ.
+Proof.
+  assert (Hequiv :
+  iEff_car (sem_sig_eff_2 m A B).2 v Φ ⊣⊢
+    iEff_car (>> (α β : sem_ty Σ) (a : val) >> ! a {{ ▷ (A α β a) }}; 
+              << (b : val)                  << ? b {{ ▷ (B α β b) }} @m)%ieff v Φ).
+  { f_equiv. apply non_dep_fun_equiv. by apply sem_sig_eff_2_unfold. }
+  by rewrite Hequiv.
+Qed.
+
+Lemma sem_sig_eff_2_eq {Σ} m A B v Φ `{ NonExpansive2 A, NonExpansive2 B }:
+  iEff_car (sem_sig_eff_2 (Σ:=Σ) m A B).2 v Φ ⊣⊢
+    (∃ α β a, ⌜ a = v ⌝ ∗ ▷ (A α β a) ∗ 
+                          □? m (∀ b, ▷ (B α β b) -∗ Φ b))%I.
+Proof. 
+  etrans; [by apply sem_sig_eff_2_unfold_iEff|]. 
+  by rewrite (iEff_tele_eq' [tele _ _ _] [tele _]) /=. 
+Qed.
+
+(* The sem_sig_eff protocol is monotonic. *)
+Global Instance sem_sig_eff_2_mono_prot {Σ} A B `{ NonExpansive2 A, NonExpansive2 B }:
+  MonoProt (@sem_sig_eff_2 Σ OS A B).2.
+Proof.
+  constructor. iIntros (???) "HΦ'".
+  rewrite !sem_sig_eff_2_eq /=.
+  iIntros "(% & % & % & <- & Hτ & HκΦ)".
+  iExists α, β, a. iSplitR; first done. iFrame. simpl.
+  iIntros (b) "Hκ". iApply "HΦ'". by iApply "HκΦ".
+Qed.
+
+(* The sem_sig_eff protocol is persistently monotonic. *)
+Global Instance sem_sig_eff_2_2_pers_mono_prot {Σ} A B `{ NonExpansive2 A, NonExpansive2 B }:
+  PersMonoProt (@sem_sig_eff_2 Σ MS A B).2.
+Proof.
+  constructor. iIntros (???) "#HΦ'".
+  rewrite !sem_sig_eff_2_eq. simpl.
+  iIntros "(% & % & % & <- & Hτ & #HκΦ)".
+  iExists α, β, a. iSplitR; first done. iFrame. simpl.
+  iIntros "!# %b Hκ". iApply "HΦ'". by iApply "HκΦ".
+Qed.
+
+Lemma upcl_sem_sig_eff_2 {Σ} m A B v Φ `{ NonExpansive2 A, NonExpansive2 B}:
+  iEff_car (upcl m (sem_sig_eff_2 (Σ:=Σ) m A B).2) v Φ ⊣⊢
+    (∃ α β a, ⌜ a = v ⌝ ∗ ▷ (A α β a) ∗ 
+                           □? m (∀ b, ▷ (B α β b) -∗ Φ b))%I.
+Proof.
+  assert (Hequiv:
+    iEff_car (upcl m (sem_sig_eff_2 m A B).2) v Φ ≡ iEff_car (sem_sig_eff_2 m A B).2 v Φ).
+  { f_equiv. apply non_dep_fun_equiv. destruct m; [by rewrite upcl_id|by rewrite pers_upcl_id]. }
+  rewrite Hequiv. by apply sem_sig_eff_2_eq.
+Qed.
+
+(* Notations. *)
+Notation "'∀S²:' α , β , τ ⇒ κ | m" := (sem_sig_eff_2 m (λ α β, τ%T) (λ α β, κ%T))
+  (at level 100, m, τ, κ at level 200) : sem_sig_scope.
 
 Definition sem_sig_os {Σ} (σ : sem_sig Σ) : sem_sig Σ := (σ.1, upcl OS σ.2).
 Notation "¡ σ" := (sem_sig_os σ) (at level 10) : sem_sig_scope.

@@ -28,7 +28,7 @@ From haffel.logic Require Import tactics.
 (* The verboseClose example from paper Soundly Hanlding Linearity by Tang et al. *)
 
 (* Since we do not support files (as in the example) we instead use sub-structurally treated references. *)
-(* Instead of closing a file, we instead free the reference *)
+(* the concept is the same: instead of closing a file, we free the reference *)
 Definition verboseFree : val := 
     (λ: "f", let: "s" := perform: (effect "get", #()) in
              let: <>  := Free "f" in
@@ -38,8 +38,8 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition getSig : label * sem_sig Σ := ("get", ∀S: _, () ⇒ ℤ | OS)%S.  
-  Definition printSig : label * sem_sig Σ := ("print", ∀S: _, ℤ ⇒ () | MS)%S.
+  Definition getSig : label * sem_sig Σ := ("get", ∀S: _, () ⇒ Str | OS)%S.  
+  Definition printSig : label * sem_sig Σ := ("print", ∀S: _, Str ⇒ () | MS)%S.
   Definition st : sem_row Σ := (getSig ·: printSig ·: ⟨⟩)%R.
 
   Local Instance os_row_get_sig : OSRow (getSig ·: ⟨⟩)%R. 
@@ -53,18 +53,18 @@ Section typing.
   Proof.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. 
-    iApply (sem_typed_let ℤ _ _ _ [("f", _)]); solve_sidecond.
+    iApply (sem_typed_let Str _ _ _ [("f", _)]); solve_sidecond.
     - rewrite /st.
       iApply sem_typed_sub_row.
       { iApply row_le_cons_comp; [iApply sig_le_refl|iApply row_le_nil]. }
       iApply sem_typed_frame.
-      iApply (sem_typed_perform_os () ⟨⟩%R "get" (λ _, ()) (λ _, ℤ)).
+      iApply (sem_typed_perform_os () ⟨⟩%R "get" (λ _, ()) (λ _, Str)).
       iApply sem_typed_unit'.
     - iApply sem_typed_seq; first iApply sem_typed_sub_nil.
       { iApply sem_typed_frame. iApply sem_typed_free. iApply sem_typed_var. }
       rewrite /st. iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       rewrite -/getSig.
-      iApply (sem_typed_perform_ms () (getSig ·: ⟨⟩)%R MS "print" (λ _, ℤ) (λ _, ())); solve_copy.
+      iApply (sem_typed_perform_ms () (getSig ·: ⟨⟩)%R MS "print" (λ _, Str) (λ _, ())); solve_copy.
       iApply sem_typed_var'.
   Qed.
 
