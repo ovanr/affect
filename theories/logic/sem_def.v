@@ -45,7 +45,7 @@ Delimit Scope sem_sig_scope with S.
 
 (** * Semantic Effect Row. *)
 
-Definition sem_row Σ := (gmapO (label * natO) (sem_sig Σ))%type.
+Definition sem_row Σ := (gmapO (operation * natO) (sem_sig Σ))%type.
 
 Declare Scope sem_row_scope.
 (* Bind Scope sem_row_scope with sem_row. *)
@@ -82,7 +82,6 @@ the same variable occurs twice in Γ we get that:
 Definition env Σ := (list (string * sem_ty Σ)).
 
 Declare Scope sem_env_scope.
-(* Bind Scope sem_env_scope with sem_env. *)
 
 Delimit Scope sem_env_scope with EN.
 

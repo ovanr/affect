@@ -25,13 +25,13 @@ From haffel.logic Require Import sem_operators.
 From haffel.logic Require Import tactics.
 From haffel.logic Require Import compatibility.
 
-Definition yield := (λ: "x", perform: (effect "yield", "x"))%V.
+Definition yield := (λ: "x", perform: "yield" "x")%V.
 Definition generate :=
   (Λ: λ: "i", let: "cont" := ref (λ: <>, "i" <_> yield) in
       λ: <>, let: "comp" := "cont" <!- (λ: <>, #())  in
-              shallow-try-ls: "comp" #() handle "yield" with
-                effect λ: "x" "k", "cont" <- "k" ;; SOME "x"
-             |  return λ: "x", NONE
+              shandle: "comp" #() by
+                "yield" => λ: "x" "k", "cont" <- "k" ;; SOME "x"
+               | ret    =>  λ: "x", NONE
              end
   )%V.
 
@@ -48,7 +48,7 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition yield_sig (τ : sem_ty Σ) : label * sem_sig Σ := ("yield", ∀S: _, τ ⇒ () | OS)%S.
+  Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀S: _, τ ⇒ () | OS)%S.
   Definition yield_ty τ := τ -{ (yield_sig τ ·: ⟨⟩) }-> ().
   Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
@@ -80,7 +80,7 @@ Section typing.
         iApply sem_typed_afun; solve_sidecond.
         simpl. iApply sem_typed_unit'.
       + rewrite app_singletons.
-        iApply (sem_typed_shallow_try_os OS "yield" (λ _, α) (λ _, ()) () (Option α) ⊥ _ 
+        iApply (sem_typed_shandler_os OS "yield" (λ _, α) (λ _, ()) () (Option α) ⊥ _ 
                       [("comp", cont_ty)] [] [] [("cont", Refᶜ cont_ty)]); solve_sidecond.
         { iApply row_le_refl. }
         * iApply sem_typed_app_os; [iApply sem_typed_var'|iApply sem_typed_unit']. 

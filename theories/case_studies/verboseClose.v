@@ -30,16 +30,16 @@ From haffel.logic Require Import tactics.
 (* Since we do not support files (as in the example) we instead use sub-structurally treated references. *)
 (* the concept is the same: instead of closing a file, we free the reference *)
 Definition verboseFree : val := 
-    (λ: "f", let: "s" := perform: (effect "get", #()) in
+    (λ: "f", let: "s" := perform: "get" #() in
              let: <>  := Free "f" in
-             performₘ: (effect "print", "s"))%V.
+             performₘ: "print" "s")%V.
 
 Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition getSig : label * sem_sig Σ := ("get", ∀S: _, () ⇒ Str | OS)%S.  
-  Definition printSig : label * sem_sig Σ := ("print", ∀S: _, Str ⇒ () | MS)%S.
+  Definition getSig : operation * sem_sig Σ := ("get", ∀S: _, () ⇒ Str | OS)%S.  
+  Definition printSig : operation * sem_sig Σ := ("print", ∀S: _, Str ⇒ () | MS)%S.
   Definition st : sem_row Σ := (getSig ·: printSig ·: ⟨⟩)%R.
 
   Local Instance os_row_get_sig : OSRow (getSig ·: ⟨⟩)%R. 

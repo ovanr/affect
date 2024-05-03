@@ -20,18 +20,18 @@ From hazel.program_logic Require Import weakest_precondition
 
 From haffel.lib Require Export base logic.
 
+Notation operation := (string).
+Definition effect (op : string) := (LitV (LitStr op)).
+
 Definition rec_perform : val := (λ: "x", "x")%V.
 
-Notation "'perform:' ( l , e )" := (rec_perform (Do OS ((l, #0)%V, e%E)))%E
-  (at level 200, e at level 200,
-   format "'[' 'perform:' ( l , e ) ']'") : expr_scope.
+Notation "'perform:' op e" := (rec_perform (Do OS (Pair (Val (PairV (effect op) (LitV (LitInt 0)))) e%E)))
+  (at level 200, op at level 1, e at level 200,
+   format "'[' 'perform:'  op  e ']'") : expr_scope.
 
-Notation "'performₘ:' ( l , e )" := (rec_perform (Do MS ((l, #0)%V, e%E)))%E
-  (at level 200, e at level 200,
-   format "'[' 'performₘ:' ( l , e ) ']'") : expr_scope.
-
-Notation "'effect' l" := (#(LitStr l))%V (at level 70) : val_scope.
-Notation label := (string).
+Notation "'performₘ:' op e" := (rec_perform (Do MS (Pair (Val (PairV (effect op) (LitV (LitInt 0)))) e%E)))
+  (at level 200, op at level 1, e at level 200,
+   format "'[' 'performₘ:'  op  e ']'") : expr_scope.
 
 Definition shallow_try_mode : val := (
   λ: "e" "hos" "hms" "r",
@@ -194,170 +194,173 @@ Proof.
 Qed.
 
 Definition lft_def : val := 
-  (λ: "l'" "e", 
+  (λ: "op'" "e", 
      deep-try-mode: "e" #() with
        effect-os (λ: "x" "k", 
-             let: "l" := Fst (Fst "x") in
+             let: "op" := Fst (Fst "x") in
              let: "s" := Snd (Fst "x") in
              let: "x" := Snd "x" in
-             if: "l" = "l'" then
-               "k" (Do OS ("l", "s" + #1, "x"))
+             if: "op" = "op'" then
+               "k" (Do OS ("op", "s" + #1, "x"))
              else
-               "k" (Do OS ("l", "s", "x"))
+               "k" (Do OS ("op", "s", "x"))
          )
        | effect-ms (λ: "x" "k", 
-             let: "l" := Fst (Fst "x") in
+             let: "op" := Fst (Fst "x") in
              let: "s" := Snd (Fst "x") in
              let: "x" := Snd "x" in
-             if: "l" = "l'" then
-               "k" (Do MS ("l", "s" + #1, "x"))
+             if: "op" = "op'" then
+               "k" (Do MS ("op", "s" + #1, "x"))
              else
-               "k" (Do MS ("l", "s", "x"))
+               "k" (Do MS ("op", "s", "x"))
          )
        | return (λ: "x", "x")%V 
       end
 )%V.
 
-Notation "'lft:' ( l , e )" := (lft_def l%V (λ: <>, e)%E) (at level 10) : expr_scope.
+Notation "'lft:' op e" := (App (App (Val lft_def) (Val (effect op))) (Rec BAnon BAnon e%E)) 
+  (at level 200, op at level 1, e at level 200,
+   format "'[' 'lft:'  op  e ']'") : expr_scope.
 
 Definition unlft_def : val := 
-  (λ: "l'" "e", 
+  (λ: "op'" "e", 
      deep-try-mode: "e" #() with
        effect-os (λ: "x" "k", 
-             let: "l" := Fst (Fst "x") in
+             let: "op" := Fst (Fst "x") in
              let: "s" := Snd (Fst "x") in
              let: "x" := Snd "x" in
-             if: "l" = "l'" then
-               "k" (Do OS ("l", "s" - #1, "x"))
+             if: "op" = "op'" then
+               "k" (Do OS ("op", "s" - #1, "x"))
              else
-               "k" (Do OS ("l", "s", "x"))
+               "k" (Do OS ("op", "s", "x"))
          )
        | effect-ms (λ: "x" "k", 
-             let: "l" := Fst (Fst "x") in
+             let: "op" := Fst (Fst "x") in
              let: "s" := Snd (Fst "x") in
              let: "x" := Snd "x" in
-             if: "l" = "l'" then
-               "k" (Do MS ("l", "s" - #1, "x"))
+             if: "op" = "op'" then
+               "k" (Do MS ("op", "s" - #1, "x"))
              else
-               "k" (Do MS ("l", "s", "x"))
+               "k" (Do MS ("op", "s", "x"))
          )
        | return (λ: "x", "x")%V 
       end
 )%V.
 
-Notation "'unlft:' ( l , e )" := (unlft_def l%V (λ: <>, e)%E) (at level 10) : expr_scope.
+Notation "'unlft:' op e" := (App (App (Val unlft_def) (Val (effect op))) (Rec BAnon BAnon e%E))
+  (at level 200, op at level 1, e at level 200,
+   format "'[' 'unlft:'  op  e ']'") : expr_scope.
 
-Definition shallow_try_ls : val := (
-  rec: "H" "e" "l'" "h" "r" :=
+Definition shandler : val := (
+  rec: "H" "e" "op'" "h" "r" :=
     shallow_try_mode "e" 
       (λ: "x" "k",
-          let: "l" := Fst (Fst "x") in
+          let: "op" := Fst (Fst "x") in
           let: "s" := Snd (Fst "x") in
           let: "x" := Snd "x" in
-          if: ("l" = "l'") && ("s" = #0) then
+          if: ("op" = "op'") && ("s" = #0) then
             "h" "x" "k"
           else
-            (λ: "y", "H" (λ: <>, "k" "y") "l'" "h" "r") (unlft: ("l'", Do OS ("l", "s", "x")))
+            (λ: "y", "H" (λ: <>, "k" "y") "op'" "h" "r") (unlft_def "op'" (λ: <>, do: ("op", "s", "x")))
       )%E
       (λ: "x" "k",
-          let: "l" := Fst (Fst "x") in
+          let: "op" := Fst (Fst "x") in
           let: "s" := Snd (Fst "x") in
           let: "x" := Snd "x" in
-          if: ("l" = "l'") && ("s" = #0) then
+          if: ("op" = "op'") && ("s" = #0) then
             "h" "x" "k"
           else
-            (λ: "y", "H" (λ: <>, "k" "y") "l'" "h" "r") (unlft: ("l'", Do MS ("l", "s", "x")))
+            (λ: "y", "H" (λ: <>, "k" "y") "op'" "h" "r") (unlft_def "op'" (λ: <>, doₘ: ("op", "s", "x")))
       )%E
       "r"
 )%V.
 
-Arguments shallow_try_ls : simpl never.
+Arguments shandler : simpl never.
 
-Definition ShallowTryLS (e : expr) (l : label) (h r : expr) : expr :=
-  shallow_try_ls (λ: <>, e)%E (effect l)%V h r.
+Definition SHandler (e : expr) (op : operation) (h r : expr) : expr :=
+  shandler (λ: <>, e)%E (effect op) h r.
 
-Definition ShallowTryLSV (e : expr) (l : label) (h r : expr) : expr :=
-  shallow_try_ls (λ: <>, e)%V (effect l)%V h r.
+Definition SHandlerV (e : expr) (op : operation) (h r : expr) : expr :=
+  shandler (λ: <>, e)%V (effect op) h r.
 
-Notation "'shallow-try-ls:' e 'handle' l 'with' 'effect' h | 'return' r 'end'" :=
-  (ShallowTryLS e l h r)
-  (e, l, h, r at level 200, only parsing) : expr_scope.
+Notation "'shandle:' e 'by' op '=>' h | 'ret' '=>' r 'end'" :=
+  (SHandler e%E op h%E r%E)
+  (e, op, h, r at level 200) : expr_scope.
 
-Definition deep_try_ls : val := (
-  λ: "e" "l'" "h" "r",
+Definition handler : val := (
+  λ: "e" "op'" "h" "r",
     deep_try_mode "e"
       (λ: "x" "k", 
-          let: "l" := Fst (Fst "x") in
+          let: "op" := Fst (Fst "x") in
           let: "s" := Snd (Fst "x") in
           let: "x" := Snd "x" in
-          if: ("l" = "l'") && ("s" = #0) then
+          if: ("op" = "op'") && ("s" = #0) then
             "h" "x" "k"
           else
-            "k" (unlft: ("l'", Do OS ("l", "s", "x")))
+            "k" (unlft_def "op'" (λ: <>, do: ("op", "s", "x")))
       )
       (λ: "x" "k", 
-          let: "l" := Fst (Fst "x") in
+          let: "op" := Fst (Fst "x") in
           let: "s" := Snd (Fst "x") in
           let: "x" := Snd "x" in
-          if: ("l" = "l'") && ("s" = #0) then
+          if: ("op" = "op'") && ("s" = #0) then
             "h" "x" "k"
           else
-            "k" (unlft: ("l'", Do MS ("l", "s", "x")))
+            "k" (unlft_def "op'" (λ: <>, doₘ: ("op", "s", "x")))
       )
       "r" 
 )%V.
             
-Arguments deep_try_ls : simpl never.
+Arguments handler : simpl never.
 
-Definition DeepTryLS (e : expr) (l : label) (h r : expr) : expr :=
-  deep_try_ls (λ: <>, e)%E (effect l)%V h r.
+Definition Handler (e : expr) (op : operation) (h r : expr) : expr :=
+  handler (λ: <>, e)%E (effect op) h r.
 
-Definition DeepTryLSV (e : expr) (l : label) (h r : expr) : expr :=
-  deep_try_ls (λ: <>, e)%V (effect l)%V h r.
+Definition HandlerV (e : expr) (op : operation) (h r : expr) : expr :=
+  handler (λ: <>, e)%V (effect op) h r.
 
-Notation "'deep-try-ls:' e 'handle' l 'with' 'effect' h | 'return' r 'end'" :=
-  (DeepTryLS e l h r)
-  (e, l, h, r at level 200, only parsing) : expr_scope.
+Notation "'handle:' e 'by' op '=>' h | 'ret' '=>' r 'end'" :=
+  (Handler e%E op h%E r%E)
+  (e, op, h, r at level 200) : expr_scope.
 
-Definition deep_try_ls_2 : val := (
-  λ: "e" "l1" "h1" "l2" "h2" "r",
+Definition handler2 : val := (
+  λ: "e" "op1" "h1" "op2" "h2" "r",
     deep_try_mode "e"
       (λ: "x" "k", 
-          let: "l" := Fst (Fst "x") in
+          let: "op" := Fst (Fst "x") in
           let: "s" := Snd (Fst "x") in
           let: "x" := Snd "x" in
-          if: ("l" = "l1") && ("s" = #0) then
+          if: ("op" = "op1") && ("s" = #0) then
             "h1" "x" "k"
           else
-            if: ("l" = "l2") && ("s" = #0) then
+            if: ("op" = "op2") && ("s" = #0) then
               "h2" "x" "k"
             else
-              "k" (unlft: ("l2", unlft: ("l1", Do OS ("l", "s", "x"))))
+              "k" (unlft_def "op2" (λ: <>, unlft_def "op1" (λ: <>, do: ("op", "s", "x"))))
       )
       (λ: "x" "k", 
-          let: "l" := Fst (Fst "x") in
+          let: "op" := Fst (Fst "x") in
           let: "s" := Snd (Fst "x") in
           let: "x" := Snd "x" in
-          if: ("l" = "l1") && ("s" = #0) then
+          if: ("op" = "op1") && ("s" = #0) then
             "h1" "x" "k"
           else
-            if: ("l" = "l2") && ("s" = #0) then
+            if: ("op" = "op2") && ("s" = #0) then
               "h2" "x" "k"
             else
-              "k" (unlft: ("l2", unlft: ("l1", Do MS ("l", "s", "x"))))
+              "k" (unlft_def "op2" (λ: <>, unlft_def "op1" (λ: <>, doₘ: ("op", "s", "x"))))
       )
       "r" 
 )%V.
             
-Arguments deep_try_ls_2 : simpl never.
+Arguments handler2 : simpl never.
 
-Definition DeepTryLS2 (e : expr) (l1 l2 : label) (h1 h2 r : expr) : expr :=
-  deep_try_ls_2 (λ: <>, e)%E (effect l1)%V h1 (effect l2)%V h2 r.
+Definition Handler2 (e : expr) (op1 op2 : operation) (h1 h2 r : expr) : expr :=
+  handler2 (λ: <>, e)%E (effect op1) h1 (effect op2) h2 r.
 
-Definition DeepTryLS2V (e : expr) (l1 l2 : label) (h1 h2 r : expr) : expr :=
-  deep_try_ls_2 (λ: <>, e)%V (effect l1)%V h1 (effect l2)%V h2 r.
+Definition Handler2V (e : expr) (op1 op2 : operation) (h1 h2 r : expr) : expr :=
+  handler2 (λ: <>, e)%V (effect op1) h1 (effect op2) h2 r.
 
-Notation "'deep-try-ls2:' e 'with' 'effect' l1 '=>' h1 | 'effect' l2 '=>' h2 | 'return' r 'end'" :=
-  (DeepTryLS2 e l1 l2 h1 h2 r)
-  (e, l1, h1, l2, h2, r at level 200, only parsing) : expr_scope.
-
+Notation "'handle2:' e 'by' op1 '=>' h1 | op2 '=>' h2 | 'ret' '=>' r 'end'" :=
+  (Handler2 e%E op1 op2 h1%E h2%E r%E)
+  (e, op1, h1, op2, h2, r at level 200) : expr_scope.

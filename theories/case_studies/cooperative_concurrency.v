@@ -27,9 +27,9 @@ From haffel.logic Require Import tactics.
 
 Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
-Definition async : val := (Λ: λ: "c", perform: (effect "async", "c"))%V.
+Definition async : val := (Λ: λ: "c", perform: "async" "c")%V.
 
-Definition await : val := (Λ: λ: "p", perform: (effect "await", "p"))%V.
+Definition await : val := (Λ: λ: "p", perform: "await" "p")%V.
 
 Definition yield : val := 
   (λ: <>, await <_> (async <_> (λ: <>, #())))%V. 
@@ -63,19 +63,19 @@ Definition runner : val :=
 
     let: "fulfill" := 
       (rec: "fulfill" <> := λ: "promise" "comp",   
-          deep-try-ls2: "comp" #() with
-            effect "async" => (λ: "x" "k", 
+          handle2: "comp" #() by
+            "async" => (λ: "x" "k", 
                   let: "new_prom" := ref (InjR NIL) in
                   "add" (λ: <>, "fulfill" <_> "new_prom" "x") ;;
                   "k" "new_prom"
             )
-          | effect "await" => (λ: "x" "k", 
+          | "await" => (λ: "x" "k", 
                   match: "x" <!- (InjR NIL) with
                     InjL "v" => "x" <!- (InjL "v") ;; "k" "v"
                   | InjR "ks" => "x" <!- InjR (CONS "k" "ks") ;; "next" #()
                   end
                 )
-          | return (λ: "x", 
+          | ret => (λ: "x", 
               let: "v" := "promise" <!- InjR NIL in
               match: "v" with
                 InjL <> => impossible
@@ -366,7 +366,7 @@ Section typing.
      set comp := ("comp", () -{ coop }-∘ '! β)%T.
      replace ([comp; promise; fulfill; resume_task; add;next]) with
              ([comp] ++ [promise; fulfill; resume_task; add;next]) by done.
-     iApply (sem_typed_deep_try_2_os OS "async" "await" (λ α, () -{ coop }-∘ '! α) (λ α, Promise ('! α)) (λ α, Promise ('! α)) (λ α, '! α)  _ _ _ _ [comp] []); solve_sidecond.
+     iApply (sem_typed_handler2_os OS "async" "await" (λ α, () -{ coop }-∘ '! α) (λ α, Promise ('! α)) (λ α, Promise ('! α)) (λ α, '! α)  _ _ _ _ [comp] []); solve_sidecond.
      { iApply row_le_refl. }
      + iApply (sem_typed_app_os () _ ('! β)); [iApply sem_typed_var'|]. 
        rewrite -/await_sig -/(async_sig coop) -/coop. 
