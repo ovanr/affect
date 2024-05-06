@@ -1083,8 +1083,7 @@ Section compatibility.
 
   (* Effect handling rules *)
   
-  Lemma sem_typed_perform_os τ ρ' op (A B : sem_ty Σ → sem_ty Σ) Γ₁ Γ₂ e
-    `{ NonExpansive A, NonExpansive B, ! OSRow ρ' } :
+  Lemma sem_typed_perform_os τ ρ' op (A B : sem_ty Σ → sem_ty Σ) Γ₁ Γ₂ e `{ ! OSRow ρ' } :
     let σ := (∀S: α, A α ⇒ B α | OS)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     Γ₁ ⊨ e : ρ : A τ ⊨ Γ₂ -∗
@@ -1110,6 +1109,31 @@ Section compatibility.
     iIntros "%b Hκ". ewpw_pure_steps. iFrame "∗#".
   Qed.
 
+  Lemma sem_typed_perform_os_mult {TT : tele} τ ρ' op (A B : tele → sem_ty Σ) Γ₁ Γ₂ e `{ ! OSRow ρ' } :
+    let σ := (∀S.: αs, A αs ⇒ B αs | OS)%S in
+    let ρ := ((op, σ) ·: ρ')%R in
+    Γ₁ ⊨ e : ρ : A τ ⊨ Γ₂ -∗
+    Γ₁ ⊨ (perform: op e) : ρ : B τ ⊨ Γ₂.
+  Proof.
+    iIntros (σ ρ) "#He !# %vs HΓ₁ //=". 
+    iApply (ewpw_bind [AppRCtx _; DoCtx OS; PairRCtx _]); simpl; first done.
+    assert (HOS : OSRow ((op, σ) · ρ')).
+    { apply row_ins_os_row. [apply _|done]. }
+    iApply (ewpw_mono_os with "[HΓ₁]"); [by iApply "He"|].
+    iIntros "%v [Hι HΓ₂] //= !>". rewrite /rec_perform.
+    iApply (ewpw_bind [AppRCtx _]); first done.
+    ewpw_pure_steps. iApply ewpw_do_os.
+    rewrite /sem_row_iEff /=.
+    iExists v, op, 0, σ. iSplit; first done.
+    iAssert (ρ !! (op, 0) ≡ Some σ)%I as "Hlookup".
+    { rewrite lookup_insert //. }
+    iDestruct (filter_os_lookup ρ op 0 σ) as "[_ H]".
+    iDestruct ("H" with "[]") as "$".
+    { iFrame "#". rewrite /σ {2} sem_sig_eff_unfold_1 //. }
+    rewrite sem_sig_eff_eq /=.
+    iExists τ, v. iFrame. iSplitR; first done.
+    iIntros "%b Hκ". ewpw_pure_steps. iFrame "∗#".
+  Qed.
   Lemma sem_typed_perform_ms τ ρ' m op (A B : sem_ty Σ → sem_ty Σ) Γ₁ Γ₂ e
     `{ NonExpansive A, NonExpansive B } :
     let σ := (∀S: α, A α ⇒ B α | m)%S in
