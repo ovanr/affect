@@ -1083,16 +1083,16 @@ Section compatibility.
 
   (* Effect handling rules *)
   
-  Lemma sem_typed_perform_os τ ρ' op (A B : sem_ty Σ → sem_ty Σ) Γ₁ Γ₂ e `{ ! OSRow ρ' } :
-    let σ := (∀S: α, A α ⇒ B α | OS)%S in
+  Lemma sem_typed_perform_os {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e `{! OSRow ρ'} :
+    let σ := (∀S..: αs, A αs ⇒ B αs | OS)%S in
     let ρ := ((op, σ) ·: ρ')%R in
-    Γ₁ ⊨ e : ρ : A τ ⊨ Γ₂ -∗
-    Γ₁ ⊨ (perform: op e) : ρ : B τ ⊨ Γ₂.
+    Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
+    Γ₁ ⊨ (perform: op e) : ρ : B τs ⊨ Γ₂.
   Proof.
     iIntros (σ ρ) "#He !# %vs HΓ₁ //=". 
     iApply (ewpw_bind [AppRCtx _; DoCtx MS; PairRCtx _]); simpl; first done.
     assert (HOS : OSRow ((op, σ) · ρ')).
-    { apply row_ins_os_row; [apply _|done]. }
+    { apply row_ins_os_row; [apply _| done]. }
     iApply (ewpw_mono_os with "[HΓ₁]"); [by iApply "He"|].
     iIntros "%v [Hι HΓ₂] //= !>". rewrite /rec_perform.
     iApply (ewpw_bind [AppRCtx _]); first done.
@@ -1102,17 +1102,16 @@ Section compatibility.
     iAssert (ρ !! (op, 0) ≡ Some σ)%I as "Hlookup".
     { rewrite lookup_insert //. }
     rewrite sem_sig_eff_eq /=. iFrame "#∗".
-    iExists τ, v. iFrame. iSplitR; first done.
+    iExists τs, v. iFrame. iSplitR; first done.
     iIntros "%b Hκ". ewpw_pure_steps. iFrame "∗#".
   Qed.
 
-  Lemma sem_typed_perform_ms τ ρ' m op (A B : sem_ty Σ → sem_ty Σ) Γ₁ Γ₂ e
-    `{ NonExpansive A, NonExpansive B } :
-    let σ := (∀S: α, A α ⇒ B α | m)%S in
+  Lemma sem_typed_perform_ms {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
+    let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     copy_env Γ₂ -∗
-    Γ₁ ⊨ e : ρ : A τ ⊨ Γ₂ -∗
-    Γ₁ ⊨ (perform: op e) : ρ : B τ ⊨ Γ₂.
+    Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
+    Γ₁ ⊨ (perform: op e) : ρ : B τs ⊨ Γ₂.
   Proof.
     iIntros (σ ρ) "#HΓcpy #He !# %vs HΓ₁ //=". 
     iApply (ewpw_bind [AppRCtx _; DoCtx MS; PairRCtx _]); simpl; first done.
@@ -1123,10 +1122,9 @@ Section compatibility.
     iExists v, op, 0, σ. iSplit; first done.
     iSplit; first rewrite lookup_insert //.
     rewrite sem_sig_eff_eq /=.
-    iExists τ, v. iFrame. iSplitR; first done.
+    iExists τs, v. iFrame. iSplitR; first done.
     iDestruct ("HΓcpy" with "HΓ₂") as "#HΓ₂'". 
-    destruct m; simpl; last iIntros "!#"; 
-    iIntros "%b Hκ"; ewpw_pure_steps; iFrame "∗#".
+    iIntros "!#"; iIntros "%b Hκ"; ewpw_pure_steps; iFrame "∗#".
   Qed.
 
   Lemma sem_typed_lft τ op σ ρ Γ₁ Γ₂ e :
@@ -1145,13 +1143,13 @@ Section compatibility.
     iApply ewpw_unlft. by iApply "He".
   Qed.
 
-  Lemma sem_typed_shandler_os m op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{! OSRow ρ' }:
+  Lemma sem_typed_shandler_os {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{! OSRow ρ' }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S: α, A α ⇒ B α | m)%S in
+    let σ := (∀S..: αs, A αs ⇒ B αs | m)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀ α, (x, A α) :: (k, B α -{ ρ }-∘ τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-∘ τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (shandle: e by
                   op  => (λ: x k, h)
@@ -1167,7 +1165,7 @@ Section compatibility.
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". solve_env.
     - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
@@ -1180,14 +1178,14 @@ Section compatibility.
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
-  Lemma sem_typed_shandler_ms op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+  Lemma sem_typed_shandler_ms {TT : tele} op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S: α, A α ⇒ B α | MS)%S in
+    let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀ α, (x, A α) :: (k, B α -{ ρ }-> τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-> τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (shandleₘ: e by
                   op  => (λ: x k, h)
@@ -1204,7 +1202,7 @@ Section compatibility.
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". rewrite - env_sem_typed_insert //.
     - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
@@ -1217,13 +1215,13 @@ Section compatibility.
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
   
-  Lemma sem_typed_shallow_try_ms_alt op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{! OSRow ρ' }:
+  Lemma sem_typed_shallow_try_ms_alt {TT : tele} op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{! OSRow ρ' }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S: α, A α ⇒ B α | MS)%S in
+    let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀ α, (x, A α) :: (k, B α -{ ρ }-> τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-> τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (shandleₘ: e by 
                   op  => (λ: x k, h)
@@ -1239,7 +1237,7 @@ Section compatibility.
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". solve_env.
     - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
@@ -1252,14 +1250,14 @@ Section compatibility.
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
-  Lemma sem_typed_handler_os m op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+  Lemma sem_typed_handler_os {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S: α, A α ⇒ B α | m)%S in
+    let σ := (∀S..: αs, A αs ⇒ B αs | m)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀ α, (x, A α) :: (k, B α -{ ρ'' }-∘ τ') :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ'' }-∘ τ') :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (handle: e by
                     op => (λ: x k, h)
@@ -1278,7 +1276,7 @@ Section compatibility.
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". solve_env.
     - iIntros (v k') "!# (%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
@@ -1292,14 +1290,14 @@ Section compatibility.
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
-  Lemma sem_typed_handle_ms op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+  Lemma sem_typed_handle_ms {TT : tele} op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S: α, A α ⇒ B α | MS)%S in
+    let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀ α, (x, A α) :: (k, B α -{ ρ'' }-> τ') :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ'' }-> τ') :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (handleₘ: e by 
                   op  => (λ: x k, h)
@@ -1318,7 +1316,7 @@ Section compatibility.
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". solve_env.
     - iIntros (v k') "!# (%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
@@ -1331,16 +1329,16 @@ Section compatibility.
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
-  Lemma sem_typed_handler2_os m op1 op2 A1 B1 A2 B2 τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
+  Lemma sem_typed_handler2_os {TT: tele} m op1 op2 (A1 B1 A2 B2 : TT → sem_ty Σ)τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k → op1 ≠ op2 →
-    let σ1 := (∀S: α, A1 α ⇒ B1 α | m)%S in
-    let σ2 := (∀S: α, A2 α ⇒ B2 α | m)%S in
+    let σ1 := (∀S..: αs, A1 αs ⇒ B1 αs | m)%S in
+    let σ2 := (∀S..: αs, A2 αs ⇒ B2 αs | m)%S in
     let ρ := ((op1, σ1) ·: (op2, σ2) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀ α, (x, A1 α) :: (k, B1 α -{ ρ'' }-∘ τ') :: Γ' ⊨ h1 : ρ'' : τ' ⊨ Γ₃) -∗
-    (∀ α, (x, A2 α) :: (k, B2 α -{ ρ'' }-∘ τ') :: Γ' ⊨ h2 : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A1 αs) :: (k, B1 αs -{ ρ'' }-∘ τ') :: Γ' ⊨ h1 : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A2 αs) :: (k, B2 αs -{ ρ'' }-∘ τ') :: Γ' ⊨ h2 : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (handle2: e by
                   op1 => (λ: x k, h1)
@@ -1360,7 +1358,7 @@ Section compatibility.
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". solve_env.
     - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
@@ -1372,7 +1370,7 @@ Section compatibility.
         iIntros "!# % [$ _] //".
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
     - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
@@ -1385,16 +1383,16 @@ Section compatibility.
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
-  Lemma sem_typed_handler2_ms op1 op2 A1 B1 A2 B2 τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
+  Lemma sem_typed_handler2_ms {TT : tele} op1 op2 (A1 B1 A2 B2 : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k → op1 ≠ op2 →
-    let σ1 := (∀S: α, A1 α ⇒ B1 α | MS)%S in
-    let σ2 := (∀S: α, A2 α ⇒ B2 α | MS)%S in
+    let σ1 := (∀S..: αs, A1 αs ⇒ B1 αs | MS)%S in
+    let σ2 := (∀S..: αs, A2 αs ⇒ B2 αs | MS)%S in
     let ρ := ((op1, σ1) ·: (op2, σ2) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀ α, (x, A1 α) :: (k, B1 α -{ ρ'' }-> τ') :: Γ' ⊨ h1 : ρ'' : τ' ⊨ Γ₃) -∗
-    (∀ α, (x, A2 α) :: (k, B2 α -{ ρ'' }-> τ') :: Γ' ⊨ h2 : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A1 αs) :: (k, B1 αs -{ ρ'' }-> τ') :: Γ' ⊨ h1 : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A2 αs) :: (k, B2 αs -{ ρ'' }-> τ') :: Γ' ⊨ h2 : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
     Γ₁ ++ Γ' ⊨ (handle2ₘ: e by
                   op1 => (λ: x k, h1)
@@ -1414,7 +1412,7 @@ Section compatibility.
       { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
       iIntros "!# %w [$ HΓ₃] !>". solve_env.
     - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
@@ -1427,7 +1425,7 @@ Section compatibility.
         iIntros "!# % [$ _] //".
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
     - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)". 
+      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %as & <- & Ha & Hκb)". 
       ewpw_pure_steps. solve_dec.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").

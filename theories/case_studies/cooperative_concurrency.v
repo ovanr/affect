@@ -117,9 +117,8 @@ Section typing.
     intros ????. rewrite /coop_pre. rewrite /sem_row_cons /= /sem_row_ins.
     intros ?. destruct (decide (i = ("async", 0))) as [->|Hneg].
     - rewrite !lookup_insert. f_equiv. rewrite /async_sig.
-      rewrite /sem_sig_eff. f_equiv. f_equiv. intros ?. 
-      apply non_dep_fun_dist. do 4 f_equiv. f_contractive.
-      rewrite /sem_ty_aarr. by do 4 f_equiv.
+      rewrite /sem_sig_eff. simpl. do 5 f_equiv. f_contractive.
+      apply non_dep_fun_dist. by f_equiv. 
     - rewrite (lookup_insert_ne _ ("async", 0) i (async_sig y)) //. 
       rewrite (lookup_insert_ne _ ("async", 0) i (async_sig x)) //. 
   Qed.
@@ -154,7 +153,7 @@ Section typing.
     rewrite /coop. apply row_rec_os_row. iIntros (θ).
     rewrite /coop_pre. apply row_ins_os_row.
     { rewrite /async_sig. apply sig_eff_os_os_sig; apply _. }
-    simpl. apply row_tun_os_row. apply row_cons_os_row; last apply row_nil_os_row.
+    apply row_tun_os_row. apply row_cons_os_row; last apply row_nil_os_row.
     apply sig_eff_os_os_sig; apply _.
   Qed.
 
@@ -190,7 +189,8 @@ Section typing.
     iApply sem_typed_ufun; solve_sidecond. simpl. rewrite /coop.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
     rewrite /coop_pre -/coop.
-    iApply (sem_typed_perform_os α _ "async" (λ α, () -{ coop }-∘ '! α) (λ α, Promise ('! α))).
+    iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg (α : sem_ty Σ)] _ "async"
+                                 (tele_app (λ α, () -{ coop }-∘ '! α)) (tele_app (λ α, Promise ('! α)))).
     iApply sem_typed_var'.
   Qed.
 
@@ -204,7 +204,8 @@ Section typing.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
     rewrite /coop_pre -/coop. 
     iApply sem_typed_sub_row; first iApply row_le_swap_second; first done.
-    iApply (sem_typed_perform_os α _ "await" (λ α, Promise ('! α)) (λ α, '! α)).
+    iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg (α : sem_ty Σ)] _ "await" 
+                                 (tele_app (λ α, Promise ('! α))) (tele_app (λ α, '! α))).
     iApply sem_typed_var'.
   Qed.
 
@@ -366,7 +367,11 @@ Section typing.
      set comp := ("comp", () -{ coop }-∘ '! β)%T.
      replace ([comp; promise; fulfill; resume_task; add;next]) with
              ([comp] ++ [promise; fulfill; resume_task; add;next]) by done.
-     iApply (sem_typed_handler2_os OS "async" "await" (λ α, () -{ coop }-∘ '! α) (λ α, Promise ('! α)) (λ α, Promise ('! α)) (λ α, '! α)  _ _ _ _ [comp] []); solve_sidecond.
+     iApply (sem_typed_handler2_os (TT:=[tele _]) OS "async" "await" 
+                    (tele_app (λ α, () -{ coop }-∘ '! α)) 
+                    (tele_app (λ α, Promise ('! α))) 
+                    (tele_app (λ α, Promise ('! α))) 
+                    (tele_app (λ α, '! α))  _ _ _ _ [comp] []); solve_sidecond.
      { iApply row_le_refl. }
      + iApply (sem_typed_app_os () _ ('! β)); [iApply sem_typed_var'|]. 
        rewrite -/await_sig -/(async_sig coop) -/coop. 

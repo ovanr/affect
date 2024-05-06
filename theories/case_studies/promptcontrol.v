@@ -113,14 +113,14 @@ Section handler_alt.
       iFrame "#%∗".
   Qed.
   
-  Lemma sem_typed_handler_alt_os m op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+  Lemma sem_typed_handler_alt_os {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
       x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → x ∉ env_dom Γ₂ → k ∉ env_dom Γ₂ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-      let σ := (∀S: α, A α ⇒ B α | m)%S in
+      let σ := (∀S..: αs, A αs ⇒ B αs | m)%S in
       let ρ := ((op, σ) ·: ρ')%R in
       copy_env Γ' -∗
       ρ' ≤R ρ'' -∗
       Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-      (∀ α, (x, A α) :: (k, B α -{ ρ }-∘ τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
+      (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-∘ τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
       (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
       Γ₁ ++ Γ' ⊨ (handle-alt: e by 
                      op => (λ: x k, h)
@@ -141,7 +141,7 @@ Section handler_alt.
         { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
         iIntros "!# %w [$ HΓ₃] !>". solve_env.
       - iIntros (v k') "!# (%Φ & Hρ & HPost)".
-        rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)".
+        rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)".
         ewpw_pure_steps. solve_dec. 
         rewrite delete_commute - subst_map_insert. 
         rewrite - delete_insert_ne // - subst_map_insert.
@@ -155,14 +155,14 @@ Section handler_alt.
         + iIntros "!# /= % [$ H] !>". do 2 (rewrite - env_sem_typed_insert //).
     Qed.
   
-  Lemma sem_typed_handler_alt_ms op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+  Lemma sem_typed_handler_alt_ms {TT : tele} op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
       x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → x ∉ env_dom Γ₂ → k ∉ env_dom Γ₂ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-      let σ := (∀S: α, A α ⇒ B α | MS)%S in
+      let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
       let ρ := ((op, σ) ·: ρ')%R in
       copy_env Γ' -∗
       ρ' ≤R ρ'' -∗
       Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-      (∀ α, (x, A α) :: (k, B α -{ ρ }-> τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
+      (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-> τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
       (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
       Γ₁ ++ Γ' ⊨ (handle-altₘ: e by
                      op  => (λ: x k, h)
@@ -183,7 +183,7 @@ Section handler_alt.
         { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
         iIntros "!# %w [$ HΓ₃] !>". solve_env.
       - iIntros (v k') "!# (%Φ & Hρ & HPost)".
-        rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %a & <- & Ha & Hκb)".
+        rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)".
         ewpw_pure_steps. solve_dec. 
         rewrite delete_commute - subst_map_insert. 
         rewrite - delete_insert_ne // - subst_map_insert.
@@ -213,10 +213,8 @@ Section typing.
     intros ????. rewrite /ctrl_pre. rewrite /sem_row_cons /= /sem_row_ins.
     intros ?. destruct (decide (i = ("ctrl", 0))) as [->|Hneg].
     - rewrite !lookup_insert. f_equiv.
-      rewrite /sem_sig_eff. f_equiv. f_equiv. intros ?. 
-      apply non_dep_fun_dist. do 4 f_equiv. f_contractive.
-      apply non_dep_fun_dist. f_equiv; first done. 
-      rewrite /sem_ty_aarr. intros ?. by do 4 f_equiv.
+      rewrite /sem_sig_eff. simpl. do 5 f_equiv. f_contractive.
+      apply non_dep_fun_dist. f_equiv; first done. by f_equiv.
     - rewrite (lookup_insert_ne _ ("ctrl", 0) i _) //. 
       rewrite (lookup_insert_ne _ ("ctrl", 0) i _) //.
   Qed.
@@ -250,7 +248,7 @@ Section typing.
     iApply sem_typed_ufun; solve_sidecond. simpl.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
     rewrite /ctrl_pre -/(ctrl β).
-    iApply (sem_typed_perform_os α _ "ctrl" _ (λ α, α)).
+    iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg (α : sem_ty Σ)] _ "ctrl" _ (tele_app (λ α, α))).
     iApply sem_typed_var'.
   Qed.
 
@@ -262,7 +260,7 @@ Section typing.
     iApply sem_typed_ufun; solve_sidecond. simpl.
     rewrite - (app_nil_r [("e", _)]).
     set Γ₁ := [("e", () -{ ctrl β }-∘ β)].
-    iApply (sem_typed_handler_alt_os OS "ctrl" (λ α, (α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β) (λ α,  α) β β ⟨⟩%R ⟨⟩%R Γ₁ [] [] []); solve_sidecond.  
+    iApply (sem_typed_handler_alt_os (TT:=[tele _]) OS "ctrl" (tele_app (λ α, (α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β)) (tele_app (λ α,  α)) β β ⟨⟩%R ⟨⟩%R Γ₁ [] [] []); solve_sidecond.  
     { iApply row_le_nil. }
     - rewrite /Γ₁. iApply sem_typed_sub_row. 
       { iApply (row_le_rec_unfold (λ θ, ctrl_pre β θ)). }

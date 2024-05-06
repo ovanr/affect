@@ -52,8 +52,8 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition putsig : operation * sem_sig Σ := ("put", ∀S: _, ℤ ⇒ () | MS)%S.  
-  Definition getsig : operation * sem_sig Σ := ("get", ∀S: _, () ⇒ ℤ | MS)%S.
+  Definition putsig : operation * sem_sig Σ := ("put", ∀S: (_ : sem_ty Σ), ℤ ⇒ () | MS)%S.  
+  Definition getsig : operation * sem_sig Σ := ("get", ∀S: (_ : sem_ty Σ), () ⇒ ℤ | MS)%S.
   Definition st : sem_row Σ := (putsig ·: getsig ·: ⟨⟩)%R.
 
   Lemma get_typed :
@@ -62,7 +62,7 @@ Section typing.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. rewrite /st. iApply sem_typed_sub_row.
     { by iApply row_le_swap_second. }
-    iApply (sem_typed_perform_ms () with "[] []"); first solve_copy.
+    iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg ()] with "[] []"); first solve_copy.
     simpl. iApply sem_typed_unit'.
   Qed.
 
@@ -70,7 +70,7 @@ Section typing.
     ⊢ ⊨ᵥ put : (ℤ -{ st }-> ()).
   Proof.
     iIntros. iApply sem_typed_closure; solve_sidecond.
-    iApply (sem_typed_perform_ms () with "[] []"); first solve_copy.
+    iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg ()] with "[] []"); first solve_copy.
     iApply sem_typed_var'.
   Qed.
 

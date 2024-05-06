@@ -38,8 +38,8 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition getSig : operation * sem_sig Σ := ("get", ∀S: _, () ⇒ Str | OS)%S.  
-  Definition printSig : operation * sem_sig Σ := ("print", ∀S: _, Str ⇒ () | MS)%S.
+  Definition getSig : operation * sem_sig Σ := ("get", ∀S: (_ : sem_ty Σ), () ⇒ Str | OS)%S.  
+  Definition printSig : operation * sem_sig Σ := ("print", ∀S: (_ : sem_ty Σ), Str ⇒ () | MS)%S.
   Definition st : sem_row Σ := (getSig ·: printSig ·: ⟨⟩)%R.
 
   Local Instance os_row_get_sig : OSRow (getSig ·: ⟨⟩)%R. 
@@ -47,7 +47,7 @@ Section typing.
     apply row_cons_os_row; last apply row_nil_os_row.
     apply sig_eff_os_os_sig; apply _.
   Qed.
-  
+
   Lemma verboseFree_typed :
     ⊢ ⊨ᵥ verboseFree : (Ref 𝔹 -{ st }-> ()).
   Proof.
@@ -58,13 +58,15 @@ Section typing.
       iApply sem_typed_sub_row.
       { iApply row_le_cons_comp; [iApply sig_le_refl|iApply row_le_nil]. }
       iApply sem_typed_frame.
-      iApply (sem_typed_perform_os () ⟨⟩%R "get" (λ _, ()) (λ _, Str)).
+      iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg ()%T] ⟨⟩%R "get" 
+                      (tele_app (λ _, ())) (tele_app (λ _, Str))).
       iApply sem_typed_unit'.
     - iApply sem_typed_seq; first iApply sem_typed_sub_nil.
       { iApply sem_typed_frame. iApply sem_typed_free. iApply sem_typed_var. }
       rewrite /st. iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       rewrite -/getSig.
-      iApply (sem_typed_perform_ms () (getSig ·: ⟨⟩)%R MS "print" (λ _, Str) (λ _, ())); solve_copy.
+      iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg ()] (getSig ·: ⟨⟩)%R 
+                      "print" (tele_app (λ _, Str)) (tele_app ((λ _, ())))); solve_copy.
       iApply sem_typed_var'.
   Qed.
 
