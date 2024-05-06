@@ -25,25 +25,28 @@ From haffel.logic Require Import sem_operators.
 From haffel.logic Require Import compatibility.
 From haffel.logic Require Import tactics.
 
-Definition handler_alt : val := (
+Definition handler_alt (m : mode) : val := (
   rec: "H" "e" "op" "h" "r" :=
-    shandler "e" "op" (λ: "x" "k", "H" (λ: <>, "h" "x" "k") "op" "h" "r") "r"
+    shandler m "e" "op" (λ: "x" "k", "H" (λ: <>, "h" "x" "k") "op" "h" "r") "r"
 )%V.
 
 Arguments handler_alt : simpl never.
 
-Definition HandlerAlt (e : expr) (op : operation) (h r : expr) : expr :=
-  handler_alt (λ: <>, e)%E (effect op) h r.
+Definition HandlerAlt (m : mode) (e : expr) (op : operation) (h r : expr) : expr :=
+  handler_alt m (λ: <>, e)%E (effect op) h r.
 
-Definition HandlerAltV (e : expr) (op : operation) (h r : expr) : expr :=
-  handler_alt (λ: <>, e)%V (effect op) h r.
+Definition HandlerAltV (m : mode) (e : expr) (op : operation) (h r : expr) : expr :=
+  handler_alt m (λ: <>, e)%V (effect op) h r.
 
 Notation "'handle-alt:' e 'by' op '=>' h | 'ret' => r 'end'" :=
-  (HandlerAlt e op h r)
+  (HandlerAlt OS e op h r)
+  (e, op, h, r at level 200, only parsing) : expr_scope.
+
+Notation "'handle-altₘ:' e 'by' op '=>' h | 'ret' => r 'end'" :=
+  (HandlerAlt MS e op h r)
   (e, op, h, r at level 200, only parsing) : expr_scope.
 
 Definition control : val := (Λ: Λ: λ: "f", perform: "ctrl" "f")%V.
-Definition controlₘ : val := (Λ: Λ: λ: "f", performₘ: "ctrl" "f")%V.
 
 Definition prompt : val := 
   (Λ: λ: "e", 
@@ -57,45 +60,45 @@ Section handler_alt.
   Context `{!heapGS Σ}.
   
   Notation handler_alt_spec_type Σ :=
-    (coPset -d> operation-d> sem_sig Σ -d> sem_row Σ -d> mode -d> (val -d> iPropO Σ) 
+    (coPset -d> operation-d> sem_sig Σ -d> sem_row Σ -d> mode -d> mode -d> (val -d> iPropO Σ) 
             -d> expr -d> expr
             -d> sem_row Σ -d> (val -d> iPropO Σ) -d> iPropO Σ) (only parsing).
   
     (* Correctness of the effect branch. *)
   Definition handler_alt_spec `{irisGS eff_lang Σ} : handler_alt_spec_type Σ := (
-    λ E op σ ρ m Φ h r ρ' Φ',
+    λ E op σ ρ mh mρ Φ h r ρ' Φ',
     
     (* Subsumption on row *)
     (ρ ≤R ρ') ∗
   
     (* One-Shot Row *)
-    (⌜ m = OS → OSRow ρ ⌝) ∗
+    (⌜ mρ = OS → OSRow ρ ⌝) ∗
   
     (* Correctness of the return branch. *)
-    □?m (
+    □?mρ (
       ∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}
     ) ∧
   
     (* Correctness of the effect branch. *)
     □ (
       ∀ (v k : val),
-        iEff_car (upcl σ.1 σ.2) v (λ w, EWPW k w @ E <| (op, σ) ·: ρ |> {{ Φ }}) -∗
+        iEff_car (upcl mh σ) v (λ w, EWPW k w @ E <| (op, σ) ·: ρ |> {{ Φ }}) -∗
         EWPW h v k @ E <| (op, σ) ·: ρ |> {{ Φ }}
     ))%I.
   
-  Lemma ewpw_handler_alt E (op : operation) m σ ρ ρ' e (h r : val) Φ Φ' :
+  Lemma ewpw_handler_alt E (op : operation) mh mρ σ ρ ρ' e (h r : val) Φ Φ' :
     EWPW e @ E <| (op, σ) ·: ρ |> {{ Φ }} -∗
-    handler_alt_spec E op σ ρ m Φ h r ρ' Φ' -∗
-    EWPW (HandlerAltV e op h r) @E <| ρ' |> {{ Φ' }}.
+    handler_alt_spec E op σ ρ mh mρ Φ h r ρ' Φ' -∗
+    EWPW (HandlerAltV mh e op h r) @E <| ρ' |> {{ Φ' }}.
   Proof.
     iIntros "He H". rewrite /HandlerAltV. 
     iLöb as "IH" forall (e). rewrite /handler_alt /ewpw. 
     rewrite /handler_alt_spec.
     do 10 ewp_value_or_step. ewp_pure_steps. 
-    iApply (ewpw_shandler _ op m  with "He").
+    iApply (ewpw_shandler _ op mh mρ  with "He").
     iDestruct "H" as "(#H1 & %H2 & H3 & #H4)".
     rewrite /shandler. iFrame "#%".
-    destruct m; simpl.
+    destruct mρ; simpl.
     - iSplit; first iApply "H3".
       iIntros (v k) "(%Φ'' & Hσ & HPost)".
       rewrite /ewpw; do 6 ewp_value_or_step. 
@@ -110,7 +113,7 @@ Section handler_alt.
       iFrame "#%∗".
   Qed.
   
-  Lemma sem_typed_handler_alt_os m op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{NonExpansive A, NonExpansive B}:
+  Lemma sem_typed_handler_alt_os m op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
       x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → x ∉ env_dom Γ₂ → k ∉ env_dom Γ₂ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
       let σ := (∀S: α, A α ⇒ B α | m)%S in
       let ρ := ((op, σ) ·: ρ')%R in
@@ -130,7 +133,7 @@ Section handler_alt.
       iSpecialize ("He" $! vs with "HΓ₁").
       iRevert "He". iLöb as "IH" forall (e). iIntros "He".
       ewpw_pure_steps. 
-      iApply (ewpw_handler_alt _ _ MS with "He [HΓ']").
+      iApply (ewpw_handler_alt _ _ OS MS with "He [HΓ']").
       rewrite /handler_alt.
       repeat iSplit; eauto. simpl. iIntros "!#". 
       - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
@@ -152,7 +155,7 @@ Section handler_alt.
         + iIntros "!# /= % [$ H] !>". do 2 (rewrite - env_sem_typed_insert //).
     Qed.
   
-  Lemma sem_typed_handler_alt_ms op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{NonExpansive A, NonExpansive B}:
+  Lemma sem_typed_handler_alt_ms op A B τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
       x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → x ∉ env_dom Γ₂ → k ∉ env_dom Γ₂ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
       let σ := (∀S: α, A α ⇒ B α | MS)%S in
       let ρ := ((op, σ) ·: ρ')%R in
@@ -161,7 +164,7 @@ Section handler_alt.
       Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
       (∀ α, (x, A α) :: (k, B α -{ ρ }-> τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
       (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-      Γ₁ ++ Γ' ⊨ (handle-alt: e by
+      Γ₁ ++ Γ' ⊨ (handle-altₘ: e by
                      op  => (λ: x k, h)
                    | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
     Proof.
@@ -172,7 +175,7 @@ Section handler_alt.
       iSpecialize ("He" $! vs with "HΓ₁").
       iRevert "He". iLöb as "IH" forall (e). iIntros "He".
       ewpw_pure_steps. 
-      iApply (ewpw_handler_alt _ _ MS with "He [HΓ']").
+      iApply (ewpw_handler_alt _ _ MS MS with "He [HΓ']").
       rewrite /handler_alt.
       repeat iSplit; eauto. simpl. iIntros "!#". 
       - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
@@ -210,7 +213,7 @@ Section typing.
     intros ????. rewrite /ctrl_pre. rewrite /sem_row_cons /= /sem_row_ins.
     intros ?. destruct (decide (i = ("ctrl", 0))) as [->|Hneg].
     - rewrite !lookup_insert. f_equiv.
-      rewrite /sem_sig_eff. f_equiv. f_equiv. intros ??. 
+      rewrite /sem_sig_eff. f_equiv. f_equiv. intros ?. 
       apply non_dep_fun_dist. do 4 f_equiv. f_contractive.
       apply non_dep_fun_dist. f_equiv; first done. 
       rewrite /sem_ty_aarr. intros ?. by do 4 f_equiv.

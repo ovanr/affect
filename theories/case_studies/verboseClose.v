@@ -32,7 +32,7 @@ From haffel.logic Require Import tactics.
 Definition verboseFree : val := 
     (λ: "f", let: "s" := perform: "get" #() in
              let: <>  := Free "f" in
-             performₘ: "print" "s")%V.
+             perform: "print" "s")%V.
 
 Section typing.
 

@@ -37,7 +37,7 @@ Delimit Scope sem_ty_scope with T.
 
 (** * Semantic Effect Signature. *)
 
-Definition sem_sig Σ := (modeO * iEff Σ)%type.
+Definition sem_sig Σ := (iEff Σ)%type.
 
 Declare Scope sem_sig_scope.
 (* Bind Scope sem_sig_scope with sem_sig. *)
@@ -147,7 +147,7 @@ Proof.
   unfold ty_le, tc_opaque. apply _.
 Qed.
 
-Definition sig_le {Σ} (σ σ' : sem_sig Σ) := tc_opaque (mode_le σ.1 σ'.1 ∗ iEff_le σ.2 σ'.2)%I.
+Definition sig_le {Σ} (σ σ' : sem_sig Σ) := tc_opaque (iEff_le σ σ')%I.
 Global Instance sig_le_persistent {Σ} σ σ' :
   Persistent (@sig_le Σ σ σ').
 Proof.

@@ -25,8 +25,8 @@ From haffel.logic Require Import sem_operators.
 From haffel.logic Require Import compatibility.
 From haffel.logic Require Import tactics.
 
-Definition get : val := (λ: <>, performₘ: "get" #())%V.
-Definition put : val := (λ: "s", performₘ: "put" "s")%V.
+Definition get : val := (λ: <>, perform: "get" #())%V.
+Definition put : val := (λ: "s", perform: "put" "s")%V.
 
 Definition fact : val :=
   (rec: "fact" "n" := if: #1 < "n" then put (get #() * "n");; "fact" ("n" - #1)
@@ -114,7 +114,7 @@ Section typing.
     simpl. iApply (sem_typed_let _ _ _ _ [("n", ℤ)]); solve_sidecond. 
     { iApply sem_typed_alloc_cpy. iApply sem_typed_int. }
     iApply sem_typed_swap_second. rewrite app_singletons. 
-    iApply (sem_typed_handler2_ms "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () ℤ ⊥ _ _ [] with "[] [] []"); solve_sidecond.
+    iApply (sem_typed_handler2_os MS "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () ℤ ⊥ _ _ [] with "[] [] []"); solve_sidecond.
     { iApply row_le_refl. }
     - iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_var'.
@@ -122,15 +122,15 @@ Section typing.
       iApply sem_typed_val. iApply fact_typed.
     - iIntros (?).  iApply sem_typed_weaken.
       iApply sem_typed_swap_second. 
-      iApply (sem_typed_app_ms ℤ); solve_copy. 
-      { iApply sem_typed_sub_u2aarr. iApply sem_typed_var'. }
+      iApply (sem_typed_app_os ℤ); solve_copy. 
+      { iApply sem_typed_var'. }
       iApply (sem_typed_load_cpy ℤ); solve_sidecond.
       iApply sem_typed_var'.
     - iIntros (?).
       iApply sem_typed_swap_third. iApply sem_typed_swap_second.
       iApply (sem_typed_seq _ _ _ _  [("k", _)]).
       { iApply sem_typed_store_cpy; iApply sem_typed_var'. }
-      iApply sem_typed_app_os; [iApply sem_typed_sub_u2aarr; iApply sem_typed_var'|].
+      iApply sem_typed_app_os; [iApply sem_typed_var'|].
       iApply sem_typed_unit.
     - simpl. iApply sem_typed_weaken. iApply (sem_typed_load_cpy ℤ); solve_sidecond.
       iApply sem_typed_var'.
@@ -142,7 +142,7 @@ Section typing.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_int.
     rewrite - {1} (app_nil_r [("n", ℤ)]).
-    iApply (sem_typed_handler2_ms "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () _ _ _ _ []); solve_sidecond.
+    iApply (sem_typed_handler2_os MS "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () _ _ _ _ []); solve_sidecond.
     { iApply row_le_refl. }
     - iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_var'.
@@ -153,13 +153,13 @@ Section typing.
       iApply sem_typed_afun; solve_sidecond. simpl.
       iApply (sem_typed_contraction _ _ _ _ _ ℤ); solve_sidecond.
       do 2 (iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_var').
-      iApply sem_typed_sub_u2aarr. iApply sem_typed_var.
+      iApply sem_typed_var.
     - iIntros (?).
       rewrite - (app_nil_r [("x", _); ("k", _)]).
       iApply sem_typed_afun; solve_sidecond. simpl.
       iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_var.
       iApply (sem_typed_app_ms ()); solve_copy; last iApply sem_typed_unit.
-      iApply sem_typed_sub_u2aarr. iApply sem_typed_var.
+      iApply sem_typed_var.
     - simpl. iApply sem_typed_weaken.
       rewrite - (app_nil_r []).
       iApply sem_typed_afun; solve_sidecond. iApply sem_typed_var.
