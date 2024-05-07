@@ -108,7 +108,8 @@ Section compatibility.
     ⊨ᵥ (rec: f x := e) : (τ -{ ρ }-> κ).
   Proof.
       iIntros (?) "#He !#". iLöb as "IH".
-      iIntros "%v !# Hτ /=".  
+      rewrite /sem_ty_uarr /sem_ty_arr /=.
+      iIntros "%v !# Hτ /=".
       ewpw_pure_steps. destruct x as [|x]; destruct f as [|f]; simpl.
       - rewrite - {3} [e]subst_map_empty.
         iApply (ewpw_mono with "[He]"); first (by iApply "He").
@@ -151,7 +152,9 @@ Section compatibility.
     ⊨ᵥ (λ: x, e) : (τ -{ ρ }-∘ κ) -∗
     ⊨ᵥ (λ: x, e) : (τ -{ ρ }-> κ).
   Proof. 
-    iIntros "#He !# %w !# Hτ". 
+    iIntros "#He !#". 
+    rewrite /sem_ty_uarr /sem_ty_aarr /sem_ty_arr /=. 
+    iIntros "%w !# Hτ". 
     iSpecialize ("He" $! w).
     iApply ("He" with "Hτ").
   Qed.
@@ -371,7 +374,7 @@ Section compatibility.
   Proof.
     iIntros (??) "#He !# %vs HΓ₁₂ //=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
-    ewpw_pure_steps. iFrame.
+    ewpw_pure_steps. iFrame. rewrite /sem_ty_aarr /sem_ty_arr /=.
     iIntros (w) "Hτ". 
     ewpw_pure_steps. rewrite subst'_subst_map_insert.
     iApply (ewpw_mono with "[Hτ HΓ₁]"); [iApply "He"|iIntros "!# % [$ _] //="].
@@ -389,7 +392,7 @@ Section compatibility.
     ewpw_pure_steps.
     rewrite env_sem_typed_app. iDestruct "HΓ₁₂" as "[HΓ₁' $]".
     iDestruct ("HcpyΓ₁" with "HΓ₁'") as "#HΓ₁".
-    iLöb as "IH".
+    iLöb as "IH". rewrite /sem_ty_uarr /sem_ty_arr /=.
     iIntros "!# %w Hτ". 
     ewpw_pure_steps. destruct f; destruct x; simpl.
     - iApply ewpw_mono; [by iApply "He"|iIntros "!# % [$ _] //="].
@@ -423,7 +426,8 @@ Section compatibility.
     iDestruct "HΓ₁₂" as "[HΓ₁' $]".
     iDestruct ("HcpyΓ₁" with "HΓ₁'") as "#HΓ₁".
     iLöb as "IH".
-    iIntros (α) "!#". ewpw_pure_steps.
+    iIntros (α) "!#". ewpw_pure_steps. 
+    rewrite /sem_ty_uarr /sem_ty_arr /=.
     destruct f; destruct x; simpl; 
     ewpw_pure_steps; iIntros (v) "!# Hτ"; ewpw_pure_steps.
     - iApply ewpw_mono; first (by iApply "He").  
@@ -478,7 +482,7 @@ Section compatibility.
     { by iApply "He₁". }
     iIntros "%w [Hτκ HΓ₃] !> /=".
     iApply (ewpw_mono with "[Hτκ Hτ]").
-    {  by iApply "Hτκ".  }
+    {  rewrite /sem_ty_aarr /sem_ty_arr /=. by iApply "Hτκ".  }
     iIntros "!# % $ !> //=".
   Qed.
 
@@ -508,7 +512,7 @@ Section compatibility.
     { by iApply "He₁". }
     iIntros "%w [Hτκ HΓ₃] !> /=".
     iApply (ewpw_mono_os with "[Hτκ Hτ]").
-    { by iApply "Hτκ". }
+    { rewrite /sem_ty_aarr /sem_ty_arr /=. by iApply "Hτκ". }
     iIntros "% $ !> //=".
   Qed.
 
@@ -528,7 +532,7 @@ Section compatibility.
     { by iApply "He₁". }
     iIntros "!# %w [Hτκ HΓ₃] !> /=".
     iApply (ewpw_mono with "[Hτκ Hτ']").
-    { by iApply "Hτκ". }
+    { rewrite /sem_ty_aarr /sem_ty_arr /=. by iApply "Hτκ". }
     iDestruct ("HΓcpy" with "HΓ₃") as "#HΓ₃'".
     iIntros "!# % $ !> //=".
   Qed.
@@ -1084,7 +1088,7 @@ Section compatibility.
   (* Effect handling rules *)
   
   Lemma sem_typed_perform_os {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e `{! OSRow ρ'} :
-    let σ := (∀S..: αs, A αs ⇒ B αs | OS)%S in
+    let σ := (∀S..: αs, A αs =[ OS ]=> B αs)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
     Γ₁ ⊨ (perform: op e) : ρ : B τs ⊨ Γ₂.
@@ -1107,7 +1111,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_perform_ms {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
-    let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
+    let σ := (∀S..: αs, A αs =[ MS ]=> B αs)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     copy_env Γ₂ -∗
     Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
@@ -1143,130 +1147,92 @@ Section compatibility.
     iApply ewpw_unlft. by iApply "He".
   Qed.
 
-  Lemma sem_typed_shandler_os {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{! OSRow ρ' }:
+  Lemma sem_typed_shandler {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S..: αs, A αs ⇒ B αs | m)%S in
+    let σ := (∀S..: αs, A αs =[m]=> B αs)%S in
     let ρ := ((op, σ) ·: ρ')%R in
+    ⌜ OSRow ρ' ⌝ ∨ copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-∘ τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-[m]-> τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (shandle: e by
+    Γ₁ ++ Γ' ⊨ (shandle[m]: e by
                   op  => (λ: x k, h)
                 | ret => (λ: x, r) end) : ρ'' : τ' ⊨ Γ₃.
   Proof. 
-    iIntros (????????) "#Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
+    iIntros (????????) "#HOSCpy #Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
     iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ']". 
-    ewpw_pure_steps. iApply (ewpw_shandler _ _ OS OS with "[HΓ₁] [HΓ']").
-    { iApply ("He" with "HΓ₁"). }
-    repeat iSplit; eauto. simpl. iSplit.
-    - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
-      iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
-      { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
-      iIntros "!# %w [$ HΓ₃] !>". solve_env.
-    - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
-      ewpw_pure_steps. solve_dec.
-      rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
-      iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
-      + iApply "Hh". solve_env. do 2 rewrite - env_sem_typed_insert //. iFrame.
-        iIntros (?) "HB". 
-        rewrite !bi.intuitionistically_if_elim. 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
-        iIntros "!# % [$ _] //".
-      + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
+    ewpw_pure_steps. iDestruct "HOSCpy" as "[%HOS|#HCpy]". 
+    - iApply (ewpw_shandler _ _ m OS with "[HΓ₁] [HΓ']").
+      { iApply ("He" with "HΓ₁"). }
+      repeat iSplit; eauto. simpl. iSplit.
+      + iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
+        iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
+        { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
+        iIntros "!# %w [$ HΓ₃] !>". solve_env.
+      + iIntros (v k') "(%Φ & Hρ & HPost)".
+        rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
+        ewpw_pure_steps. solve_dec.
+        rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
+        iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
+        ++ iApply "Hh". solve_env. do 2 rewrite - env_sem_typed_insert //. iFrame.
+          destruct m; simpl.
+          * rewrite /sem_ty_aarr /sem_ty_arr /=. iIntros (?) "HB". 
+            iApply (ewpw_mono with "[Hκb HPost HB]").
+            { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
+            iIntros "!# % [$ _] //".
+          * rewrite /sem_ty_uarr /sem_ty_arr /=. 
+            iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost". 
+            iIntros "!# % HB". 
+            iApply (ewpw_mono with "[Hκb HPost HB]").
+            { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
+            iIntros "!# % [$ _] //".
+        ++ iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
+    - iDestruct ("HCpy" with "HΓ'") as "#HΓ''".
+      ewpw_pure_steps. iApply (ewpw_shandler _ _ m MS with "[HΓ₁] [HΓ']").
+      { iApply ("He" with "HΓ₁"). }
+      repeat iSplit; eauto. simpl. iIntros "!#". iSplit.
+      + iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
+        iApply (ewpw_mono with "[HΓ₂ HΓ'' Hτ]").
+        { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
+        iIntros "!# %w [$ HΓ₃] !>". rewrite - env_sem_typed_insert //.
+      + iIntros (v k') "(%Φ & Hρ & HPost)".
+        rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
+        ewpw_pure_steps. solve_dec.
+        rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
+        iApply (ewpw_mono with "[HΓ'' Ha Hκb HPost]").
+        ++ iApply "Hh". solve_env; last do 2 rewrite - env_sem_typed_insert //. iFrame "#".
+          destruct m; simpl.
+          * rewrite /sem_ty_aarr /sem_ty_arr /=. iIntros (?) "HB". 
+            iApply (ewpw_mono with "[Hκb HPost HB]").
+            { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
+            iIntros "!# % [$ _] //".
+          * rewrite /sem_ty_uarr /sem_ty_arr /=. 
+            iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost". 
+            iIntros "!# % HB". 
+            iApply (ewpw_mono with "[Hκb HPost HB]").
+            { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
+            iIntros "!# % [$ _] //".
+        ++ iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
-  Lemma sem_typed_shandler_ms {TT : tele} op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+  Lemma sem_typed_handler {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
+    let σ := (∀S..: αs, A αs =[ m ]=> B αs)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-> τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ'' }-[m]-> τ') :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (shandleₘ: e by
-                  op  => (λ: x k, h)
-                | ret => (λ: x, r) end) : ρ'' : τ' ⊨ Γ₃.
-  Proof. 
-    iIntros (????????) "#Hcpy #Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
-    iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']". 
-    iDestruct ("Hcpy" with "HΓ''") as "#HΓ'".
-    ewpw_pure_steps. iApply (ewpw_shandler _ _ MS MS with "[HΓ₁] [HΓ']").
-    { iApply ("He" with "HΓ₁"). }
-    repeat iSplit; eauto. simpl. iIntros "!#". iSplit.
-    - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
-      iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
-      { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
-      iIntros "!# %w [$ HΓ₃] !>". rewrite - env_sem_typed_insert //.
-    - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
-      ewpw_pure_steps. solve_dec.
-      rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
-      iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
-      + iApply "Hh". solve_env; last do 2 rewrite - env_sem_typed_insert //. 
-        iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost".
-        iIntros (?) "!# HB". 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
-        iIntros "!# % [$ _] //".
-      + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
-  Qed.
-  
-  Lemma sem_typed_shallow_try_ms_alt {TT : tele} op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{! OSRow ρ' }:
-    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
-    let ρ := ((op, σ) ·: ρ')%R in
-    ρ' ≤R ρ'' -∗
-    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-> τ) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
-    (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (shandleₘ: e by 
-                  op  => (λ: x k, h)
-                | ret => (λ: x, r) end) : ρ'' : τ' ⊨ Γ₃.
-  Proof. 
-    iIntros (????????) "#Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
-    iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ']". 
-    ewpw_pure_steps. iApply (ewpw_shandler _ _ MS OS with "[HΓ₁] [HΓ']").
-    { iApply ("He" with "HΓ₁"). }
-    repeat iSplit; eauto. simpl. iSplit.
-    - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
-      iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
-      { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
-      iIntros "!# %w [$ HΓ₃] !>". solve_env.
-    - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
-      ewpw_pure_steps. solve_dec.
-      rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
-      iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
-      + iApply "Hh". solve_env; last do 2 rewrite - env_sem_typed_insert //.
-        iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost".
-        iIntros (?) "!# HB". 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
-        iIntros "!# % [$ _] //".
-      + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
-  Qed.
-
-  Lemma sem_typed_handler_os {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
-    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S..: αs, A αs ⇒ B αs | m)%S in
-    let ρ := ((op, σ) ·: ρ')%R in
-    copy_env Γ' -∗
-    ρ' ≤R ρ'' -∗
-    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ'' }-∘ τ') :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
-    (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (handle: e by
+    Γ₁ ++ Γ' ⊨ (handle[m]: e by
                     op => (λ: x k, h)
                  | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
   Proof.
     iIntros (????????) "#Hcpy #Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
     iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']". 
     iDestruct ("Hcpy" with "HΓ''") as "#HΓ'".
-    ewpw_pure_steps. iApply (ewpw_handler _ _ OS MS with "[HΓ₁] [HΓ']").
+    ewpw_pure_steps. iApply (ewpw_handler _ _ m MS with "[HΓ₁] [HΓ']").
     { iApply ("He" with "HΓ₁"). }
     iLöb as "IH".
     rewrite handler_spec_unfold /handler_spec_pre.
@@ -1281,66 +1247,34 @@ Section compatibility.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
       + iApply "Hh". solve_env. do 2 rewrite - env_sem_typed_insert //. iFrame "#".
-        iIntros (?) "HB". 
-        rewrite !bi.intuitionistically_if_elim. 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. 
-          rewrite handler_spec_unfold. iApply "IH". }
-        iIntros "!# % [$ _] //".
+        destruct m; simpl.
+        * rewrite /sem_ty_aarr /sem_ty_arr /=. iIntros (?) "HB". 
+          iApply (ewpw_mono with "[Hκb HPost HB]").
+          { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. 
+            rewrite handler_spec_unfold. iApply "IH". }
+          iIntros "!# % [$ _] //".
+        * rewrite /sem_ty_uarr /sem_ty_arr /=. 
+          iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost". 
+          iIntros "!# % HB". 
+          iApply (ewpw_mono with "[Hκb HPost HB]").
+          { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. 
+            rewrite handler_spec_unfold. iApply "IH". }
+          iIntros "!# % [$ _] //".
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
-  Lemma sem_typed_handle_ms {TT : tele} op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
-    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
-    let ρ := ((op, σ) ·: ρ')%R in
-    copy_env Γ' -∗
-    ρ' ≤R ρ'' -∗
-    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀.. αs, (x, A αs) :: (k, B αs -{ ρ'' }-> τ') :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
-    (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (handleₘ: e by 
-                  op  => (λ: x k, h)
-                | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
-  Proof.
-    iIntros (????????) "#Hcpy #Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
-    iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']". 
-    iDestruct ("Hcpy" with "HΓ''") as "#HΓ'".
-    ewpw_pure_steps. iApply (ewpw_handler _ _ MS MS with "[HΓ₁] [HΓ']").
-    { iApply ("He" with "HΓ₁"). }
-    iLöb as "IH".
-    rewrite handler_spec_unfold /handler_spec_pre.
-    repeat iSplit; eauto. simpl. iIntros "!#". 
-    - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
-      iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
-      { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
-      iIntros "!# %w [$ HΓ₃] !>". solve_env.
-    - iIntros (v k') "!# (%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
-      ewpw_pure_steps. solve_dec.
-      rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
-      iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
-      + iApply "Hh". solve_env; last do 2 rewrite - env_sem_typed_insert //. 
-        iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost".
-        iIntros (?) "!# HB". 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. rewrite handler_spec_unfold. iApply "IH". }
-        iIntros "!# % [$ _] //".
-      + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
-  Qed.
-
-  Lemma sem_typed_handler2_os {TT: tele} m op1 op2 (A1 B1 A2 B2 : TT → sem_ty Σ)τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
+  Lemma sem_typed_handler2 {TT: tele} m op1 op2 (A1 B1 A2 B2 : TT → sem_ty Σ)τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k → op1 ≠ op2 →
-    let σ1 := (∀S..: αs, A1 αs ⇒ B1 αs | m)%S in
-    let σ2 := (∀S..: αs, A2 αs ⇒ B2 αs | m)%S in
+    let σ1 := (∀S..: αs, A1 αs =[m]=> B1 αs)%S in
+    let σ2 := (∀S..: αs, A2 αs =[m]=> B2 αs)%S in
     let ρ := ((op1, σ1) ·: (op2, σ2) ·: ρ')%R in
     copy_env Γ' -∗
     ρ' ≤R ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀.. αs, (x, A1 αs) :: (k, B1 αs -{ ρ'' }-∘ τ') :: Γ' ⊨ h1 : ρ'' : τ' ⊨ Γ₃) -∗
-    (∀.. αs, (x, A2 αs) :: (k, B2 αs -{ ρ'' }-∘ τ') :: Γ' ⊨ h2 : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A1 αs) :: (k, B1 αs -{ ρ'' }-[m]-> τ') :: Γ' ⊨ h1 : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A2 αs) :: (k, B2 αs -{ ρ'' }-[m]-> τ') :: Γ' ⊨ h2 : ρ'' : τ' ⊨ Γ₃) -∗
     (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (handle2: e by
+    Γ₁ ++ Γ' ⊨ (handle2[m]: e by
                   op1 => (λ: x k, h1)
                 | op2 => (λ: x k, h2)
                 | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
@@ -1348,7 +1282,7 @@ Section compatibility.
     iIntros (??????????) "#Hcpy #Hle #He #Hh1 #Hh2 #Hr !# %vs HΓ₁Γ' /=".
     iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']". 
     iDestruct ("Hcpy" with "HΓ''") as "#HΓ'".
-    ewpw_pure_steps. iApply (ewpw_handler2 _ _ _ OS MS with "[HΓ₁] [HΓ']").
+    ewpw_pure_steps. iApply (ewpw_handler2 _ _ _ m MS with "[HΓ₁] [HΓ']").
     { iApply ("He" with "HΓ₁"). }
     iLöb as "IH".
     rewrite handler2_spec_unfold.
@@ -1363,11 +1297,19 @@ Section compatibility.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
       + iApply "Hh1". solve_env. do 2 rewrite - env_sem_typed_insert //. iFrame "#".
-        iIntros (?) "HB". 
-        rewrite !bi.intuitionistically_if_elim. 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. rewrite - handler2_spec_unfold. iApply "IH". }
-        iIntros "!# % [$ _] //".
+        destruct m; simpl.
+        * rewrite /sem_ty_aarr /sem_ty_arr /=. iIntros (?) "HB". 
+          iApply (ewpw_mono with "[Hκb HPost HB]").
+          { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. 
+            rewrite handler2_spec_unfold. iApply "IH". }
+          iIntros "!# % [$ _] //".
+        * rewrite /sem_ty_uarr /sem_ty_arr /=. 
+          iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost". 
+          iIntros "!# % HB". 
+          iApply (ewpw_mono with "[Hκb HPost HB]").
+          { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. 
+            rewrite handler2_spec_unfold. iApply "IH". }
+          iIntros "!# % [$ _] //".
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
     - iIntros (v k') "(%Φ & Hρ & HPost)".
       rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
@@ -1375,67 +1317,19 @@ Section compatibility.
       rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
       iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
       + iApply "Hh2". solve_env. do 2 rewrite - env_sem_typed_insert //. iFrame "#".
-        iIntros (?) "HB". 
-        rewrite !bi.intuitionistically_if_elim. 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. rewrite - handler2_spec_unfold. iApply "IH". }
-        iIntros "!# % [$ _] //".
-      + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
-  Qed.
-
-  Lemma sem_typed_handler2_ms {TT : tele} op1 op2 (A1 B1 A2 B2 : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
-    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k → op1 ≠ op2 →
-    let σ1 := (∀S..: αs, A1 αs ⇒ B1 αs | MS)%S in
-    let σ2 := (∀S..: αs, A2 αs ⇒ B2 αs | MS)%S in
-    let ρ := ((op1, σ1) ·: (op2, σ2) ·: ρ')%R in
-    copy_env Γ' -∗
-    ρ' ≤R ρ'' -∗
-    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    (∀.. αs, (x, A1 αs) :: (k, B1 αs -{ ρ'' }-> τ') :: Γ' ⊨ h1 : ρ'' : τ' ⊨ Γ₃) -∗
-    (∀.. αs, (x, A2 αs) :: (k, B2 αs -{ ρ'' }-> τ') :: Γ' ⊨ h2 : ρ'' : τ' ⊨ Γ₃) -∗
-    (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-    Γ₁ ++ Γ' ⊨ (handle2ₘ: e by
-                  op1 => (λ: x k, h1)
-                | op2 => (λ: x k, h2)
-                | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
-  Proof.
-    iIntros (??????????) "#Hcpy #Hle #He #Hh1 #Hh2 #Hr !# %vs HΓ₁Γ' /=".
-    iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']". 
-    iDestruct ("Hcpy" with "HΓ''") as "#HΓ'".
-    ewpw_pure_steps. iApply (ewpw_handler2 _ _ _ MS MS with "[HΓ₁] [HΓ']").
-    { iApply ("He" with "HΓ₁"). }
-    iLöb as "IH".
-    rewrite handler2_spec_unfold.
-    repeat iSplit; eauto; simpl; iIntros "!#"; last iSplit.
-    - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
-      iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
-      { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
-      iIntros "!# %w [$ HΓ₃] !>". solve_env.
-    - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)". 
-      ewpw_pure_steps. solve_dec.
-      rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
-      iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
-      + iApply "Hh1". solve_env; last do 2 rewrite - env_sem_typed_insert //. 
-        iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost".
-        iIntros (?) "!# HB". 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). 
-          by iApply "Hκb". iNext. rewrite - handler2_spec_unfold. iApply "IH". }
-        iIntros "!# % [$ _] //".
-      + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
-    - iIntros (v k') "(%Φ & Hρ & HPost)".
-      rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%α & %as & <- & Ha & Hκb)". 
-      ewpw_pure_steps. solve_dec.
-      rewrite subst_subst_ne // - subst_map_insert - delete_insert_ne // - subst_map_insert.
-      iApply (ewpw_mono with "[HΓ' Ha Hκb HPost]").
-      + iApply "Hh2". solve_env; last do 2 rewrite - env_sem_typed_insert //. 
-        iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost".
-        iIntros (?) "!# HB". 
-        iApply (ewpw_mono with "[Hκb HPost HB]").
-        { iApply ("HPost" with "[Hκb HB]"). 
-          by iApply "Hκb". iNext. rewrite - handler2_spec_unfold. iApply "IH". }
-        iIntros "!# % [$ _] //".
+        destruct m; simpl.
+        * rewrite /sem_ty_aarr /sem_ty_arr /=. iIntros (?) "HB". 
+          iApply (ewpw_mono with "[Hκb HPost HB]").
+          { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. 
+            rewrite handler2_spec_unfold. iApply "IH". }
+          iIntros "!# % [$ _] //".
+        * rewrite /sem_ty_uarr /sem_ty_arr /=. 
+          iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost". 
+          iIntros "!# % HB". 
+          iApply (ewpw_mono with "[Hκb HPost HB]").
+          { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". iNext. 
+            rewrite handler2_spec_unfold. iApply "IH". }
+          iIntros "!# % [$ _] //".
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 

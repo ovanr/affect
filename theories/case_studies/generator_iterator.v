@@ -48,7 +48,7 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀S: (_ : sem_ty Σ), τ ⇒ () | OS)%S.
+  Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀S: (_ : sem_ty Σ), τ =[OS]=> ())%S.
   Definition yield_ty τ := τ -{ (yield_sig τ ·: ⟨⟩) }-> ().
   Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
@@ -80,9 +80,10 @@ Section typing.
         iApply sem_typed_afun; solve_sidecond.
         simpl. iApply sem_typed_unit'.
       + rewrite app_singletons.
-        iApply (sem_typed_shandler_os OS "yield" (λ _, α) (λ _, ()) () (Option α) ⊥ _ 
+        iApply (sem_typed_shandler OS "yield" (λ _, α) (λ _, ()) () (Option α) ⊥ _ 
                       [("comp", cont_ty)] [] [] [("cont", Refᶜ cont_ty)]); solve_sidecond.
-        { iApply row_le_refl. }
+        * iLeft. iPureIntro. apply _.
+        * iApply row_le_refl. 
         * iApply sem_typed_app_os; [iApply sem_typed_var'|iApply sem_typed_unit']. 
         * iIntros (?). do 2 iApply sem_typed_swap_third.
           iApply sem_typed_seq.

@@ -83,19 +83,19 @@ Proof.
 Qed.
 
 (* Notations. *)
-Notation "'∀S..:' tt , κ ⇒ ι | m" := 
+Notation "'∀S..:' tt , κ '=[' m ']=>' ι" := 
   (sem_sig_eff m (λ tt, κ%T) (λ tt, ι%T))
   (at level 200, tt binder, right associativity,
-   format "'[ ' '∀S..:' tt ,  κ  ⇒  ι  |  m ']'") : sem_sig_scope.
+   format "'[ ' '∀S..:' tt ,  κ  =[ m ]=>  ι  ']'") : sem_sig_scope.
 
-Notation "'∀S:' x .. y , κ ⇒ ι | m" := 
+Notation "'∀S:' x .. y , κ '=[' m ']=>' ι" := 
   (sem_sig_eff m
   (@tele_app ((TeleS (λ x, .. (TeleS (λ y, TeleO)) ..))) (sem_ty _) (λ x, .. (λ y, κ%T) ..)) 
   (@tele_app ((TeleS (λ x, .. (TeleS (λ y, TeleO)) ..))) (sem_ty _) (λ x, .. (λ y, ι%T) ..))) 
   (at level 200, x binder, y binder, right associativity,
-   format "'[ ' '∀S:' x .. y ,  κ  ⇒  ι  |  m ']'") : sem_sig_scope.
+   format "'[ ' '∀S:' x .. y ,  κ  =[ m ]=>  ι  ']'") : sem_sig_scope.
 
-(* Eval cbn in (∀S.: (α : sem_ty Σ), (sem_ty_prod α α) ⇒ (sem_ty_cpy α) | OS)%S. *)
+(* Eval cbn in (∀S.: (α : sem_ty Σ), (sem_ty_prod α α) =[ OS ]=> (sem_ty_cpy α))%S. *)
 
 Definition sem_sig_os {Σ} (σ : sem_sig Σ) : sem_sig Σ := (upcl OS σ).
 Notation "¡ σ" := (sem_sig_os σ) (at level 10) : sem_sig_scope.
@@ -117,7 +117,7 @@ Proof. inv MonoProt0. constructor. iIntros (v Φ Φ') "HPost Hσ".
 Qed.
   
 Global Instance sig_eff_os_os_sig {TT : tele} {Σ} (A B : tele_arg TT → sem_ty Σ) :
-  OSSig (∀S..: αs , A αs ⇒ B αs | OS)%S.
+  OSSig (∀S..: αs , (A αs) =[ OS ]=> (B αs))%S.
 Proof. 
   apply mono_prot_os_sig.
   by apply sem_sig_eff_mono_prot.
@@ -147,7 +147,7 @@ Lemma sig_le_eff {Σ} {TT : tele} m₁ m₂ (ι₁ ι₂ κ₁ κ₂ : tele_arg 
   m₁ ≤M m₂ -∗
   □ (∀.. α, (ι₁ α) ≤T (ι₂ α)) -∗
   □ (∀.. α, (κ₂ α) ≤T (κ₁ α)) -∗
-  (∀S..: α , ι₁ α ⇒ κ₁ α | m₁) ≤S (∀S..: α , ι₂ α ⇒ κ₂ α | m₂).
+  (∀S..: α , ι₁ α =[ m₁ ]=> κ₁ α) ≤S (∀S..: α , ι₂ α =[ m₂ ]=> κ₂ α).
 Proof.
   iIntros "#Hmle #Hι₁₂ #Hκ₂₁". 
   iIntros (v Φ) "!#".
@@ -166,6 +166,10 @@ Proof.
     iIntros "!# %b Hκ₂". iApply "HκΦ₁".
     iApply ("Hκ₂₁" with "Hκ₂").
 Qed.
+
+Lemma sig_le_eff_mode {Σ} {TT : tele} (ι κ : tele_arg TT → sem_ty Σ) :
+  ⊢ (∀S..: α , ι α =[ MS ]=> κ α) ≤S (∀S..: α , ι α =[ OS ]=> κ α).
+Proof. iApply sig_le_eff; first iApply mode_le_MS; iIntros "!# % % !# $". Qed.
 
 Lemma sig_le_os_intro {Σ} (σ : sem_sig Σ) :
   ⊢ σ ≤S (¡ σ).

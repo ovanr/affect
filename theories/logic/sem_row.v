@@ -378,7 +378,6 @@ Lemma row_le_tun_comp {Σ} (op : operation) (ρ ρ' : sem_row Σ) :
   ⦗ ρ | op ⦘ ≤R ⦗ ρ' | op ⦘. 
 Proof. 
   iIntros "Hle %op' %s' %σ' Hlookup".
-  Search "∗-∗".
   destruct (decide (op = op')) as [->|Hneq].
   - rewrite (row_tun_lookup ρ σ' op' s'). 
     iDestruct "Hlookup" as "(%s'' & -> & Hlookup)".

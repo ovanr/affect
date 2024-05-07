@@ -104,10 +104,10 @@ Section typing.
 
   Definition Promise τ := Refᶜ (Status τ).
 
-  Definition await_sig : sem_sig Σ := (∀S: α, Promise ('! α) ⇒ '! α | OS)%S.
+  Definition await_sig : sem_sig Σ := (∀S: α, Promise ('! α) =[ OS ]=> '! α)%S.
 
   Definition async_sig (θ : sem_row Σ) : sem_sig Σ := 
-    (∀S: α, ( () -{ θ }-∘ '! α ) ⇒ Promise ('! α) | OS)%S. 
+    (∀S: α, ( () -{ θ }-∘ '! α ) =[ OS ]=> Promise ('! α))%S. 
 
   Definition coop_pre (θ : sem_row Σ) : sem_row Σ := 
     (("async", async_sig θ) ·: ("await", await_sig) ·: ⟨⟩)%R.
@@ -367,12 +367,12 @@ Section typing.
      set comp := ("comp", () -{ coop }-∘ '! β)%T.
      replace ([comp; promise; fulfill; resume_task; add;next]) with
              ([comp] ++ [promise; fulfill; resume_task; add;next]) by done.
-     iApply (sem_typed_handler2_os (TT:=[tele _]) OS "async" "await" 
+     iApply (sem_typed_handler2 (TT:=[tele _]) OS "async" "await" 
                     (tele_app (λ α, () -{ coop }-∘ '! α)) 
                     (tele_app (λ α, Promise ('! α))) 
                     (tele_app (λ α, Promise ('! α))) 
                     (tele_app (λ α, '! α))  _ _ _ _ [comp] []); solve_sidecond.
-     { iApply row_le_refl. }
+     + iApply row_le_refl.
      + iApply (sem_typed_app_os () _ ('! β)); [iApply sem_typed_var'|]. 
        rewrite -/await_sig -/(async_sig coop) -/coop. 
        iApply sem_typed_sub_env_final; first iApply env_le_cons; first iApply env_le_refl; 

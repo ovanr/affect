@@ -38,8 +38,8 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition getSig : operation * sem_sig Σ := ("get", ∀S: (_ : sem_ty Σ), () ⇒ Str | OS)%S.  
-  Definition printSig : operation * sem_sig Σ := ("print", ∀S: (_ : sem_ty Σ), Str ⇒ () | MS)%S.
+  Definition getSig : operation * sem_sig Σ := ("get", ∀S: (_ : sem_ty Σ), () =[OS]=> Str)%S.  
+  Definition printSig : operation * sem_sig Σ := ("print", ∀S: (_ : sem_ty Σ), Str =[MS]=> ())%S.
   Definition st : sem_row Σ := (getSig ·: printSig ·: ⟨⟩)%R.
 
   Local Instance os_row_get_sig : OSRow (getSig ·: ⟨⟩)%R. 

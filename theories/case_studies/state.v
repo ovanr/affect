@@ -52,8 +52,8 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition putsig : operation * sem_sig Σ := ("put", ∀S: (_ : sem_ty Σ), ℤ ⇒ () | MS)%S.  
-  Definition getsig : operation * sem_sig Σ := ("get", ∀S: (_ : sem_ty Σ), () ⇒ ℤ | MS)%S.
+  Definition putsig : operation * sem_sig Σ := ("put", ∀S: (_ : sem_ty Σ), ℤ =[MS]=> ())%S.  
+  Definition getsig : operation * sem_sig Σ := ("get", ∀S: (_ : sem_ty Σ), () =[MS]=> ℤ)%S.
   Definition st : sem_row Σ := (putsig ·: getsig ·: ⟨⟩)%R.
 
   Lemma get_typed :
@@ -114,11 +114,13 @@ Section typing.
     simpl. iApply (sem_typed_let _ _ _ _ [("n", ℤ)]); solve_sidecond. 
     { iApply sem_typed_alloc_cpy. iApply sem_typed_int. }
     iApply sem_typed_swap_second. rewrite app_singletons. 
-    iApply (sem_typed_handler2_os MS "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () ℤ ⊥ _ _ [] with "[] [] []"); solve_sidecond.
+    iApply (sem_typed_handler2 OS "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () ℤ ⊥ _ _ [] with "[] [] []"); solve_sidecond.
     { iApply row_le_refl. }
     - iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_var'.
       iApply sem_typed_sub_u2aarr. iApply sem_typed_sub_nil.
+      iApply sem_typed_sub_ty; first iApply ty_le_uarr; try iApply ty_le_refl.
+      { do 2 (iApply row_le_cons_comp; first iApply sig_le_eff_mode). iApply row_le_nil. }
       iApply sem_typed_val. iApply fact_typed.
     - iIntros (?).  iApply sem_typed_weaken.
       iApply sem_typed_swap_second. 
@@ -142,11 +144,13 @@ Section typing.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_int.
     rewrite - {1} (app_nil_r [("n", ℤ)]).
-    iApply (sem_typed_handler2_os MS "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () _ _ _ _ []); solve_sidecond.
+    iApply (sem_typed_handler2 OS "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () _ _ _ _ []); solve_sidecond.
     { iApply row_le_refl. }
     - iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_var'.
       iApply sem_typed_sub_u2aarr. iApply sem_typed_sub_nil.
+      iApply sem_typed_sub_ty; first iApply ty_le_uarr; try iApply ty_le_refl.
+      { do 2 (iApply row_le_cons_comp; first iApply sig_le_eff_mode). iApply row_le_nil. }
       iApply sem_typed_val. iApply fact_typed.
     - iIntros (?). iApply sem_typed_weaken.
       rewrite - {1} (app_nil_r [("k", _)]).

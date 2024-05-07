@@ -52,7 +52,10 @@ Section copyable_types.
   Proof. iIntros "!# %v #$". Qed.
 
   Lemma copy_ty_uarr τ σ κ : ⊢ copy_ty (τ -{ σ }-> κ).
-  Proof. iIntros "!# %v #$". Qed.
+  Proof. 
+    rewrite /sem_ty_uarr /sem_ty_arr /=.
+    iIntros "/= !# %v #$". 
+  Qed.
   
   Lemma copy_ty_prod τ κ : copy_ty τ -∗ copy_ty κ -∗ copy_ty (τ × κ).
   Proof. 

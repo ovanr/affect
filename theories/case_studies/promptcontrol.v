@@ -38,6 +38,10 @@ Definition HandlerAlt (m : mode) (e : expr) (op : operation) (h r : expr) : expr
 Definition HandlerAltV (m : mode) (e : expr) (op : operation) (h r : expr) : expr :=
   handler_alt m (λ: <>, e)%V (effect op) h r.
 
+Notation "'handle-alt[' m ']:' e 'by' op '=>' h | 'ret' => r 'end'" :=
+  (HandlerAlt m e op h r)
+  (e, op, h, r at level 200, only parsing) : expr_scope.
+
 Notation "'handle-alt:' e 'by' op '=>' h | 'ret' => r 'end'" :=
   (HandlerAlt OS e op h r)
   (e, op, h, r at level 200, only parsing) : expr_scope.
@@ -113,16 +117,16 @@ Section handler_alt.
       iFrame "#%∗".
   Qed.
   
-  Lemma sem_typed_handler_alt_os {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+  Lemma sem_typed_handler_alt {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
       x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → x ∉ env_dom Γ₂ → k ∉ env_dom Γ₂ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-      let σ := (∀S..: αs, A αs ⇒ B αs | m)%S in
+      let σ := (∀S..: αs, A αs =[ m ]=> B αs)%S in
       let ρ := ((op, σ) ·: ρ')%R in
       copy_env Γ' -∗
       ρ' ≤R ρ'' -∗
       Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-      (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-∘ τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
+      (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-[m]-> τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
       (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-      Γ₁ ++ Γ' ⊨ (handle-alt: e by 
+      Γ₁ ++ Γ' ⊨ (handle-alt[m]: e by 
                      op => (λ: x k, h)
                   | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
     Proof.
@@ -133,7 +137,7 @@ Section handler_alt.
       iSpecialize ("He" $! vs with "HΓ₁").
       iRevert "He". iLöb as "IH" forall (e). iIntros "He".
       ewpw_pure_steps. 
-      iApply (ewpw_handler_alt _ _ OS MS with "He [HΓ']").
+      iApply (ewpw_handler_alt _ _ m MS with "He [HΓ']").
       rewrite /handler_alt.
       repeat iSplit; eauto. simpl. iIntros "!#". 
       - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
@@ -148,54 +152,20 @@ Section handler_alt.
         iApply (ewpw_mono with "[Hh Ha Hκb HPost]").
         + iApply "Hh". solve_env. 
           iSplitL; last (do 2 (rewrite - env_sem_typed_insert; solve_env)).
-          rewrite ! bi.intuitionistically_if_elim.
-          iIntros "% HB". iApply (ewpw_mono with "[HB Hκb HPost]").
-          { iApply "HPost". iApply "Hκb". by iNext. }
-          iIntros "!# % [$ _] //".
+          destruct m; simpl.
+          * rewrite /sem_ty_aarr /sem_ty_arr /=. iIntros (?) "HB". 
+            iApply (ewpw_mono with "[Hκb HPost HB]").
+            { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
+            iIntros "!# % [$ _] //".
+          * rewrite /sem_ty_uarr /sem_ty_arr /=. 
+            iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost". 
+            iIntros "!# % HB". 
+            iApply (ewpw_mono with "[Hκb HPost HB]").
+            { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
+            iIntros "!# % [$ _] //".
         + iIntros "!# /= % [$ H] !>". do 2 (rewrite - env_sem_typed_insert //).
     Qed.
   
-  Lemma sem_typed_handler_alt_ms {TT : tele} op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
-      x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → x ∉ env_dom Γ₂ → k ∉ env_dom Γ₂ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-      let σ := (∀S..: αs, A αs ⇒ B αs | MS)%S in
-      let ρ := ((op, σ) ·: ρ')%R in
-      copy_env Γ' -∗
-      ρ' ≤R ρ'' -∗
-      Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-      (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-> τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
-      (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
-      Γ₁ ++ Γ' ⊨ (handle-altₘ: e by
-                     op  => (λ: x k, h)
-                   | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
-    Proof.
-      iIntros (??????????) "#Hcpy #Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
-      iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']". 
-      iDestruct ("Hcpy" with "HΓ''") as "#HΓ'". iClear "HΓ''".
-      do 4 ewpw_value_or_step. iDestruct "He" as "-#He".
-      iSpecialize ("He" $! vs with "HΓ₁").
-      iRevert "He". iLöb as "IH" forall (e). iIntros "He".
-      ewpw_pure_steps. 
-      iApply (ewpw_handler_alt _ _ MS MS with "He [HΓ']").
-      rewrite /handler_alt.
-      repeat iSplit; eauto. simpl. iIntros "!#". 
-      - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
-        iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
-        { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
-        iIntros "!# %w [$ HΓ₃] !>". solve_env.
-      - iIntros (v k') "!# (%Φ & Hρ & HPost)".
-        rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)".
-        ewpw_pure_steps. solve_dec. 
-        rewrite delete_commute - subst_map_insert. 
-        rewrite - delete_insert_ne // - subst_map_insert.
-        iApply (ewpw_mono with "[Hh Ha Hκb HPost]").
-        + iApply "Hh". solve_env; last (do 2 (rewrite - env_sem_typed_insert; solve_env)).
-          iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost".
-          iIntros "!# % HB". iApply (ewpw_mono with "[HB Hκb HPost]").
-          { iApply "HPost". iApply "Hκb". by iNext. }
-          iIntros "!# % [$ _] //".
-        + iIntros "!# /= % [$ H] !>". do 2 (rewrite - env_sem_typed_insert //).
-    Qed.
-
 End handler_alt.
 
 Section typing.
@@ -203,7 +173,7 @@ Section typing.
   Context `{!heapGS Σ}.
 
   Definition ctrl_sig (β : sem_ty Σ) (ctrl : sem_row Σ) : operation * sem_sig Σ := 
-      ("ctrl", ∀S: α , (α -{ ctrl }-∘ β) -{ ctrl }-∘ β ⇒ α | OS)%S.
+      ("ctrl", ∀S: α , (α -{ ctrl }-∘ β) -{ ctrl }-∘ β =[ OS ]=> α)%S.
 
   Definition ctrl_pre (β : sem_ty Σ) (ctrl : sem_row Σ) : sem_row Σ := 
       (ctrl_sig β ctrl ·: ⟨⟩)%R.
@@ -260,7 +230,7 @@ Section typing.
     iApply sem_typed_ufun; solve_sidecond. simpl.
     rewrite - (app_nil_r [("e", _)]).
     set Γ₁ := [("e", () -{ ctrl β }-∘ β)].
-    iApply (sem_typed_handler_alt_os (TT:=[tele _]) OS "ctrl" (tele_app (λ α, (α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β)) (tele_app (λ α,  α)) β β ⟨⟩%R ⟨⟩%R Γ₁ [] [] []); solve_sidecond.  
+    iApply (sem_typed_handler_alt (TT:=[tele _]) OS "ctrl" (tele_app (λ α, (α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β)) (tele_app (λ α,  α)) β β ⟨⟩%R ⟨⟩%R Γ₁ [] [] []); solve_sidecond.  
     { iApply row_le_nil. }
     - rewrite /Γ₁. iApply sem_typed_sub_row. 
       { iApply (row_le_rec_unfold (λ θ, ctrl_pre β θ)). }

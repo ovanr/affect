@@ -101,6 +101,10 @@ Definition SHandler (m : mode) (e : expr) (op : operation) (h r : expr) : expr :
 Definition SHandlerV (m : mode) (e : expr) (op : operation) (h r : expr) : expr :=
   shandler m (λ: <>, e)%V (effect op) h r.
 
+Notation "'shandle[' m ']:' e 'by' op '=>' h | 'ret' '=>' r 'end'" :=
+  (SHandler m e%E op h%E r%E)
+  (e, op, h, r at level 200) : expr_scope.
+
 Notation "'shandle:' e 'by' op '=>' h | 'ret' '=>' r 'end'" :=
   (SHandler OS e%E op h%E r%E)
   (e, op, h, r at level 200) : expr_scope.
@@ -136,6 +140,10 @@ Definition Handler (m : mode) (e : expr) (op : operation) (h r : expr) : expr :=
 
 Definition HandlerV (m : mode) (e : expr) (op : operation) (h r : expr) : expr :=
   handler m (λ: <>, e)%V (effect op) h r.
+
+Notation "'handle[' m ']:' e 'by' op '=>' h | 'ret' '=>' r 'end'" :=
+  (Handler m e%E op h%E r%E)
+  (e, op, h, r at level 200) : expr_scope.
 
 Notation "'handle:' e 'by' op '=>' h | 'ret' '=>' r 'end'" :=
   (Handler OS e%E op h%E r%E)
@@ -179,6 +187,10 @@ Definition Handler2 (m : mode) (e : expr) (op1 op2 : operation) (h1 h2 r : expr)
 
 Definition Handler2V (m : mode) (e : expr) (op1 op2 : operation) (h1 h2 r : expr) : expr :=
   handler2 m (λ: <>, e)%V (effect op1) h1 (effect op2) h2 r.
+
+Notation "'handle2[' m ']:' e 'by' op1 '=>' h1 | op2 '=>' h2 | 'ret' '=>' r 'end'" :=
+  (Handler2 m e%E op1 op2 h1%E h2%E r%E)
+  (e, op1, h1, op2, h2, r at level 200) : expr_scope.
 
 Notation "'handle2:' e 'by' op1 '=>' h1 | op2 '=>' h2 | 'ret' '=>' r 'end'" :=
   (Handler2 OS e%E op1 op2 h1%E h2%E r%E)

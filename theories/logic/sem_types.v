@@ -18,7 +18,9 @@ From hazel.program_logic Require Import weakest_precondition
 From haffel.lib Require Import logic.
 From haffel.lang Require Import haffel.
 From haffel.logic Require Import sem_def.
+From haffel.logic Require Import mode.
 From haffel.logic Require Import sem_sig.
+From haffel.logic Require Import sem_row.
 From haffel.logic Require Import sem_env.
 From haffel.logic Require Import ewpw.
 
@@ -50,25 +52,27 @@ Definition sem_ty_prod {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
 Definition sem_ty_sum {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
   (λ v, ∃ v', (⌜v = InjLV v'%V⌝ ∗ τ v') ∨ (⌜ v = InjRV v'⌝ ∗ κ v'))%I.
 
+(* Arrow type. *)
+Definition sem_ty_arr (m : mode) `{heapGS Σ} 
+  (ρ : sem_row Σ)
+  (τ : sem_ty Σ)
+  (κ : sem_ty Σ) : sem_ty Σ :=
+  (λ (v : val), □? m (
+    ∀ (w : val),
+      τ w -∗ 
+      EWPW (v w) <| ρ |> {{ u, κ u}}))%I.
+
 (* Affine Arrow type. *)
 Definition sem_ty_aarr `{heapGS Σ}
   (ρ : sem_row Σ)
   (τ : sem_ty Σ)
-  (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val),
-    ∀ (w : val),
-      τ w -∗
-      EWPW (v w) <| ρ |> {{ u, κ u }})%I.
+  (κ : sem_ty Σ) : sem_ty Σ := sem_ty_arr OS ρ τ κ.
 
 (* Unrestricted Arrow type. *)
-Definition sem_ty_uarr `{heapGS Σ} 
+Definition sem_ty_uarr `{heapGS Σ}
   (ρ : sem_row Σ)
   (τ : sem_ty Σ)
-  (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), □ (
-    ∀ (w : val),
-      τ w -∗ 
-      EWPW (v w) <| ρ |> {{ u, κ u}}))%I.
+  (κ : sem_ty Σ) : sem_ty Σ := sem_ty_arr MS ρ τ κ.
 
 (* Polymorphic type. *)
 Definition sem_ty_forall `{heapGS Σ} 
@@ -140,14 +144,23 @@ Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T))
 Notation "'μT:' α , C " := (sem_ty_rec (λ α, C%T))
   (at level 180) : sem_ty_scope.
 
+Notation "τ '-{' ρ '}-[' m ']->' κ" := (sem_ty_arr m ρ%R τ%T κ%T)
+  (at level 100, m, ρ, κ at level 200) : sem_ty_scope.
+
+Notation "τ '-[' m ']->' κ" := (sem_ty_arr m ⟨⟩%R τ%T κ%T)
+  (at level 100, m, κ at level 200) : sem_ty_scope.
+
+Notation "τ ⊸ κ" := (sem_ty_aarr ⟨⟩%R τ%T κ%T)
+  (at level 99, κ at level 200) : sem_ty_scope.
+
 Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_aarr ρ%R τ%T κ%T)
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ ⊸ κ" := (sem_ty_aarr ⊥ τ%T κ%T)
+Notation "τ ⊸ κ" := (sem_ty_aarr ⟨⟩%R τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ → κ" := (sem_ty_uarr ⊥ τ%T κ%T)
+Notation "τ → κ" := (sem_ty_uarr ⟨⟩%R τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
 (* Derived Types *)
@@ -176,7 +189,7 @@ Section types_properties.
   Ltac solve_non_expansive :=
     repeat intros ?;
     unfold sem_ty_unit, sem_ty_int, sem_ty_bool, sem_ty_cpy,
-           sem_ty_prod, sem_ty_sum, sem_ty_aarr,
+           sem_ty_prod, sem_ty_sum, sem_ty_arr, sem_ty_aarr, sem_ty_uarr,
            sem_ty_uarr, sem_ty_ref, sem_ty_ref_cpy, 
            sem_ty_rec, sem_ty_list, sem_ty_forall, sem_ty_exists;
     repeat (f_equiv || done || intros ? || by apply non_dep_fun_dist).
@@ -190,11 +203,14 @@ Section types_properties.
   Global Instance sem_ty_sum_ne : NonExpansive2 (@sem_ty_sum Σ).
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_aarr_ne : NonExpansive3 sem_ty_aarr.
+  Global Instance sem_ty_arr_ne m : NonExpansive3 (sem_ty_arr m).
   Proof. solve_non_expansive. Qed.
 
+  Global Instance sem_ty_aarr_ne : NonExpansive3 sem_ty_aarr.
+  Proof. rewrite /sem_ty_aarr. apply _. Qed.
+
   Global Instance sem_ty_uarr_ne : NonExpansive3 sem_ty_uarr.
-  Proof. solve_non_expansive. Qed.
+  Proof. rewrite /sem_ty_uarr. apply _. Qed.
 
   Global Instance sem_ty_ref_ne : NonExpansive (@sem_ty_ref Σ _).
   Proof. solve_non_expansive. Qed.
@@ -252,11 +268,14 @@ Section types_properties.
   Global Instance sem_ty_sum_proper : Proper ((≡) ==> (≡) ==> (≡)) (@sem_ty_sum Σ).
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_aarr_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) sem_ty_aarr.
+  Global Instance sem_ty_arr_proper m : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) (sem_ty_arr m).
   Proof. solve_non_expansive. Qed.
 
+  Global Instance sem_ty_aarr_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) sem_ty_aarr.
+  Proof. rewrite /sem_ty_aarr. apply _. Qed.
+
   Global Instance sem_ty_uarr_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) sem_ty_uarr.
-  Proof. solve_non_expansive. Qed.
+  Proof. rewrite /sem_ty_uarr. apply _. Qed.
 
   Global Instance sem_ty_ref_proper : Proper ((≡) ==> (≡)) (@sem_ty_ref Σ _).
   Proof. intros ????. unfold sem_ty_ref; by repeat f_equiv. Qed.
@@ -334,11 +353,36 @@ Section sub_typing.
     by iApply "Hττ'".
   Qed.
 
+  Lemma ty_le_arr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) (m m' : mode) :
+    m ≤M m' -∗
+    ρ ≤R ρ' -∗
+    τ₂ ≤T τ₁ -∗
+    κ₁ ≤T κ₂ -∗
+    (τ₁ -{ ρ }-[ m ]-> κ₁) ≤T (τ₂ -{ ρ' }-[ m' ]-> κ₂).
+  Proof.
+    iIntros "#Hm #Hρ  #Hτ₂₁ #Hκ₁₂ !# %v Hτκ₁". 
+    destruct m.
+    - iDestruct "Hm" as "[<-|%H]"; last inv H.  
+      rewrite /sem_ty_arr /=. iIntros "%w Hτ₂".
+      iApply (ewpw_sub with "Hρ").
+      iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
+      { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
+      iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
+    - rewrite /sem_ty_arr /=.  
+      iApply bi.intuitionistically_intuitionistically_if.
+      iDestruct "Hτκ₁" as "#Hτκ₁".
+      iIntros "!# %w Hτ₂".
+      iApply (ewpw_sub with "Hρ").
+      iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
+      { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
+      iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
+  Qed.
+      
   Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (ρ : sem_row Σ) :
     ⊢ (τ -{ ρ }-> κ) ≤T (τ -{ ρ }-∘ κ).
   Proof.
-    iIntros "!# %v #Hτκ". iIntros (w) "Hτ /=".
-    by iApply "Hτκ".
+    iApply ty_le_arr; [|iApply row_le_refl|iApply ty_le_refl|iApply ty_le_refl].
+    iApply mode_le_MS.
   Qed.
 
   Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
@@ -347,11 +391,8 @@ Section sub_typing.
     κ₁ ≤T κ₂ -∗
     (τ₁ -{ ρ }-∘ κ₁) ≤T (τ₂ -{ ρ' }-∘ κ₂).
   Proof.
-    iIntros "#Hρ  #Hτ₂₁ #Hκ₁₂ !# %v Hτκ₁ %w Hτ₂".
-    iApply (ewpw_sub with "Hρ").
-    iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
-    { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
-    iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
+    iIntros "#Hρ  #Hτ₂₁ #Hκ₁₂".
+    iApply ty_le_arr; [iApply mode_le_refl|iApply "Hρ"|iApply "Hτ₂₁"|iApply "Hκ₁₂"].
   Qed.
   
   Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
@@ -360,11 +401,8 @@ Section sub_typing.
     κ₁ ≤T κ₂ -∗
     (τ₁ -{ ρ }-> κ₁) ≤T (τ₂ -{ ρ' }-> κ₂).
   Proof.
-    iIntros "#Hρ #Hτ₂₁ #Hκ₁₂ !# %v #Hτκ₁ %w !# Hτ₂".
-    iApply (ewpw_sub with "Hρ").
-    iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
-    { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
-    iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
+    iIntros "#Hρ  #Hτ₂₁ #Hκ₁₂".
+    iApply ty_le_arr; [iApply mode_le_refl|iApply "Hρ"|iApply "Hτ₂₁"|iApply "Hκ₁₂"].
   Qed.
   
   Lemma ty_le_ref (τ₁ τ₂ : sem_ty Σ) :
@@ -456,4 +494,3 @@ Section sub_typing.
   Qed.
   
 End sub_typing.
-
