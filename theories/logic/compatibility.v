@@ -1087,7 +1087,7 @@ Section compatibility.
 
   (* Effect handling rules *)
   
-  Lemma sem_typed_perform_os {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e `{! OSRow ρ'} :
+  Lemma sem_typed_perform_os {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
     let σ := (∀S..: αs, A αs =[ OS ]=> B αs)%S in
     let ρ := ((op, σ) ·: ρ')%R in
     Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
@@ -1095,10 +1095,8 @@ Section compatibility.
   Proof.
     iIntros (σ ρ) "#He !# %vs HΓ₁ //=". 
     iApply (ewpw_bind [AppRCtx _; DoCtx MS; PairRCtx _]); simpl; first done.
-    assert (HOS : OSRow ((op, σ) · ρ')).
-    { apply row_ins_os_row; [apply _| done]. }
-    iApply (ewpw_mono_os with "[HΓ₁]"); [by iApply "He"|].
-    iIntros "%v [Hι HΓ₂] //= !>". rewrite /rec_perform.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
+    iIntros "!# %v [Hι HΓ₂] //= !>". rewrite /rec_perform.
     iApply (ewpw_bind [AppRCtx _]); first done.
     ewpw_pure_steps. iApply ewpw_do_ms.
     rewrite /sem_row_iEff /=.
