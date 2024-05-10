@@ -163,6 +163,16 @@ Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
 Notation "τ → κ" := (sem_ty_uarr ⟨⟩%R τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
+(* Subsumption relation on rows wrt to types *)
+
+Global Instance row_type_sub_cpy {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) :
+  RowTypeSub ρ%R ('! τ)%T.
+Proof.
+  constructor.
+  iIntros (v Φ w) "Hρ Hτ".
+  rewrite /sem_row_iEff /=.
+Admitted.
+
 (* Derived Types *)
 
 Definition ListF {Σ} (τ : sem_ty Σ) := (λ α, () + (τ × α))%T.

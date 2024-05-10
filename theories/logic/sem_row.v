@@ -280,6 +280,23 @@ Proof.
   by iRewrite ("Hlookup" $! v' Φ') in "Hσ'".
 Qed.
 
+(* Subsumption relation on rows wrt to types *)
+
+Class RowTypeSub {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) := { 
+  row_type_sub : (⊢ ∀ v Φ w, iEff_car ⟦ ρ ⟧%R v Φ -∗ τ w -∗ iEff_car ⟦ ρ ⟧%R v (λ u, Φ u ∗ τ w))
+}.
+
+Notation "ρ ≼ τ" := (RowTypeSub ρ%R τ%T) : bi_scope.
+
+Global Instance row_type_sub_os {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) :
+  RowTypeSub (¡ ρ)%R τ.
+Proof.
+  constructor.
+  iIntros (v Φ w) "Hρ Hτ".
+  pose proof (@row_os_os_row Σ ρ) as H. inv H. 
+  by iApply (monotonic_prot0 $! _ Φ with "[Hτ]"); first iIntros "% $ //".
+Qed.
+
 (* Subsumption relation on rows *)
 
 Lemma row_le_refl {Σ} (ρ : sem_row Σ) :
