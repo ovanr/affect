@@ -202,6 +202,87 @@ Proof.
   iApply (ewp_pers_mono with "Hewp HΦ").
 Qed.
 
+Lemma ewp_mono_on_prop E (Ψ Ψ' : iEff Σ) e (P : iProp Σ) Φ :
+  mono_prot_on_prop Ψ' P -∗ P -∗
+  EWP e @ E <| Ψ |> {| Ψ' |} {{ v, Φ v }} -∗
+  EWP e @ E <| Ψ |> {| Ψ' |} {{ v, Φ v ∗ P }}.
+Proof.
+  iIntros "#Hmono HP Hewp".
+  iLöb as "IH" forall (e).
+  rewrite !ewp_unfold /ewp_pre.
+  destruct (to_val e) eqn:?.
+  { iMod "Hewp" as "Hewp". iModIntro. iFrame. }
+  destruct (to_eff e) eqn:?.
+  - simpl. destruct p eqn:?, p0 eqn:?, m;
+    iDestruct "Hewp" as "(%Φ'' & HΨ & Hps)".
+    + iExists Φ''. iFrame.
+      iIntros (?) "HΦ''". iSpecialize ("Hps" $! w with "HΦ''").
+      iNext. iApply ("IH" with "HP Hps").
+    + iExists (λ w, Φ'' w ∗ P)%I; iSplitL "HΨ HP".
+      { iApply ("Hmono" with "HΨ HP"). }
+      try (iDestruct "Hps" as "#Hps"; iModIntro).
+      iIntros "% (HΦ'' & HP)". 
+      iSpecialize ("Hps" with "HΦ''"); iNext;
+      iApply ("IH" with "HP Hps").
+  - iIntros (σ₁ ns κ' κs nt) "Hstate".
+    iSpecialize ("Hewp" $! σ₁ ns κ' κs nt with "Hstate"). 
+    iMod "Hewp" as "Hewp". iModIntro.
+    iDestruct "Hewp" as "(Hred & Hpost)".
+    iFrame. iIntros (e₂ σ₂) "Hprim Hcred".
+    iSpecialize ("Hpost" $! e₂ σ₂ with "Hprim Hcred").
+    iInduction (num_laters_per_step) as [|] "IH'"; simpl.
+    { iMod "Hpost" as "Hpost". iModIntro. iNext.
+      do 2 (iMod "Hpost" as "Hpost"; iModIntro).
+      iDestruct "Hpost" as "[$ He₂]".
+      iApply ("IH" with "HP He₂" ). }
+    iMod "Hpost" as "Hpost". iModIntro. iNext.
+    iMod "Hpost" as "Hpost". iClear "IH".
+    iMod ("IH'" with "HP Hpost") as "IH".
+    do 2 iModIntro. iNext. iApply "IH".
+Qed.
+
+Corollary ewp_row_type_sub E (ρ ρ' : sem_row Σ) τ e Φ w : 
+  ρ' ≼ₜ τ -∗
+  EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ v }} -∗ τ w -∗
+  EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ v ∗ τ w }}.
+Proof.
+  iIntros "#Hρ'τ Hewp Hτ". 
+  iApply (ewp_mono_on_prop with "[] Hτ Hewp").
+  iApply "Hρ'τ".
+Qed.
+
+Corollary ewp_row_env_sub E (ρ ρ' : sem_row Σ) Γ e Φ vs : 
+  ρ' ≼ₑ Γ -∗
+  EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ v }} -∗ ⟦ Γ ⟧ vs -∗
+  EWP e @ E <| ⟦ ρ ⟧%R |> {| ⟦ ρ' ⟧%R |} {{ v, Φ v ∗ ⟦ Γ ⟧ vs }}.
+Proof.
+  iIntros "#Hρ'Γ Hewp HΓ". 
+  iApply (ewp_mono_on_prop with "[] HΓ Hewp").
+  iApply "Hρ'Γ".
+Qed.
+
+Lemma ewpw_row_type_sub E ρ τ e Φ w :
+  ρ ≼ₜ τ -∗
+  EWPW e @ E <| ρ |> {{ Φ }} -∗ τ w -∗
+  EWPW e @E <| ρ |> {{ v, Φ v ∗ τ w }}. 
+Proof.
+  iIntros "#Hρτ Hewp Hτ". rewrite /ewpw.
+  iPoseProof (@ewp_row_type_sub E ⊥ ρ τ e Φ w with "Hρτ [Hewp] Hτ") as "H".
+  { iApply ewp_os_prot_mono; first iApply iEff_le_bottom. iApply "Hewp". }
+  iApply ewp_os_prot_mono; first iApply row_nil_iEff_bot. iApply "H".
+Qed.
+
+Lemma ewpw_row_env_sub E ρ Γ e Φ vs : 
+  ρ ≼ₑ Γ -∗
+  EWPW e @ E <| ρ |> {{ Φ }} -∗ ⟦ Γ ⟧ vs -∗
+  EWPW e @E <| ρ |> {{ v, Φ v ∗ ⟦ Γ ⟧ vs }}. 
+Proof.
+  iIntros "HρΓ Hewp HΓ". rewrite /ewpw.
+  iPoseProof (@ewp_row_env_sub E ⊥ ρ Γ e Φ vs with "HρΓ [Hewp] HΓ") as "H".
+  { iApply ewp_os_prot_mono; first iApply iEff_le_bottom. iApply "Hewp". }
+  iApply ewp_os_prot_mono; first iApply row_nil_iEff_bot. iApply "H".
+Qed.
+
 Lemma ewpw_pure_step' E e e' ρ Φ :
   pure_prim_step e e' → 
   ▷ EWPW e' @E <| ρ |>  {{ Φ }} -∗
@@ -407,7 +488,7 @@ Proof.
       ++ iApply (ewp_bind [AppRCtx _; AppRCtx _]); first done. 
          iApply ewp_alloc. iIntros "!> %l Hl !> /=". ewp_pure_steps.
          iApply "Hbr". iExists Φ''.  
-         rewrite lookup_insert option_equivI iEff_equivI.
+         rewrite lookup_insert option_equivI sem_sig_iEff_equivI.
          iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
          iIntros (w) "Φ''". rewrite /ewpw. ewp_pure_steps. 
          iApply (ewp_bind [AppRCtx _; AppRCtx _]); first done.
@@ -419,7 +500,7 @@ Proof.
          iApply (ewp_store with "Hl"). iIntros "!> _ !> /=".
          do 3 ewp_value_or_step. by iApply "HPost".
       ++ iApply "Hbr". iExists Φ''.  
-         rewrite lookup_insert option_equivI iEff_equivI.
+         rewrite lookup_insert option_equivI sem_sig_iEff_equivI.
          iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
          iIntros "!# %w Φ''". rewrite /ewpw. 
          by iApply "HPost".
@@ -516,7 +597,7 @@ Proof.
       ++ iApply (ewp_bind [AppRCtx _; AppRCtx _]); first done. 
          iApply ewp_alloc. iIntros "!> %l Hl !> /=". ewp_pure_steps.
          iApply "Hbr". iExists Φ''.  
-         rewrite lookup_insert option_equivI iEff_equivI.
+         rewrite lookup_insert option_equivI sem_sig_iEff_equivI.
          iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
          iIntros (w) "HΦ''". rewrite /ewpw. ewp_pure_steps. 
          iIntros (ρ'' Φ''') "Hdeep". ewp_pure_steps.
@@ -530,7 +611,7 @@ Proof.
          do 3 ewp_value_or_step. iApply ("HPost" with "HΦ''").
          iNext. iApply ("IH" with "Hdeep"). 
       ++ iApply "Hbr". iExists Φ''.  
-         rewrite lookup_insert option_equivI iEff_equivI.
+         rewrite lookup_insert option_equivI sem_sig_iEff_equivI.
          iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
          iIntros "!# %w HΦ''". rewrite /ewpw. 
          iIntros (ρ'' Φ''') "Hdeep". ewp_pure_steps.
@@ -642,7 +723,7 @@ Proof.
       ++ iApply (ewp_bind [AppRCtx _; AppRCtx _]); first done. 
          iApply ewp_alloc. iIntros "!> %l Hl !> /=". ewp_pure_steps.
          iApply "Hbr". iExists Φ''.  
-         rewrite lookup_insert option_equivI iEff_equivI.
+         rewrite lookup_insert option_equivI sem_sig_iEff_equivI.
          iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
          iIntros (w) "HΦ''". rewrite /ewpw. ewp_pure_steps. 
          iIntros (ρ'' Φ''') "Hdeep". ewp_pure_steps.
@@ -657,7 +738,7 @@ Proof.
          iNext. iApply ("IH" with "Hdeep"). 
       ++ iDestruct "HPost" as "#HPost".
          iApply "Hbr". iExists Φ''.  
-         rewrite lookup_insert option_equivI iEff_equivI.
+         rewrite lookup_insert option_equivI sem_sig_iEff_equivI.
          iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
          iIntros "!# %w HΦ''". rewrite /ewpw. 
          iIntros (ρ'' Φ''') "Hdeep". ewp_pure_steps.
@@ -668,7 +749,7 @@ Proof.
          rewrite lookup_insert_ne; last (intros ?; simplify_eq).  
          rewrite row_tun_ins_eq_ne. 
          2: { intros ?. apply Hneg; eauto. }
-         rewrite lookup_insert option_equivI iEff_equivI.
+         rewrite lookup_insert option_equivI sem_sig_iEff_equivI.
          iRewrite - ("Hlookup'" $! v' Φ'') in "Hσ'". iFrame.
          rewrite bi.intuitionistically_if_elim. 
          destruct mh; simpl.

@@ -165,13 +165,26 @@ Notation "τ → κ" := (sem_ty_uarr ⟨⟩%R τ%T κ%T)
 
 (* Subsumption relation on rows wrt to types *)
 
-Global Instance row_type_sub_cpy {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) :
-  RowTypeSub ρ%R ('! τ)%T.
+Lemma row_type_sub_cpy {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : copy_ty τ -∗ ρ ≼ₜ τ.
 Proof.
-  constructor.
-  iIntros (v Φ w) "Hρ Hτ".
-  rewrite /sem_row_iEff /=.
-Admitted.
+  iIntros "#Hτcpy %w %v %Φ !# Hρ Hτ.".
+  iDestruct ("Hτcpy" with "Hτ.") as "#Hτ".
+  rewrite /sem_row_iEff /=. 
+  iDestruct "Hρ" as "(% & % & % & % & -> & Hlookup & Hσ)".
+  iExists v', op, s, σ. iSplitR; first done. iFrame.
+  iApply (sem_sig_pmono _ σ with "[] Hσ").
+  iIntros "!# % $ //".
+Qed.
+
+Lemma row_type_sub_cpy_type {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ ρ ≼ₜ ('! τ).
+Proof.
+  iIntros (w v Φ) "!# Hρ #Hτ".
+  rewrite /sem_row_iEff /=. 
+  iDestruct "Hρ" as "(% & % & % & % & -> & Hlookup & Hσ)".
+  iExists v', op, s, σ. iSplitR; first done. iFrame.
+  iApply (sem_sig_pmono _ σ with "[] Hσ").
+  iIntros "!# % $ //".
+Qed.
 
 (* Derived Types *)
 

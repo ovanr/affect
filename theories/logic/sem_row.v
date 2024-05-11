@@ -26,11 +26,11 @@ Definition sem_row_ins {Σ} (op : operation) (σ : sem_sig Σ) (ρ : sem_row Σ)
   insert (op, 0) σ ρ.
 
 Definition sem_row_os {Σ} (ρ : sem_row Σ) : sem_row Σ := 
-  fmap (λ σ, upcl OS σ) ρ. 
+  fmap (λ σ, sem_sig_os σ) ρ. 
 
 Definition sem_row_tun_f op := 
   (λ k : operation * nat, if decide (op = k.1) then (k.1, S k.2)
-                                          else (k.1, k.2)).
+                                               else (k.1, k.2)).
 Definition sem_row_tun {Σ} (op : operation) (ρ : sem_row Σ) : sem_row Σ := 
   kmap (sem_row_tun_f op) ρ. 
 
@@ -56,7 +56,7 @@ Qed.
 
 Program Definition sem_row_iEff {Σ} (ρ : sem_row Σ) : iEff Σ :=
   IEff (λ v, λne Φ, ∃ v' op (s : nat) σ, (v ≡ (effect op, #s, v')%V) ∗ 
-                                (lookup (op, s) ρ ≡ Some σ ∗ iEff_car σ v' Φ))%I.
+                                (lookup (op, s) ρ ≡ Some σ ∗ iEff_car (sem_sig_car σ) v' Φ))%I.
 Next Obligation.
   intros ???????. by repeat f_equiv.
 Qed.
@@ -142,7 +142,9 @@ Proof.
   - iIntros "(%σ' & Heq & Hlookup)". rewrite lookup_fmap.
     destruct (ρ !! (op, s)) as [σ''|] eqn:H; rewrite H; simpl.
     + iDestruct (option_equivI with "Hlookup") as "#Hlookup'".
-      iRewrite "Hlookup'". by iRewrite "Heq".
+      iApply option_equivI.
+      iRewrite "Heq". 
+      by iRewrite "Hlookup'".
     + iDestruct "Hlookup" as "%H'". inv H'.
 Qed.
 
@@ -248,11 +250,11 @@ Proof.
   iIntros (v Φ Φ') "HPost (% & % & % & % & Heq & #Hlookup & Hσ)".
   iExists v', op, s, σ. iFrame "∗#".
   rewrite row_os_lookup. iDestruct "Hlookup" as "(%σ' & Heq & Hlookup)".
-  iPoseProof (iEff_equivI with "Heq") as "H".
+  iPoseProof (sem_sig_iEff_equivI σ (¡ σ')%S with "Heq") as "H".
   iRewrite ("H" $! v' Φ'). 
   pose proof (upcl_mono_prot σ') as [].
   iApply (monotonic_prot0 with "HPost"). rewrite /sem_sig_os.
-  by iRewrite - ("H" $! v' Φ).
+  simpl. by iRewrite - ("H" $! v' Φ).
 Qed.
 
 Global Instance row_rec_os_row {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:  
@@ -276,25 +278,37 @@ Proof.
   iDestruct "H" as "(%v' & %op' & %s' & %σ' & %Heq & Hlookup' & Hσ')".
   inv Heq. destruct (ρ !! (op', s')) eqn:Heq; last (iDestruct "Hlookup'" as "%H"; inv H).
   rewrite Heq !option_equivI. iRewrite "Hlookup'" in "Hlookup".
-  rewrite iEff_equivI.
-  by iRewrite ("Hlookup" $! v' Φ') in "Hσ'".
+  rewrite sem_sig_iEff_equivI. iSpecialize ("Hlookup" $! v' Φ').
+  by iRewrite - "Hlookup".
 Qed.
 
 (* Subsumption relation on rows wrt to types *)
 
-Class RowTypeSub {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) := { 
-  row_type_sub : (⊢ ∀ v Φ w, iEff_car ⟦ ρ ⟧%R v Φ -∗ τ w -∗ iEff_car ⟦ ρ ⟧%R v (λ u, Φ u ∗ τ w))
-}.
+Definition mono_prot_on_prop {Σ} (Ψ : iEff Σ) (P : iProp Σ) : iProp Σ :=
+  □ (∀ v Φ, iEff_car Ψ v Φ -∗ P -∗ iEff_car Ψ v (λ w, Φ w ∗ P))%I.
 
-Notation "ρ ≼ τ" := (RowTypeSub ρ%R τ%T) : bi_scope.
+Definition row_type_sub {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : iProp Σ := 
+  (∀ v, mono_prot_on_prop ⟦ ρ ⟧%R (τ v)).
 
-Global Instance row_type_sub_os {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) :
-  RowTypeSub (¡ ρ)%R τ.
+Notation "ρ ≼ₜ τ" := (row_type_sub ρ%R τ%T)%I (at level 80) : bi_scope.
+
+Lemma row_type_sub_os {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ (¡ ρ) ≼ₜ τ.
 Proof.
-  constructor.
-  iIntros (v Φ w) "Hρ Hτ".
+  iIntros (w v Φ) "!# Hρ Hτ".
   pose proof (@row_os_os_row Σ ρ) as H. inv H. 
   by iApply (monotonic_prot0 $! _ Φ with "[Hτ]"); first iIntros "% $ //".
+Qed.
+
+Definition row_env_sub {Σ} (ρ : sem_row Σ) (Γ : env Σ) : iProp Σ := 
+  (∀ vs, mono_prot_on_prop ⟦ ρ ⟧%R (⟦ Γ ⟧ vs)).
+
+Notation "ρ ≼ₑ Γ" := (row_env_sub ρ%R Γ%T) (at level 80) : bi_scope.
+
+Lemma row_env_sub_os {Σ} (ρ : sem_row Σ) (Γ : env Σ) : ⊢ (¡ ρ) ≼ₑ Γ.
+Proof.
+  iIntros (vs v Φ) "!# Hρ HΓ".
+  pose proof (@row_os_os_row Σ ρ) as H. inv H. 
+  by iApply (monotonic_prot0 $! _ Φ with "[HΓ]"); first iIntros "% $ //".
 Qed.
 
 (* Subsumption relation on rows *)

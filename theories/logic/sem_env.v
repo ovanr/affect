@@ -12,6 +12,7 @@ From hazel.program_logic Require Import weakest_precondition
 From haffel.lib Require Import base.
 From haffel.lang Require Import haffel.
 From haffel.logic Require Import sem_def.
+From haffel.logic Require Import sem_row.
 
 Section env_lemmas_base.
   
@@ -243,6 +244,22 @@ Section env_lemmas_set_operations.
   Qed.
   
 End env_lemmas_set_operations.
+
+Section env_row_sub_typing.
+
+  Lemma row_env_sub_cpy {Σ} (ρ : sem_row Σ) (Γ : env Σ) : 
+    copy_env Γ -∗ ρ ≼ₑ Γ.
+  Proof.
+    iIntros "#HΓcpy %vs %v %Φ !# Hρ HΓ.".
+    iDestruct ("HΓcpy" with "HΓ.") as "#HΓ".
+    rewrite /sem_row_iEff /=. 
+    iDestruct "Hρ" as "(% & % & % & % & -> & Hlookup & Hσ)".
+    iExists v', op, s, σ. iSplitR; first done. iFrame.
+    iApply (sem_sig_pmono _ σ with "[] Hσ").
+    iIntros "!# % $ //".
+  Qed.
+
+End env_row_sub_typing.
 
 Section env_sub_typing.
 

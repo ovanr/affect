@@ -25,6 +25,7 @@ From haffel.logic Require Import sem_operators.
 From haffel.logic Require Import compatibility.
 From haffel.logic Require Import tactics.
 
+
 Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
 Definition async : val := (Λ: λ: "c", perform: "async" "c")%V.
@@ -113,7 +114,7 @@ Section typing.
     (("async", async_sig θ) ·: ("await", await_sig) ·: ⟨⟩)%R.
   
   Local Instance contractive_coop_pre : Contractive coop_pre.
-  Proof.
+  Proof. 
     intros ????. rewrite /coop_pre. rewrite /sem_row_cons /= /sem_row_ins.
     intros ?. destruct (decide (i = ("async", 0))) as [->|Hneg].
     - rewrite !lookup_insert. f_equiv. rewrite /async_sig.

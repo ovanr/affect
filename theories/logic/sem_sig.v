@@ -24,21 +24,19 @@ Proof. iIntros "H". rewrite /sig_le. iApply "H". Qed.
 (* Universally Quantified Effect Signatures *)
 
 (* Effect Signature *)
-Definition sem_sig_eff {Σ} {TT : tele} m (A B : TT → sem_ty Σ) : sem_sig Σ :=
-  (>>.. (αs : TT) >> >> (a : val) >>  ! a {{ ▷ (A αs a) }}; 
-                     << (b : val) <<  ? b {{ ▷ (B αs b) }} @m)%ieff.
-
-Lemma sem_sig_eff_unfold {Σ} {TT : tele} m (A B : TT → sem_ty Σ) :
-  (sem_sig_eff m A B) ≡ 
-  (>>.. (αs : TT) >> >> (a : val) >> ! a {{ ▷ (A αs a) }}; 
-                     << (b : val) << ? b {{ ▷ (B αs b) }} @m)%ieff.
-Proof. rewrite /sem_sig_eff //. Qed.
-
-Lemma sem_sig_eff_unfold_iEff {Σ} {TT : tele} m (A B : TT → sem_ty Σ) v Φ:
-  iEff_car (sem_sig_eff m A B) v Φ ⊣⊢
-    iEff_car (>>.. (αs : TT) >> >> (a : val) >> ! a {{ ▷ (A αs a) }}; 
-                                << (b : val) << ? b {{ ▷ (B αs b) }} @m)%ieff v Φ.
-Proof. done. Qed.
+Program Definition sem_sig_eff {Σ} {TT : tele} m (A B : TT → sem_ty Σ) : sem_sig Σ :=
+  @SemSig Σ (>>.. (αs : TT) >> >> (a : val) >>  ! a {{ ▷ (A αs a) }}; 
+                            << (b : val) <<  ? b {{ ▷ (B αs b) }} @m)%ieff _.
+Next Obligation.
+  iIntros (????????) "#HΦ". 
+  rewrite ! iEffPre_texist_eq iEffPre_exist_eq /=.
+  rewrite iEffPre_base_eq iEffPost_exist_eq /iEffPost_exist_def iEffPost_base_eq /iEffPost_base_def /=.
+  iIntros "(%tt & % & -> & HA & HP)". iExists tt, v.
+  iFrame. iSplitR; first done.
+  destruct m; simpl; 
+    last (iDestruct "HP" as "#HP"; iIntros "!>");
+    iIntros "% H"; iApply "HΦ"; by iApply "HP".
+Qed.
 
 Lemma sem_sig_eff_eq {Σ} {TT : tele} m A B v Φ :
   iEff_car (@sem_sig_eff Σ TT m A B) v Φ ⊣⊢
@@ -97,8 +95,26 @@ Notation "'∀S:' x .. y , κ '=[' m ']=>' ι" :=
 
 (* Eval cbn in (∀S.: (α : sem_ty Σ), (sem_ty_prod α α) =[ OS ]=> (sem_ty_cpy α))%S. *)
 
-Definition sem_sig_os {Σ} (σ : sem_sig Σ) : sem_sig Σ := (upcl OS σ).
+Program Definition sem_sig_os {Σ} (σ : sem_sig Σ) : sem_sig Σ := @SemSig Σ (upcl OS σ) _.
+Next Obligation.
+  iIntros (?????) "#HΦ Hσ". 
+  pose proof (upcl_mono_prot σ) as []. 
+  iApply (monotonic_prot with "HΦ Hσ").
+Qed.
+
 Notation "¡ σ" := (sem_sig_os σ) (at level 10) : sem_sig_scope.
+
+Global Instance sem_sig_os_ne {Σ} : NonExpansive (@sem_sig_os Σ).
+Proof.
+  intros ????. rewrite /sem_sig_os. intros ?.
+  apply non_dep_fun_dist. simpl.
+  intros ??. apply non_dep_fun_dist. simpl.
+  intros ?. do 3 f_equiv. apply non_dep_fun_dist.
+  by apply iEff_car_ne.
+Qed.
+
+Global Instance sem_sig_os_proper {Σ} : Proper ((≡) ==> (≡)) (@sem_sig_os Σ).
+Proof. apply ne_proper. apply _. Qed.
 
 (* One-Shot Signatures *)
 

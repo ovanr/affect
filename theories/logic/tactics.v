@@ -16,6 +16,7 @@ From haffel.logic Require Import sem_def.
 From haffel.logic Require Import copyable.
 From haffel.logic Require Import sem_types.
 From haffel.logic Require Import sem_sig.
+From haffel.logic Require Import sem_row.
 From haffel.logic Require Import sem_env.
 From haffel.logic Require Import ewpw.
 
@@ -71,12 +72,20 @@ Ltac solve_copy :=
     iApply copy_env_nil || 
     iApply copy_env_cons).
 
+Ltac solve_row_type_sub :=
+  try (iApply row_type_sub_cpy_type || iApply row_type_sub_cpy || iApply row_type_sub_os).
+
+Ltac solve_row_env_sub :=
+  try (iApply row_env_sub_cpy || iApply row_env_sub_os).
+
 Ltac solve_sidecond := 
     try rewrite !env_dom_nil;
     try rewrite !env_dom_cons;
     solve_dom; 
     solve_disjoint;
-    solve_copy.
+    solve_copy;
+    solve_row_type_sub;
+    solve_row_env_sub.
 
 Ltac solve_dec := 
     ((rewrite decide_True; last (done || split; eauto; intros ?; by simplify_eq)) ||

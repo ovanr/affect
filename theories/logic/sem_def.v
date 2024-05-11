@@ -36,16 +36,81 @@ Declare Scope sem_ty_scope.
 Delimit Scope sem_ty_scope with T.
 
 (** * Semantic Effect Signature. *)
+(** Semantic types are defined using a record, which bundles an Iris predicate
+[sem_ty_car : val → iProp Σ] together with a proof of persistence. *)
 
-Definition sem_sig Σ := (iEff Σ)%type.
+Definition pers_mono {Σ} (Ψ : iEff Σ) : iProp Σ :=
+  (∀ (v : val) (Φ Φ' : val → iPropI Σ),
+      □ (∀ w : val, Φ w -∗ Φ' w) -∗ 
+                        iEff_car Ψ v Φ -∗ iEff_car Ψ v Φ')%I.
+
+Record sem_sig Σ := SemSig {
+  sem_sig_car :> iEff Σ;
+  sem_sig_pmono : ⊢ pers_mono sem_sig_car
+}.
+Arguments SemSig {_} _%I {_}.
+Arguments sem_sig_car {_} _ : simpl never.
+
 
 Declare Scope sem_sig_scope.
 (* Bind Scope sem_sig_scope with sem_sig. *)
 Delimit Scope sem_sig_scope with S.
 
+(** * The COFE structure on semantic signatures *)
+(** We show that semantic sig [sem_sig] form a Complete Ordered Family of
+Equivalences (COFE). This is necessary mostly for enabling rewriting equivalent
+semantic signatures through Coq's setoid rewrite system. This part is mostly
+boilerplate. *)
+Section sem_sig_cofe.
+  Context {Σ : gFunctors}.
+
+  Instance sem_sig_equiv : Equiv (sem_sig Σ) := λ Ψ1 Ψ2, sem_sig_car Ψ1 ≡ sem_sig_car Ψ2.
+  Instance sem_sig_dist : Dist (sem_sig Σ) := λ n Ψ1 Ψ2, sem_sig_car Ψ1 ≡{n}≡ sem_sig_car Ψ2.
+  Lemma sem_sig_ofe_mixin : OfeMixin (sem_sig Σ).
+  Proof. by apply (iso_ofe_mixin sem_sig_car). Qed.
+  Canonical Structure sem_sigO := Ofe (sem_sig Σ) sem_sig_ofe_mixin.
+  Global Instance sem_sig_cofe : Cofe sem_sigO.
+  Proof.
+    apply (iso_cofe_subtype' (λ Ψ, ⊢ pers_mono Ψ)
+      (@SemSig _) sem_sig_car)=> //.
+    - by intros [].
+    - apply bi.limit_preserving_emp_valid.
+
+      intros ????. rewrite /pers_mono.
+      do 8 f_equiv; apply non_dep_fun_dist;
+       apply (non_dep_fun_dist _  _ a (iEff_car x) (iEff_car y)); by f_equiv.
+  Qed.
+
+  Global Program Instance sem_sig_inhabited : Inhabited (sem_sig Σ) := 
+    populate (SemSig inhabitant).
+  Next Obligation.
+    rewrite /pers_mono /inhabitant /=. iIntros (???) "_ _ //".
+  Qed.
+
+  Global Instance sem_sig_car_ne n : Proper (dist n ==> dist n) sem_sig_car.
+  Proof. by intros Ψ1 Ψ2 ?. Qed.
+  Global Instance sem_sig_car_proper : Proper ((≡) ==> (≡)) (@sem_sig_car Σ).
+  Proof. by intros Ψ1 Ψ2 ?. Qed.
+
+End sem_sig_cofe.
+
+Lemma sem_sig_equivI {Σ} (σ1 σ2 : sem_sig Σ) :
+  σ1 ≡ σ2 ⊢@{iProp Σ} (sem_sig_car σ1) ≡ (sem_sig_car σ2).
+Proof. iIntros "H". by iRewrite "H". Qed.
+
+Lemma sem_sig_iEff_equivI {Σ} (σ1 σ2 : sem_sig Σ) :
+  σ1 ≡ σ2 ⊢@{iProp Σ} ∀ v Φ, iEff_car (sem_sig_car σ1) v Φ ≡ iEff_car (sem_sig_car σ2) v Φ.
+Proof.
+  iIntros "H % %". iPoseProof (sem_sig_equivI with "H") as "HH".
+  rewrite /sem_sig_car. destruct σ1, σ2. simpl.
+  iApply (iEff_equivI with "HH").
+Qed.
+
+Arguments sem_sigO : clear implicits.
+
 (** * Semantic Effect Row. *)
 
-Definition sem_row Σ := (gmapO (operation * natO) (sem_sig Σ))%type.
+Definition sem_row Σ := (gmapO (operation * natO) (sem_sigO Σ))%type.
 
 Declare Scope sem_row_scope.
 (* Bind Scope sem_row_scope with sem_row. *)
