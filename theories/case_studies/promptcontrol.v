@@ -183,7 +183,9 @@ Section typing.
     intros ????. rewrite /ctrl_pre. rewrite /sem_row_cons /= /sem_row_ins.
     intros ?. destruct (decide (i = ("ctrl", 0))) as [->|Hneg].
     - rewrite !lookup_insert. f_equiv.
-      rewrite /sem_sig_eff. simpl. do 5 f_equiv. f_contractive.
+      rewrite /sem_sig_eff. simpl. intros ?.
+      apply non_dep_fun_dist. rewrite /sem_sig_car /=.
+      do 6 f_equiv. f_contractive.
       apply non_dep_fun_dist. f_equiv; first done. by f_equiv.
     - rewrite (lookup_insert_ne _ ("ctrl", 0) i _) //. 
       rewrite (lookup_insert_ne _ ("ctrl", 0) i _) //.

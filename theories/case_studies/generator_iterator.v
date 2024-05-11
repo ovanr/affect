@@ -80,7 +80,7 @@ Section typing.
         iApply sem_typed_afun; solve_sidecond.
         simpl. iApply sem_typed_unit'.
       + rewrite app_singletons.
-        iApply (sem_typed_shandler OS "yield" (λ _, α) (λ _, ()) () (Option α) ⊥ _ 
+        iApply (sem_typed_shandler (TT:=[tele _]) OS "yield" (tele_app (λ _, α)) (tele_app (λ _, ())) () (Option α) ⊥ _ 
                       [("comp", cont_ty)] [] [] [("cont", Refᶜ cont_ty)]); solve_sidecond.
         * iLeft. iPureIntro. apply _.
         * iApply row_le_refl. 

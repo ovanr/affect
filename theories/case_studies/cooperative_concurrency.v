@@ -118,7 +118,9 @@ Section typing.
     intros ????. rewrite /coop_pre. rewrite /sem_row_cons /= /sem_row_ins.
     intros ?. destruct (decide (i = ("async", 0))) as [->|Hneg].
     - rewrite !lookup_insert. f_equiv. rewrite /async_sig.
-      rewrite /sem_sig_eff. simpl. do 5 f_equiv. f_contractive.
+      rewrite /sem_sig_eff. simpl. intros ?. 
+      apply non_dep_fun_dist. rewrite /sem_sig_car /=.
+      do 6 f_equiv. f_contractive.
       apply non_dep_fun_dist. by f_equiv. 
     - rewrite (lookup_insert_ne _ ("async", 0) i (async_sig y)) //. 
       rewrite (lookup_insert_ne _ ("async", 0) i (async_sig x)) //. 

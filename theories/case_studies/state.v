@@ -25,6 +25,12 @@ From haffel.logic Require Import sem_operators.
 From haffel.logic Require Import compatibility.
 From haffel.logic Require Import tactics.
 
+(* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
+Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
+Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_sig_eff sem_sig_os.
+Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
+
 Definition get : val := (λ: <>, perform: "get" #())%V.
 Definition put : val := (λ: "s", perform: "put" "s")%V.
 
@@ -114,14 +120,14 @@ Section typing.
     simpl. iApply (sem_typed_let _ _ _ _ [("n", ℤ)]); solve_sidecond. 
     { iApply sem_typed_alloc_cpy. iApply sem_typed_int. }
     iApply sem_typed_swap_second. rewrite app_singletons. 
-    iApply (sem_typed_handler2 OS "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () ℤ ⊥ _ _ [] with "[] [] []"); solve_sidecond.
+    iApply (sem_typed_handler2 (TT:=[tele _]) OS "get" "put" (tele_app (λ _, ())) (tele_app (λ _, ℤ)) (tele_app (λ _, ℤ)) (tele_app (λ _, ())) () ℤ ⊥ _ _ [] with "[] [] []"); solve_sidecond.
     { iApply row_le_refl. }
     - iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_var'.
       iApply sem_typed_sub_u2aarr. iApply sem_typed_sub_nil.
       iApply sem_typed_sub_ty; first iApply ty_le_uarr; try iApply ty_le_refl.
       { do 2 (iApply row_le_cons_comp; first iApply sig_le_eff_mode). iApply row_le_nil. }
-      iApply sem_typed_val. iApply fact_typed.
+      iApply sem_typed_val. simpl. iApply fact_typed.
     - iIntros (?).  iApply sem_typed_weaken.
       iApply sem_typed_swap_second. 
       iApply (sem_typed_app_os ℤ); solve_copy. 
@@ -144,7 +150,7 @@ Section typing.
     iIntros. iApply sem_typed_closure; solve_sidecond.
     simpl. iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_int.
     rewrite - {1} (app_nil_r [("n", ℤ)]).
-    iApply (sem_typed_handler2 OS "get" "put" (λ _, ()) (λ _, ℤ) (λ _, ℤ) (λ _, ()) () _ _ _ _ []); solve_sidecond.
+    iApply (sem_typed_handler2 (TT:=[tele _]) OS "get" "put" (tele_app (λ _, ())) (tele_app (λ _, ℤ)) (tele_app (λ _, ℤ)) (tele_app (λ _, ())) () _ _ _ _ []); solve_sidecond.
     { iApply row_le_refl. }
     - iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       iApply (sem_typed_app_ms ℤ); solve_copy; last iApply sem_typed_var'.
