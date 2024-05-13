@@ -95,6 +95,23 @@ Notation "'∀S:' x .. y , κ '=[' m ']=>' ι" :=
 
 (* Eval cbn in (∀S.: (α : sem_ty Σ), (sem_ty_prod α α) =[ OS ]=> (sem_ty_cpy α))%S. *)
 
+(* TODO: find a way to prove this *)
+  (* Global Instance sem_sig_eff_contractive {Σ} {TT : tele} (A : ofe) (ι κ : A → tele_arg TT -d> sem_ty Σ) m *) 
+  (*   `{ NonExpansive ι, NonExpansive κ } : *)
+  
+  (*   Contractive (λ (θ : A), (@sem_sig_eff Σ TT m (λ tt, ι θ tt) (λ tt, κ θ tt))). *)
+  (* Proof. *)
+  (*   intros ?????. apply non_dep_fun_dist. *) 
+  (*   rewrite /sem_sig_eff /=. f_equiv. rewrite /sem_sig_car /=. *)
+  (*   induction TT as [|X ft IH]. *)
+  (*   - simpl. do 3 f_equiv; last do 2 f_equiv. *) 
+  (*     { f_contractive. do 2 apply non_dep_fun_dist; by f_equiv. } *)
+  (*     (1* why can't iEffPost_base_ne can't be applied here? *1) *)
+  (*     rewrite iEffPost_base_eq /iEffPost_base_def. intros ?. f_equiv. *)
+  (*     f_contractive. do 2 apply non_dep_fun_dist; by f_equiv. *)
+  (*   - simpl. intros a. *)
+  (* Admitted. *)
+
 Program Definition sem_sig_os {Σ} (σ : sem_sig Σ) : sem_sig Σ := @SemSig Σ (upcl OS σ) _.
 Next Obligation.
   iIntros (?????) "#HΦ Hσ". 

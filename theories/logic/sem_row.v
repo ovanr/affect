@@ -31,6 +31,7 @@ Definition sem_row_os {Σ} (ρ : sem_row Σ) : sem_row Σ :=
 Definition sem_row_tun_f op := 
   (λ k : operation * nat, if decide (op = k.1) then (k.1, S k.2)
                                                else (k.1, k.2)).
+
 Definition sem_row_tun {Σ} (op : operation) (ρ : sem_row Σ) : sem_row Σ := 
   kmap (sem_row_tun_f op) ρ. 
 
@@ -60,6 +61,32 @@ Program Definition sem_row_iEff {Σ} (ρ : sem_row Σ) : iEff Σ :=
 Next Obligation.
   intros ???????. by repeat f_equiv.
 Qed.
+
+Global Instance sem_row_tun_ne {Σ} op : NonExpansive (@sem_row_tun Σ op).
+Proof. 
+  intros ?????. rewrite ! /sem_row_tun. destruct i as [op' i'].
+  destruct (decide (op = op')); first subst.
+  - destruct i'.
+    + assert (Heq : ∀ (m : sem_row Σ), kmap (M2:=gmap (operation * nat)) (sem_row_tun_f op') m !! (op', 0) = None).
+      { intros m. apply lookup_kmap_None; first apply _. intros ? Heq. 
+        rewrite /sem_row_tun_f in Heq. destruct (decide (op' = i.1)); simplify_eq. }
+      rewrite (Heq x) (Heq y) //.
+    + assert (Heq : (op', S i') = sem_row_tun_f op' (op', i')). 
+      {rewrite /sem_row_tun_f /= decide_True //. }
+      rewrite Heq. rewrite ! lookup_kmap. by f_equiv.
+  - replace (op', i') with (sem_row_tun_f op (op', i')). 
+    2: {rewrite /sem_row_tun_f /= decide_False //. }
+    rewrite ! lookup_kmap. by f_equiv.
+Qed.
+
+
+Global Instance sem_row_ins_ne {Σ} op : NonExpansive2 (@sem_row_ins Σ op).
+Proof. intros ???????. rewrite /sem_row_ins. by f_equiv. Qed.
+Global Instance sem_row_ins_Proper {Σ} op : Proper ((≡) ==> (≡) ==> (≡)) (@sem_row_ins Σ op).
+Proof. apply ne_proper_2. apply _. Qed.
+
+Global Instance sem_row_cons_ne {Σ} op : NonExpansive2 (@sem_row_cons Σ op).
+Proof. intros ???????. rewrite /sem_row_cons. f_equiv; first done. by f_equiv. Qed.
 
 (* Notations. *)
 

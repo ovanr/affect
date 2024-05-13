@@ -170,25 +170,34 @@ End handler_alt.
 
 Section typing.
 
+  (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
+  Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
+  Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+  Opaque sem_sig_eff sem_sig_os.
+  Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
+
   Context `{!heapGS Σ}.
 
-  Definition ctrl_sig (β : sem_ty Σ) (ctrl : sem_row Σ) : operation * sem_sig Σ := 
-      ("ctrl", ∀S: α , (α -{ ctrl }-∘ β) -{ ctrl }-∘ β =[ OS ]=> α)%S.
+  Definition ctrl_sig (β : sem_ty Σ) (ctrl : sem_row Σ) : sem_sig Σ := 
+      (∀S: α , (α -{ ctrl }-∘ β) -{ ctrl }-∘ β =[ OS ]=> α)%S.
 
   Definition ctrl_pre (β : sem_ty Σ) (ctrl : sem_row Σ) : sem_row Σ := 
-      (ctrl_sig β ctrl ·: ⟨⟩)%R.
+      (("ctrl", ctrl_sig β ctrl) ·: ⟨⟩)%R.
+
+  Global Instance ctrl_sig_contractive β : Contractive (ctrl_sig β).
+  Proof.
+    (* We need the sem_sig_eff_contractive lemma for this.
+       For now we prove this directly. *)
+    Transparent sem_sig_eff.
+    rewrite /ctrl_sig. intros ??????. rewrite /sem_sig_car. simpl.
+    f_equiv.  apply non_dep_fun_dist. do 6 f_equiv. f_contractive.
+    apply non_dep_fun_dist. f_equiv; first done. by f_equiv.
+    Opaque sem_sig_eff.
+  Qed.
 
   Local Instance contractive_ctrl_pre β : Contractive (ctrl_pre β).
   Proof.
-    intros ????. rewrite /ctrl_pre. rewrite /sem_row_cons /= /sem_row_ins.
-    intros ?. destruct (decide (i = ("ctrl", 0))) as [->|Hneg].
-    - rewrite !lookup_insert. f_equiv.
-      rewrite /sem_sig_eff. simpl. intros ?.
-      apply non_dep_fun_dist. rewrite /sem_sig_car /=.
-      do 6 f_equiv. f_contractive.
-      apply non_dep_fun_dist. f_equiv; first done. by f_equiv.
-    - rewrite (lookup_insert_ne _ ("ctrl", 0) i _) //. 
-      rewrite (lookup_insert_ne _ ("ctrl", 0) i _) //.
+    intros ????. rewrite /ctrl_pre. do 3 f_equiv. by f_contractive.
   Qed.
 
   Definition ctrl β : sem_row Σ := (μR: θ, ctrl_pre β θ)%R.
@@ -199,9 +208,9 @@ Section typing.
   Local Instance ctrl_os_row β : OSRow (ctrl β).
   Proof.
     rewrite /ctrl. apply row_rec_os_row. iIntros (θ).
-    rewrite /ctrl_pre. apply row_ins_os_row.
+    rewrite /ctrl_pre. apply row_cons_os_row.
     { rewrite /ctrl_sig. apply sig_eff_os_os_sig; apply _. }
-    simpl. apply row_tun_os_row. apply row_nil_os_row.
+    simpl. apply row_nil_os_row.
   Qed.
 
   Definition ctrl_ty : sem_ty Σ := 

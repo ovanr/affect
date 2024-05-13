@@ -25,6 +25,11 @@ From haffel.logic Require Import sem_operators.
 From haffel.logic Require Import compatibility.
 From haffel.logic Require Import tactics.
 
+(* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
+Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
+Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_sig_eff sem_sig_os.
+Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
 
 Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
@@ -112,32 +117,9 @@ Section typing.
 
   Definition coop_pre (θ : sem_row Σ) : sem_row Σ := 
     (("async", async_sig θ) ·: ("await", await_sig) ·: ⟨⟩)%R.
-  
-  Local Instance contractive_coop_pre : Contractive coop_pre.
-  Proof. 
-    intros ????. rewrite /coop_pre. rewrite /sem_row_cons /= /sem_row_ins.
-    intros ?. destruct (decide (i = ("async", 0))) as [->|Hneg].
-    - rewrite !lookup_insert. f_equiv. rewrite /async_sig.
-      rewrite /sem_sig_eff. simpl. intros ?. 
-      apply non_dep_fun_dist. rewrite /sem_sig_car /=.
-      do 6 f_equiv. f_contractive.
-      apply non_dep_fun_dist. by f_equiv. 
-    - rewrite (lookup_insert_ne _ ("async", 0) i (async_sig y)) //. 
-      rewrite (lookup_insert_ne _ ("async", 0) i (async_sig x)) //. 
-  Qed.
-
-  Definition coop : sem_row Σ := (μR: θ, coop_pre θ)%R.
-
-  Local Instance await_res_sig_ne :
-    NonExpansive
-      (λ (α : sem_ty Σ), '! α).
-  Proof.
-    intros ????. by repeat f_equiv.
-  Qed.
 
   Local Instance await_sig_ne :
-    NonExpansive 
-    (λ (α : sem_ty Σ), Promise ('! α)).
+    NonExpansive (λ (α : sem_ty Σ), Promise ('! α)).
   Proof.
     rewrite /Promise /Status. intros ?????.
     apply non_dep_fun_dist. by repeat f_equiv.
@@ -151,12 +133,37 @@ Section typing.
     do 2 f_equiv; try done. 
   Qed.
 
+  Global Instance async_sig_contractive : Contractive async_sig.
+  Proof.
+    (* We need the sem_sig_eff_contractive lemma for this.
+       For now we prove this directly. *)
+    Transparent sem_sig_eff.
+    rewrite /async_sig. intros ??????. rewrite /sem_sig_car. simpl.
+    f_equiv.  apply non_dep_fun_dist. do 6 f_equiv. f_contractive.
+    apply non_dep_fun_dist. by f_equiv.
+    Opaque sem_sig_eff.
+  Qed.
+
+  Local Instance contractive_coop_pre : Contractive coop_pre.
+  Proof. 
+    intros ????. rewrite /coop_pre. f_equiv. simpl. by f_contractive.
+  Qed.
+
+  Definition coop : sem_row Σ := (μR: θ, coop_pre θ)%R.
+
+  Local Instance await_res_sig_ne :
+    NonExpansive
+      (λ (α : sem_ty Σ), '! α).
+  Proof.
+    intros ????. by repeat f_equiv.
+  Qed.
+
   Local Instance coop_os_row : OSRow coop.
   Proof.
     rewrite /coop. apply row_rec_os_row. iIntros (θ).
-    rewrite /coop_pre. apply row_ins_os_row.
+    rewrite /coop_pre. apply row_cons_os_row.
     { rewrite /async_sig. apply sig_eff_os_os_sig; apply _. }
-    apply row_tun_os_row. apply row_cons_os_row; last apply row_nil_os_row.
+    apply row_cons_os_row; last apply row_nil_os_row.
     apply sig_eff_os_os_sig; apply _.
   Qed.
 

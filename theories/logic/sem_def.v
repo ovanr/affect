@@ -92,6 +92,11 @@ Section sem_sig_cofe.
   Global Instance sem_sig_car_proper : Proper ((≡) ==> (≡)) (@sem_sig_car Σ).
   Proof. by intros Ψ1 Ψ2 ?. Qed.
 
+  Global Instance sem_sig_ne n Ψ : Proper ((λ _ _, True) ==> dist n) (@SemSig Σ Ψ).
+  Proof. intros P1 P2 _ ?. apply non_dep_fun_dist. rewrite /sem_sig_car //. Qed.
+  Global Instance sem_sig_proper Ψ : Proper ((λ _ _, True) ==> (≡)) (@SemSig Σ Ψ).
+  Proof. intros P1 P2 _ ?. apply non_dep_fun_equiv. rewrite /sem_sig_car //. Qed.
+
 End sem_sig_cofe.
 
 Lemma sem_sig_equivI {Σ} (σ1 σ2 : sem_sig Σ) :
@@ -102,8 +107,7 @@ Lemma sem_sig_iEff_equivI {Σ} (σ1 σ2 : sem_sig Σ) :
   σ1 ≡ σ2 ⊢@{iProp Σ} ∀ v Φ, iEff_car (sem_sig_car σ1) v Φ ≡ iEff_car (sem_sig_car σ2) v Φ.
 Proof.
   iIntros "H % %". iPoseProof (sem_sig_equivI with "H") as "HH".
-  rewrite /sem_sig_car. destruct σ1, σ2. simpl.
-  iApply (iEff_equivI with "HH").
+  iApply (iEff_equivI _ _ with "HH").
 Qed.
 
 Arguments sem_sigO : clear implicits.
