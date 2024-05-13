@@ -16,3 +16,4 @@ _opam
 build-dep
 .coq-native/
 _build
+hazel
