@@ -13,4 +13,5 @@ depends: [
   "coq" { (= "8.18.0") }
   "coq-hazel" { (= "1.2") }
   "coq-iris-heap-lang" { (= "dev.2023-10-24.0.8043d14b") }
+  "multicont" { (= "1.0.2") }
 ]

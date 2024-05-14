@@ -1,24 +1,30 @@
 
+echo "...Haffel Setup..."
 
 export OPAMYES=true
 
-# create new opam switch
+echo "∙ Creating new opam switch"
 opam switch create haffel ocaml-base-compiler.5.0.0
 
-# fetch coq-hazel library
+echo "∙ Fetching coq-hazel library"
 git clone https://gitlab.inria.fr/cambium/hazel
 cd hazel
 
-# switch to commit that patch applies to
+echo "∙ Switching to commit that patch applies to"
 git checkout a0f7f67df7423fc84f39198ff46abacd84261e78
-# apply patch
+
+echo "∙ Appling patch"
 git apply ../hazel.patch
-# commit patch
+
+echo "∙ Commiting patch"
 git add .; git commit -m "hazel patch for haffel applied" 
 
-# install coq-hazel
+echo "∙ Installing coq-hazel"
 opam install . 
 cd ..
 
-# compile haffel 
+echo "∙ Installing local dependencies"
+opam install . --deps-only
+
+echo "∙ Compiling haffel"
 make
