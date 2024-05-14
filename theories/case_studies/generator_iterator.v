@@ -25,13 +25,19 @@ From haffel.logic Require Import sem_operators.
 From haffel.logic Require Import tactics.
 From haffel.logic Require Import compatibility.
 
-Definition yield := (λ: "x", perform: (effect "yield", "x"))%V.
+(* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
+Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
+Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_sig_eff sem_sig_os.
+Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
+
+Definition yield := (λ: "x", perform: "yield" "x")%V.
 Definition generate :=
   (Λ: λ: "i", let: "cont" := ref (λ: <>, "i" <_> yield) in
       λ: <>, let: "comp" := "cont" <!- (λ: <>, #())  in
-              shallow-try-ls: "comp" #() handle "yield" with
-                effect λ: "x" "k", "cont" <- "k" ;; SOME "x"
-             |  return λ: "x", NONE
+              shandle: "comp" #() by
+                "yield" => λ: "x" "k", "cont" <- "k" ;; SOME "x"
+               | ret    =>  λ: "x", NONE
              end
   )%V.
 
@@ -48,7 +54,7 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition yield_sig (τ : sem_ty Σ) : label * sem_sig Σ := ("yield", ∀S: _, τ ⇒ () | OS)%S.
+  Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀S: (_ : sem_ty Σ), τ =[OS]=> ())%S.
   Definition yield_ty τ := τ -{ (yield_sig τ ·: ⟨⟩) }-> ().
   Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
@@ -62,14 +68,14 @@ Section typing.
     iApply (sem_typed_let (Refᶜ cont_ty) _ _ _ []); simpl; solve_sidecond. 
     - iApply sem_typed_alloc_cpy.
       rewrite -(app_nil_r [("i", _)]).
-      iApply sem_typed_afun; solve_sidecond. simpl.
+      iApply sem_typed_afun; solve_sidecond. 
       iApply (sem_typed_app_os (yield_ty α) _ _ _ [("i", iter_ty α)]); solve_sidecond.
       + iApply sem_typed_sub_nil.
         iApply (sem_typed_RApp (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
         iApply sem_typed_var.
       + iApply sem_typed_frame. iApply sem_typed_sub_nil.
         iApply sem_typed_val. rewrite /yield /yield_ty. iApply sem_typed_closure; solve_sidecond.
-        simpl. iApply (sem_typed_perform_os () with "[]"). 
+        simpl. iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg ()] with "[]"). 
         iApply sem_typed_var'.
     - set Γ₁ :=[("cont", Refᶜ cont_ty)]; rewrite -(app_nil_r Γ₁). 
       iApply sem_typed_ufun; solve_sidecond. simpl.
@@ -80,9 +86,10 @@ Section typing.
         iApply sem_typed_afun; solve_sidecond.
         simpl. iApply sem_typed_unit'.
       + rewrite app_singletons.
-        iApply (sem_typed_shallow_try_os OS "yield" (λ _, α) (λ _, ()) () (Option α) ⊥ _ 
+        iApply (sem_typed_shandler (TT:=[tele _]) OS "yield" (tele_app (λ _, α)) (tele_app (λ _, ())) () (Option α) ⊥ _ 
                       [("comp", cont_ty)] [] [] [("cont", Refᶜ cont_ty)]); solve_sidecond.
-        { iApply row_le_refl. }
+        * iLeft. iPureIntro. apply _.
+        * iApply row_le_refl. 
         * iApply sem_typed_app_os; [iApply sem_typed_var'|iApply sem_typed_unit']. 
         * iIntros (?). do 2 iApply sem_typed_swap_third.
           iApply sem_typed_seq.

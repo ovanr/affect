@@ -1,4 +1,3 @@
-
 From stdpp Require Import base list.
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import excl_auth.
@@ -31,29 +30,32 @@ Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top s
 Opaque sem_sig_eff sem_sig_os.
 Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
 
+(* The tossCoin example from paper Soundly Hanlding Linearity by Tang et al. *)
 
-Definition app : val := (Λ: Λ: Λ: λ: "f" "x", "f" "x")%V.
+Definition tossCoin : val := 
+  (Λ: λ: "g", let: "b" := "g" #() in 
+              if: "b" then #(LitStr "heads") else #(LitStr "tails"))%V.
 
 Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition app_ty : sem_ty Σ := 
-    (∀R: θ, ∀T: α, ∀T: β, (α -{ θ }-∘ β) → α -{ θ }-∘ β)%T.
+  Definition tossCoin_ty : sem_ty Σ := 
+    (∀R: θ, (() -{ θ }-> 𝔹) -{ θ }-> Str)%T.
 
-  Lemma app_typed : ⊢ ⊨ᵥ app : app_ty.
+  Lemma tossCoin_typed : ⊢ ⊨ᵥ tossCoin : tossCoin_ty.
   Proof.
-    iIntros. rewrite /app /app_ty.
+    iIntros. rewrite /tossCoin /tossCoin_ty.
     iApply sem_typed_Rclosure; solve_sidecond. iIntros (θ).
     rewrite - (app_nil_l []).
-    iApply sem_typed_TLam; solve_sidecond. iIntros (α).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_TLam; solve_sidecond. iIntros (β).
-    rewrite - (app_nil_l []).
     iApply sem_typed_ufun; solve_sidecond. simpl.
-    rewrite - (app_nil_r [("f", _)]).
-    iApply sem_typed_afun; solve_sidecond. simpl.
-    iApply sem_typed_app_nil; iApply sem_typed_var'.
+    iApply (sem_typed_let 𝔹 θ Str _ []); solve_sidecond.
+    - iApply (sem_typed_app_ms ()); solve_sidecond.
+      { iApply sem_typed_sub_ty; first iApply ty_le_u2aarr.
+        iApply sem_typed_var'. }
+      iApply sem_typed_unit'.
+    - iApply sem_typed_if; first iApply sem_typed_var';
+      iApply sem_typed_string'.
   Qed.
 
 End typing.

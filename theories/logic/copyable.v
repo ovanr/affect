@@ -45,14 +45,17 @@ Section copyable_types.
   Lemma copy_ty_nat : ⊢ @copy_ty Σ ℤ.
   Proof. iIntros "!# %v #$". Qed.
   
-  Lemma copy_ty_moved : ⊢ @copy_ty Σ Moved.
+  Lemma copy_ty_top : ⊢ @copy_ty Σ ⊤.
   Proof. iIntros "!# %v #$". Qed.
 
   Lemma copy_ty_cpy τ : ⊢ copy_ty ('! τ).
   Proof. iIntros "!# %v #$". Qed.
 
   Lemma copy_ty_uarr τ σ κ : ⊢ copy_ty (τ -{ σ }-> κ).
-  Proof. iIntros "!# %v #$". Qed.
+  Proof. 
+    rewrite /sem_ty_uarr /sem_ty_arr /=.
+    iIntros "/= !# %v #$". 
+  Qed.
   
   Lemma copy_ty_prod τ κ : copy_ty τ -∗ copy_ty κ -∗ copy_ty (τ × κ).
   Proof. 

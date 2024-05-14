@@ -48,8 +48,9 @@ let rec runner (type a) (main : unit -> a) : a =
                     )
                 | _        -> None
         } in
-    fulfill (ref (Waiting [])) main
-    
+    let pmain = ref (Waiting []) in
+    fulfill pmain main; 
+    let Completed x = !pmain in x
 
 let deadlock () = 
     let r : unit promise option ref = ref None in

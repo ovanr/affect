@@ -18,6 +18,8 @@ From hazel.program_logic Require Import weakest_precondition
 From haffel.lib Require Import base.
 From haffel.lang Require Import haffel.
 From haffel.logic Require Import sem_def.
+From haffel.logic Require Import sem_sig.
+From haffel.logic Require Import sem_row.
 From haffel.logic Require Import ewpw.
 
 (* Semantic typing judgment. *)
