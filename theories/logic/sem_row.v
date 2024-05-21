@@ -309,6 +309,14 @@ Proof.
   by iRewrite - "Hlookup".
 Qed.
 
+
+Global Instance sem_row_os_contractive {Σ} (C : sem_row Σ → sem_row Σ) `{ Contractive C } :
+  Contractive (λ θ, ¡ (C θ))%R. 
+Proof.
+  intros ?????. rewrite /sem_row_os. 
+  rewrite !lookup_fmap. do 2 f_equiv. by apply Contractive0.
+Qed.
+
 (* Subsumption relation on rows wrt to types *)
 
 Definition mono_prot_on_prop {Σ} (Ψ : iEff Σ) (P : iProp Σ) : iProp Σ :=
@@ -615,13 +623,23 @@ Proof.
   iApply row_le_refl. 
 Qed.
 
-Lemma row_le_ins_swap_second {Σ} (op op' : operation) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
-  op ≠ op' →
-  ⊢ (op, σ) · (op', σ') · ρ ≤R (op', σ') · (op, σ) · ρ. 
+Lemma row_le_nil_os {Σ} :
+   ⊢ ¡ ⟨⟩%R ≤R (⟨⟩%R : sem_row Σ).
 Proof. 
-  iIntros (Heq). rewrite /sem_row_ins /= insert_commute;
-  first iApply row_le_refl. 
-  intros ?. inv H.
+  apply row_le_os_elim. apply _.
+Qed.
+
+Lemma row_le_os_idemp {Σ} (ρ : sem_row Σ) :
+   ⊢ ¡ (¡ ρ) ≤R ¡ ρ.
+Proof. apply row_le_os_elim. apply _. Qed.
+
+Lemma row_le_rec_os {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }: 
+  (∀ θ, ¡ (ρ θ) ≤R (ρ θ)) -∗ ¡ (μR: θ, ρ θ) ≤R (μR: θ, ρ θ).
+Proof. 
+  iIntros "#Hle". iApply row_le_trans.
+  { iApply row_le_os_comp. iApply row_le_rec_unfold. }
+  iApply row_le_trans; first iApply "Hle". 
+  iApply row_le_rec_fold.
 Qed.
 
 Lemma row_le_swap_second {Σ} (op op' : operation) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
