@@ -642,6 +642,14 @@ Proof.
   iApply row_le_rec_fold.
 Qed.
 
+Lemma row_le_ins_swap_second {Σ} (op op' : operation) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
+  op ≠ op' →
+  ⊢ (op, σ) · (op', σ') · ρ ≤R (op', σ') · (op, σ) · ρ. 
+Proof. 
+  iIntros (?). rewrite /sem_row_ins /= (insert_commute _ (op,0) (op',0)); last (intros H'; inv H').
+  iApply row_le_refl. 
+Qed.
+
 Lemma row_le_swap_second {Σ} (op op' : operation) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
   op ≠ op' →
   ⊢ (op, σ) ·: (op', σ') ·: ρ ≤R (op', σ') ·: (op, σ) ·: ρ. 
