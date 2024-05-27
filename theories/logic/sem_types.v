@@ -169,20 +169,14 @@ Lemma row_type_sub_cpy {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : copy_ty τ -∗
 Proof.
   iIntros "#Hτcpy %w %v %Φ !# Hρ Hτ.".
   iDestruct ("Hτcpy" with "Hτ.") as "#Hτ".
-  rewrite /sem_row_iEff /=. 
-  iDestruct "Hρ" as "(% & % & % & % & -> & Hlookup & Hσ)".
-  iExists v', op, s, σ. iSplitR; first done. iFrame.
-  iApply (sem_sig_pmono _ σ with "[] Hσ").
-  iIntros "!# % $ //".
+  iApply (pmono_prot_prop _ (sem_row_car ρ) with "[] Hρ").
+  iIntros "!# % H". iFrame "#". iApply "H".
 Qed.
 
 Lemma row_type_sub_cpy_type {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ ρ ≼ₜ ('! τ).
 Proof.
   iIntros (w v Φ) "!# Hρ #Hτ".
-  rewrite /sem_row_iEff /=. 
-  iDestruct "Hρ" as "(% & % & % & % & -> & Hlookup & Hσ)".
-  iExists v', op, s, σ. iSplitR; first done. iFrame.
-  iApply (sem_sig_pmono _ σ with "[] Hσ").
+  iApply (pmono_prot_prop _ (sem_row_car ρ) with "[] Hρ").
   iIntros "!# % $ //".
 Qed.
 

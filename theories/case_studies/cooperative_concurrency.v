@@ -29,7 +29,7 @@ From haffel.logic Require Import tactics.
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
 Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
 Opaque sem_sig_eff sem_sig_os.
-Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
+Opaque sem_row_nil sem_row_os sem_row_tun sem_row_cons sem_row_rec.
 
 Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
@@ -116,7 +116,7 @@ Section typing.
     (∀S: α, ( () -{ θ }-∘ '! α ) =[ OS ]=> Promise ('! α))%S. 
 
   Definition coop_pre (θ : sem_row Σ) : sem_row Σ := 
-    (("async", async_sig θ) ·: ("await", await_sig) ·: ⟨⟩)%R.
+    (("async", async_sig θ) · ("await", await_sig) · ⟨⟩)%R.
 
   Local Instance await_sig_ne :
     NonExpansive (λ (α : sem_ty Σ), Promise ('! α)).
@@ -133,20 +133,19 @@ Section typing.
     do 2 f_equiv; try done. 
   Qed.
 
-  Global Instance async_sig_contractive : Contractive async_sig.
+  Local Instance async_sig_2_ne : NonExpansive async_sig.
   Proof.
-    (* We need the sem_sig_eff_contractive lemma for this.
-       For now we prove this directly. *)
-    Transparent sem_sig_eff.
-    rewrite /async_sig. intros ??????. rewrite /sem_sig_car. simpl.
-    f_equiv.  apply non_dep_fun_dist. do 6 f_equiv. f_contractive.
-    apply non_dep_fun_dist. by f_equiv.
-    Opaque sem_sig_eff.
+    intros ????. rewrite /async_sig. apply non_dep_fun_dist.
+    f_equiv. rewrite /tele_app. simpl. intros ?. destruct x0. simpl.
+    by f_equiv.
   Qed.
 
   Local Instance contractive_coop_pre : Contractive coop_pre.
   Proof. 
-    intros ????. rewrite /coop_pre. f_equiv. simpl. by f_contractive.
+    intros ????. rewrite /coop_pre. f_equiv. f_equiv. f_equiv. 
+    destruct n; first apply dist_later_0.
+    apply dist_later_S. rewrite - dist_later_S in H.
+    by f_equiv.
   Qed.
 
   Definition coop : sem_row Σ := (μR: θ, coop_pre θ)%R.
@@ -158,13 +157,13 @@ Section typing.
     intros ????. by repeat f_equiv.
   Qed.
 
-  Local Instance coop_os_row : OSRow coop.
+  Local Instance coop_os_row : Once coop.
   Proof.
-    rewrite /coop. apply row_rec_os_row. iIntros (θ).
-    rewrite /coop_pre. apply row_cons_os_row.
-    { rewrite /async_sig. apply sig_eff_os_os_sig; apply _. }
-    apply row_cons_os_row; last apply row_nil_os_row.
-    apply sig_eff_os_os_sig; apply _.
+    rewrite /coop. apply row_rec_once. iIntros (θ).
+    rewrite /coop_pre. apply row_cons_once.
+    { rewrite /async_sig. apply sig_eff_os_once; apply _. }
+    apply row_cons_once; last apply row_nil_once.
+    apply sig_eff_os_once; apply _.
   Qed.
 
   Definition iter_ty τ := (∀R: θ, (τ -{ ¡ θ }-> ()) → List τ -{ ¡ θ }-∘ ())%T.

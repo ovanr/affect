@@ -29,7 +29,7 @@ From haffel.logic Require Import tactics.
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
 Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
 Opaque sem_sig_eff sem_sig_os.
-Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
+Opaque sem_row_nil sem_row_os sem_row_tun sem_row_cons sem_row_rec.
 
 (* The verboseClose example from paper Soundly Hanlding Linearity by Tang et al. *)
 
@@ -46,12 +46,12 @@ Section typing.
 
   Definition getSig : operation * sem_sig Σ := ("get", ∀S: (_ : sem_ty Σ), () =[OS]=> Str)%S.  
   Definition printSig : operation * sem_sig Σ := ("print", ∀S: (_ : sem_ty Σ), Str =[MS]=> ())%S.
-  Definition st : sem_row Σ := (getSig ·: printSig ·: ⟨⟩)%R.
+  Definition st : sem_row Σ := (getSig · printSig · ⟨⟩)%R.
 
-  Local Instance os_row_get_sig : OSRow (getSig ·: ⟨⟩)%R. 
+  Local Instance os_row_get_sig : Once (getSig · ⟨⟩)%R. 
   Proof.
-    apply row_cons_os_row; last apply row_nil_os_row.
-    apply sig_eff_os_os_sig; apply _.
+    apply row_cons_once; last apply row_nil_once.
+    apply sig_eff_os_once; apply _.
   Qed.
 
   Lemma verboseFree_typed :
@@ -71,7 +71,7 @@ Section typing.
       { iApply sem_typed_frame. iApply sem_typed_free. iApply sem_typed_var. }
       rewrite /st. iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       rewrite -/getSig.
-      iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg ()] (getSig ·: ⟨⟩)%R 
+      iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg ()] (getSig · ⟨⟩)%R 
                       "print" (tele_app (λ _, Str)) (tele_app ((λ _, ())))); solve_copy.
       iApply sem_typed_var'.
   Qed.

@@ -17,16 +17,13 @@ From haffel.lang Require Import haffel.
 From haffel.logic Require Import sem_def.
 From haffel.logic Require Import mode.
 
-Lemma sem_sig_to_ieff {Σ} (σ σ' : sem_sig Σ) : 
-    σ ≤S σ' -∗ iEff_le σ σ'.
-Proof. iIntros "H". rewrite /sig_le. iApply "H". Qed.
-
 (* Universally Quantified Effect Signatures *)
 
 (* Effect Signature *)
-Program Definition sem_sig_eff {Σ} {TT : tele} m (A B : TT → sem_ty Σ) : sem_sig Σ :=
-  @SemSig Σ (>>.. (αs : TT) >> >> (a : val) >>  ! a {{ ▷ (A αs a) }}; 
-                            << (b : val) <<  ? b {{ ▷ (B αs b) }} @m)%ieff _.
+Program Definition sem_sig_eff {Σ} {TT : tele} m : (TT -d> sem_ty Σ) -d> (TT -d> sem_ty Σ) -d> sem_sig Σ :=
+  λ A B,
+  @PMonoProt Σ (>>.. (αs : TT) >> >> (a : val) >> ! a {{ (A αs a) }}; 
+                                  << (b : val) << ? b {{ (B αs b) }} @m)%ieff _.
 Next Obligation.
   iIntros (????????) "#HΦ". 
   rewrite ! iEffPre_texist_eq iEffPre_exist_eq /=.
@@ -40,12 +37,39 @@ Qed.
 
 Lemma sem_sig_eff_eq {Σ} {TT : tele} m A B v Φ :
   iEff_car (@sem_sig_eff Σ TT m A B) v Φ ⊣⊢
-    (∃.. αs, ∃ a, ⌜ a = v ⌝ ∗ ▷ (A αs a) ∗ 
-                             □? m (∀ b, ▷ (B αs b) -∗ Φ b))%I.
+    (∃.. αs, ∃ a, ⌜ a = v ⌝ ∗ (A αs a) ∗ 
+                            □? m (∀ b, (B αs b) -∗ Φ b))%I.
 Proof. 
   rewrite iEffPre_texist_eq. do 2 f_equiv.
   rewrite (iEff_tele_eq' [tele _] [tele _]) //. 
 Qed.
+
+Lemma pmono_prot_distI {Σ} (Ψ1 Ψ2 : iEff Σ) (P1 : ⊢ pers_mono Ψ1) (P2 : ⊢ pers_mono Ψ2) n :
+  Ψ1 ≡{n}≡ Ψ2 → (@PMonoProt Σ Ψ1 P1) ≡{n}≡ (@PMonoProt Σ Ψ2 P2).
+Proof. intros H. done. Qed.
+
+Global Instance sem_sig_eff_ne2 {Σ} {TT : tele} m :
+  NonExpansive2 (@sem_sig_eff Σ TT m).
+Proof.
+  iIntros (???????). rewrite /sem_sig_eff.
+  intros ??. apply pmono_prot_distI. 
+  intros ??. rewrite ! iEffPre_texist_eq /=. 
+  f_equiv. intros ?.
+  rewrite ! iEffPre_exist_eq /=. 
+  f_equiv. intros ?. f_equiv. apply non_dep_fun_dist. do 2 f_equiv.
+  { apply non_dep_fun_dist. f_equiv. }
+  f_equiv. intros ?. 
+  rewrite iEffPost_base_eq /iEffPost_base_def. intros ?.
+  f_equiv. apply non_dep_fun_dist. f_equiv.
+Qed.
+
+Global Instance sem_sig_eff_ne {Σ} {TT : tele} m A :
+  NonExpansive (@sem_sig_eff Σ TT m A).
+Proof. iIntros (????). by f_equiv. Qed.
+
+Global Instance sem_sig_eff_alt_ne {Σ} {TT : tele} m :
+  NonExpansive (@sem_sig_eff Σ TT m).
+Proof. iIntros (?????). by f_equiv. Qed.
 
 (* The sem_sig_eff protocol is monotonic. *)
 Global Instance sem_sig_eff_mono_prot {Σ} {TT : tele} A B :
@@ -71,11 +95,10 @@ Qed.
 
 Lemma upcl_sem_sig_eff {Σ} {TT : tele} m A B v Φ :
   iEff_car (upcl m (@sem_sig_eff Σ TT m A B)) v Φ ⊣⊢
-    (∃.. αs, ∃ a, ⌜ a = v ⌝ ∗ ▷ (A αs a) ∗ 
-                              □? m (∀ b, ▷ (B αs b) -∗ Φ b))%I.
+    (∃.. αs, ∃ a, ⌜ a = v ⌝ ∗ (A αs a) ∗ 
+                              □? m (∀ b, (B αs b) -∗ Φ b))%I.
 Proof.
-  assert (Hequiv:
-    iEff_car (upcl m (sem_sig_eff m A B)) v Φ ≡ iEff_car (sem_sig_eff m A B) v Φ).
+  assert (Hequiv: iEff_car (upcl m (sem_sig_eff m A B)) v Φ ≡ iEff_car (sem_sig_eff m A B) v Φ).
   { f_equiv. apply non_dep_fun_equiv. destruct m; [by rewrite upcl_id|by rewrite pers_upcl_id]. }
   rewrite Hequiv. by apply sem_sig_eff_eq.
 Qed.
@@ -95,24 +118,7 @@ Notation "'∀S:' x .. y , κ '=[' m ']=>' ι" :=
 
 (* Eval cbn in (∀S.: (α : sem_ty Σ), (sem_ty_prod α α) =[ OS ]=> (sem_ty_cpy α))%S. *)
 
-(* TODO: find a way to prove this *)
-  (* Global Instance sem_sig_eff_contractive {Σ} {TT : tele} (A : ofe) (ι κ : A → tele_arg TT -d> sem_ty Σ) m *) 
-  (*   `{ NonExpansive ι, NonExpansive κ } : *)
-  
-  (*   Contractive (λ (θ : A), (@sem_sig_eff Σ TT m (λ tt, ι θ tt) (λ tt, κ θ tt))). *)
-  (* Proof. *)
-  (*   intros ?????. apply non_dep_fun_dist. *) 
-  (*   rewrite /sem_sig_eff /=. f_equiv. rewrite /sem_sig_car /=. *)
-  (*   induction TT as [|X ft IH]. *)
-  (*   - simpl. do 3 f_equiv; last do 2 f_equiv. *) 
-  (*     { f_contractive. do 2 apply non_dep_fun_dist; by f_equiv. } *)
-  (*     (1* why can't iEffPost_base_ne can't be applied here? *1) *)
-  (*     rewrite iEffPost_base_eq /iEffPost_base_def. intros ?. f_equiv. *)
-  (*     f_contractive. do 2 apply non_dep_fun_dist; by f_equiv. *)
-  (*   - simpl. intros a. *)
-  (* Admitted. *)
-
-Program Definition sem_sig_os {Σ} (σ : sem_sig Σ) : sem_sig Σ := @SemSig Σ (upcl OS σ) _.
+Program Definition sem_sig_os {Σ} (σ : sem_sig Σ) : sem_sig Σ := @PMonoProt Σ (upcl OS σ) _.
 Next Obligation.
   iIntros (?????) "#HΦ Hσ". 
   pose proof (upcl_mono_prot σ) as []. 
@@ -133,34 +139,16 @@ Qed.
 Global Instance sem_sig_os_proper {Σ} : Proper ((≡) ==> (≡)) (@sem_sig_os Σ).
 Proof. apply ne_proper. apply _. Qed.
 
-(* One-Shot Signatures *)
+(* Once Constraint *)
 
-Definition mono_prot {Σ} (Ψ : iEff Σ) : iProp Σ := 
-  ∀ (v : val) (Φ Φ' : val → iPropI Σ),
-              (∀ w : val, Φ w -∗ Φ' w) -∗
-              (iEff_car Ψ v Φ) -∗ (iEff_car Ψ v Φ').
+Notation "'Once' Ψ" := (MonoProt Ψ%S%R) (at level 10).
 
-Class OSSig {Σ} (σ : sem_sig Σ) := { 
-  monotonic_prot : (⊢ mono_prot σ)
-}.
-
-Lemma mono_prot_os_sig {Σ} (σ : sem_sig Σ) `{!MonoProt σ }: OSSig σ.
-Proof. inv MonoProt0. constructor. iIntros (v Φ Φ') "HPost Hσ". 
-       iApply (monotonic_prot0 v Φ Φ' with "HPost Hσ"). 
-Qed.
+Global Instance sig_eff_os_once {TT : tele} {Σ} (A B : tele_arg TT → sem_ty Σ) :
+  Once (∀S..: αs , (A αs) =[ OS ]=> (B αs))%S.
+Proof. apply sem_sig_eff_mono_prot. Qed.
   
-Global Instance sig_eff_os_os_sig {TT : tele} {Σ} (A B : tele_arg TT → sem_ty Σ) :
-  OSSig (∀S..: αs , (A αs) =[ OS ]=> (B αs))%S.
-Proof. 
-  apply mono_prot_os_sig.
-  by apply sem_sig_eff_mono_prot.
-Qed.
-  
-Global Instance sig_os_os_sig {Σ} (σ : sem_sig Σ) : OSSig (¡ σ)%S.
-Proof. 
-  apply mono_prot_os_sig.
-  apply upcl_mono_prot.
-Qed.
+Global Instance sig_os_os_sig {Σ} (σ : sem_sig Σ) : Once (¡ σ)%S.
+Proof. apply upcl_mono_prot. Qed.
 
 (* Sub-Typing on Signatures *)
 
@@ -212,13 +200,12 @@ Proof.
   iExists Φ. iFrame. iIntros "% $".
 Qed.
 
-Lemma sig_le_os_elim {Σ} (σ : sem_sig Σ) `{! OSSig σ} :
+Lemma sig_le_os_elim {Σ} (σ : sem_sig Σ) `{! Once σ} :
   ⊢ ¡ σ ≤S σ.
 Proof.
   rewrite /sem_sig_os. 
   iIntros (v Φ) "!# (%Φ' & Hσ & Himp)". simpl.
-  destruct OSSig0 as []. 
-  iApply (monotonic_prot0 with "Himp Hσ").
+  inv H. iApply (monotonic_prot with "Himp Hσ").
 Qed.
   
 Lemma sig_le_os_comp {Σ} (σ σ' : sem_sig Σ) :

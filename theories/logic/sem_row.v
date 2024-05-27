@@ -19,622 +19,281 @@ From haffel.logic Require Import sem_def.
 From haffel.logic Require Import mode.
 From haffel.logic Require Import sem_sig.
 
-Definition sem_row_nil {Σ} : sem_row Σ := ∅. 
+Program Definition sem_row_nil {Σ} : sem_row Σ := @SemRow Σ ⊥ _. 
+Next Obligation. iIntros (???) "[]". Qed.
 Global Instance sem_row_bottom {Σ} : Bottom (sem_row Σ) := sem_row_nil.
 
-Definition sem_row_ins {Σ} (op : operation) (σ : sem_sig Σ) (ρ : sem_row Σ) : sem_row Σ := 
-  insert (op, 0) σ ρ.
-
-Definition sem_row_os {Σ} (ρ : sem_row Σ) : sem_row Σ := 
-  fmap (λ σ, sem_sig_os σ) ρ. 
-
-Definition sem_row_tun_f op := 
-  (λ k : operation * nat, if decide (op = k.1) then (k.1, S k.2)
-                                               else (k.1, k.2)).
-
-Definition sem_row_tun {Σ} (op : operation) (ρ : sem_row Σ) : sem_row Σ := 
-  kmap (sem_row_tun_f op) ρ. 
-
-Definition sem_row_cons {Σ} (op : operation) (σ : sem_sig Σ) (ρ : sem_row Σ) : sem_row Σ := 
-  sem_row_ins op σ (sem_row_tun op ρ).
-
-Definition sem_row_rec {Σ} (C : sem_row Σ → sem_row Σ) `{ Contractive C } : sem_row Σ :=
-  fixpoint C.
-
-Lemma sem_row_rec_unfold {Σ} (C : sem_row Σ → sem_row Σ) `{ Contractive C } :
-  (sem_row_rec C) ≡ C (sem_row_rec C).
-Proof. 
-  rewrite /sem_row_rec {1} fixpoint_unfold //.
+Program Definition sem_row_cons {Σ} (op : operation) : sem_sig Σ -d> sem_row Σ -d> sem_row Σ :=
+    λ σ ρ, (@SemRow Σ (@PMonoProt Σ (IEff 
+              (λ v, λne Φ, ∃ (op' : operation) (s : nat) (v' : val), 
+                            ⌜ v = (effect op', #s, v')%V ⌝ ∗
+                            if decide (op = op') then 
+                              match s with
+                                0 => ▷ (iEff_car σ v' Φ)
+                              | S s' => iEff_car ρ (effect op', #s', v')%V Φ
+                              end
+                            else
+                                iEff_car ρ (effect op', #s, v')%V Φ)%I) _) _).
+Next Obligation. 
+  intros ?????????. repeat f_equiv; last done. simpl. 
+  destruct a0; by repeat f_equiv. 
 Qed.
-
-Local Instance inj_sem_row_tun op : Inj eq eq (sem_row_tun_f op).
-Proof. 
-  intros k1 k2 H. 
-  rewrite /sem_row_tun_f in H. 
-  destruct (decide (op = k1.1)), (decide (op = k2.1)); inv H;
-  destruct k1, k2; by f_equal.
+Next Obligation. 
+  iIntros (???????) "#HPost (%op' & %s & %v' & -> & H)". simpl.
+  iExists op', s, v'. iSplit; first done.
+  destruct (decide (op = op')).
+  - destruct s.
+    { iNext. iApply (pmono_prot_prop Σ σ with "HPost H"). }
+    iApply (pmono_prot_prop Σ ρ with "HPost H").
+  - iApply (pmono_prot_prop Σ ρ with "HPost H").
 Qed.
-
-Program Definition sem_row_iEff {Σ} (ρ : sem_row Σ) : iEff Σ :=
-  IEff (λ v, λne Φ, ∃ v' op (s : nat) σ, (v ≡ (effect op, #s, v')%V) ∗ 
-                                (lookup (op, s) ρ ≡ Some σ ∗ iEff_car (sem_sig_car σ) v' Φ))%I.
 Next Obligation.
-  intros ???????. by repeat f_equiv.
+  iIntros (??????) "(%op' & %s & %v' & -> & H)". by iExists op', s, v'.
+Qed.
+
+Program Definition sem_row_tun {Σ} (op : operation) : sem_row Σ -d> sem_row Σ :=
+    λ ρ, (@SemRow Σ (@PMonoProt Σ (IEff 
+              (λ v, λne Φ, ∃ (op' : operation) (s : nat) (v' : val), 
+                            ⌜ v = (effect op', #s, v')%V ⌝ ∗
+                            if decide (op = op') then 
+                              match s with
+                                0 => False
+                              | S s' => iEff_car ρ (effect op', #s', v')%V Φ
+                              end
+                            else
+                                iEff_car ρ (effect op', #s, v')%V Φ)%I) _) _).
+Next Obligation. 
+  intros ????????. repeat f_equiv; last done. simpl. 
+  destruct a0; by repeat f_equiv. 
+Qed.
+Next Obligation. 
+  iIntros (??????) "#HPost (%op' & %s & %v' & -> & H)". simpl.
+  iExists op', s, v'. iSplit; first done.
+  destruct (decide (op = op')).
+  - destruct s; first done.
+    iApply (pmono_prot_prop Σ ρ with "HPost H").
+  - iApply (pmono_prot_prop Σ ρ with "HPost H").
+Qed.
+Next Obligation.
+  iIntros (?????) "(%op' & %s & %v' & -> & H)". by iExists op', s, v'.
+Qed.
+
+Program Definition sem_row_os {Σ} (ρ : sem_row Σ) : sem_row Σ := 
+  @SemRow Σ (@PMonoProt Σ (upcl OS ρ) _) _.
+Next Obligation.
+  iIntros (?????) "#HΦ Hσ".
+  pose proof (upcl_mono_prot ρ) as []. 
+  iApply (monotonic_prot with "HΦ Hσ").
+Qed.
+Next Obligation.
+  iIntros (????) "(%Φ' & Hρ & _)".
+  iApply (sem_row_prop _ ρ with "Hρ").
+Qed.
+
+Definition sem_row_rec {Σ} (R : sem_row Σ → sem_row Σ) `{Contractive R} : sem_row Σ :=
+  fixpoint R.
+
+Lemma sem_row_rec_unfold {Σ} (R : sem_row Σ → sem_row Σ) `{Contractive R} :
+  sem_row_rec R ≡ R (sem_row_rec R).
+Proof. rewrite /sem_row_rec {1} fixpoint_unfold //. Qed.
+
+Lemma sem_row_rec_unfold_iEff {Σ} (R : sem_row Σ → sem_row Σ) `{Contractive R} v Φ:
+  iEff_car (sem_row_rec R) v Φ ≡ iEff_car (R (sem_row_rec R)) v Φ.
+Proof. f_equiv. apply non_dep_fun_equiv. rewrite {1}sem_row_rec_unfold //. Qed.
+
+(*  Properties *)
+
+Global Instance sem_row_cons_ne {Σ} op : NonExpansive2 (@sem_row_cons Σ op).
+Proof. 
+  intros ???????. rewrite /sem_row_cons. 
+  intros ??. simpl. do 8 f_equiv. destruct a0; first f_equiv;
+  f_equiv; apply non_dep_fun_dist; by f_equiv.  
+  f_equiv. apply non_dep_fun_dist. by f_equiv.
+Qed.
+Global Instance sem_row_cons_Proper {Σ} op : Proper ((≡) ==> (≡) ==> (≡)) (@sem_row_cons Σ op).
+Proof. apply ne_proper_2. apply _. Qed.
+Global Instance sem_row_cons_contractive {Σ} op n : Proper (dist_later n ==> dist n ==> dist n) (@sem_row_cons Σ op).
+Proof. 
+  intros ???????. rewrite /sem_row_cons. 
+  intros ?. simpl. do 8 f_equiv. destruct a0. 
+  - f_contractive. f_equiv; apply non_dep_fun_dist. by f_equiv.
+  - f_equiv. apply non_dep_fun_dist. by f_equiv.
+  - f_equiv. apply non_dep_fun_dist. by f_equiv.
 Qed.
 
 Global Instance sem_row_tun_ne {Σ} op : NonExpansive (@sem_row_tun Σ op).
 Proof. 
-  intros ?????. rewrite ! /sem_row_tun. destruct i as [op' i'].
-  destruct (decide (op = op')); first subst.
-  - destruct i'.
-    + assert (Heq : ∀ (m : sem_row Σ), kmap (M2:=gmap (operation * nat)) (sem_row_tun_f op') m !! (op', 0) = None).
-      { intros m. apply lookup_kmap_None; first apply _. intros ? Heq. 
-        rewrite /sem_row_tun_f in Heq. destruct (decide (op' = i.1)); simplify_eq. }
-      rewrite (Heq x) (Heq y) //.
-    + assert (Heq : (op', S i') = sem_row_tun_f op' (op', i')). 
-      {rewrite /sem_row_tun_f /= decide_True //. }
-      rewrite Heq. rewrite ! lookup_kmap. by f_equiv.
-  - replace (op', i') with (sem_row_tun_f op (op', i')). 
-    2: {rewrite /sem_row_tun_f /= decide_False //. }
-    rewrite ! lookup_kmap. by f_equiv.
+  intros ??????. rewrite /sem_row_tun. 
+  simpl. do 8 f_equiv. destruct a0; first f_equiv;
+  f_equiv; apply non_dep_fun_dist; by f_equiv.  
+  f_equiv. apply non_dep_fun_dist. by f_equiv.
 Qed.
+Global Instance sem_row_tun_Proper {Σ} op : Proper ((≡) ==> (≡)) (@sem_row_tun Σ op).
+Proof. apply ne_proper. apply _. Qed.
 
-
-Global Instance sem_row_ins_ne {Σ} op : NonExpansive2 (@sem_row_ins Σ op).
-Proof. intros ???????. rewrite /sem_row_ins. by f_equiv. Qed.
-Global Instance sem_row_ins_Proper {Σ} op : Proper ((≡) ==> (≡) ==> (≡)) (@sem_row_ins Σ op).
-Proof. apply ne_proper_2. apply _. Qed.
-
-Global Instance sem_row_cons_ne {Σ} op : NonExpansive2 (@sem_row_cons Σ op).
-Proof. intros ???????. rewrite /sem_row_cons. f_equiv; first done. by f_equiv. Qed.
+Global Instance sem_row_os_ne {Σ} : NonExpansive (@sem_row_os Σ).
+Proof. intros ?????. rewrite /sem_row_os. intros ?. simpl. 
+       do 4 f_equiv. apply non_dep_fun_dist; by f_equiv. Qed.
+Global Instance sem_row_os_Proper {Σ} : Proper ((≡) ==> (≡)) (@sem_row_os Σ).
+Proof. apply ne_proper. apply _. Qed.
 
 (* Notations. *)
 
 Notation "⟨⟩" := (sem_row_nil) : sem_row_scope.
-Notation "lσ · ρ" := (sem_row_ins lσ.1%S lσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
-Notation "lσ ·: ρ" := (sem_row_cons lσ.1%S lσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
+Notation "opσ · ρ" := (sem_row_cons opσ.1%S opσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
+Notation "⦗ ρ | op ⦘" := (sem_row_tun op ρ%R) (at level 80, right associativity) : sem_row_scope.
 Notation "¡ ρ" := (sem_row_os ρ%R) (at level 10) : sem_row_scope.
-Notation "⦗ ρ | op ⦘" := (sem_row_tun op%string ρ%R) (at level 5) : sem_row_scope.
 Notation "'μR:' θ , ρ " := (sem_row_rec (λ θ, ρ%R)) (at level 50) : sem_row_scope.
-Notation "⟦ ρ ⟧" := (sem_row_iEff ρ%R) : sem_row_scope.
-
-(*  Properties *)
-
-Global Instance sem_row_iEff_ne {Σ} :
-  NonExpansive (@sem_row_iEff Σ).
-Proof.
-  intros ????. rewrite /sem_row_iEff. f_equiv.
-  intros ??. simpl. by repeat f_equiv.
-Qed.
-
-Global Instance sem_row_iEff_proper {Σ} :
-  Proper ((≡) ==> (≡)) (@sem_row_iEff Σ).
-Proof. apply ne_proper. apply _. Qed.
-
-Lemma row_tun_lookup {Σ} (ρ : sem_row Σ) (σ : sem_sig Σ) (op : operation) (s : nat) :
-  (⦗ ρ | op ⦘%R !! (op, s) ≡ Some σ : iProp Σ) ⊣⊢
-  ∃ s', ⌜ s = S s' ⌝ ∗ (ρ !! (op, s') ≡ Some σ : iProp Σ).
-Proof. 
-  iSplit.
-  - iIntros "Hlookup".
-    destruct s.
-    + destruct (lookup_kmap_None (sem_row_tun_f op) ρ (op, 0)) as [_ H].
-      rewrite H; first (iDestruct "Hlookup" as "%H'"; inv H').
-      intros [op'' s''] H'. rewrite /sem_row_tun_f /= in H'.
-      destruct (decide (op = op'')) eqn:H''; inv H'.
-    + iExists s. iSplit; first done. 
-      replace (op, S s) with (sem_row_tun_f op (op, s)); last rewrite /sem_row_tun_f /= decide_True //.
-      rewrite lookup_kmap //. 
-  - iIntros "(%s' & -> & Hlookup)".
-    replace (op, S s') with (sem_row_tun_f op (op, s')); last rewrite /sem_row_tun_f /= decide_True //.
-    rewrite lookup_kmap //.
-Qed.
-
-Corollary row_tun_lookup_alt {Σ} (ρ : sem_row Σ) (σ : sem_sig Σ) (op : operation) (s : nat) :
-  (⦗ ρ | op ⦘%R !! (op, S s) ≡ Some σ : iProp Σ) ⊣⊢
-  (ρ !! (op, s) ≡ Some σ : iProp Σ).
-Proof. 
-  iSplit. 
-  - rewrite row_tun_lookup. iIntros "(% & %Heq & H)".
-    by injection Heq as ->. 
-  - iIntros "H". 
-    iApply (row_tun_lookup ρ σ op (S s)). 
-    iExists s. eauto.
-Qed.
-
-Lemma row_tun_lookup_ne {Σ} (ρ : sem_row Σ) (σ : sem_sig Σ) (op op' : operation) (s : nat) :
-  op ≠ op' →
-  (⦗ ρ | op' ⦘%R !! (op, s) ≡ Some σ : iProp Σ) ⊣⊢
-  (ρ !! (op, s) ≡ Some σ : iProp Σ).
-Proof. 
-  intros ?. 
-  assert (Heq : (op, s) = (sem_row_tun_f op' (op, s))).
-  { rewrite /sem_row_tun_f /= decide_False //. } 
-  iSplit; iIntros "Hlookup". 
-  - rewrite {1} Heq lookup_kmap //.
-  - rewrite {2} Heq lookup_kmap //.
-Qed.
-
-Lemma row_os_lookup {Σ} op s (σ : sem_sig Σ) (ρ : sem_row Σ) :
-  (¡ ρ)%R !! (op, s) ≡ Some σ ⊣⊢
-  ∃ (σ' : sem_sig Σ), σ ≡ (¡ σ')%S ∗ (ρ !! (op, s) ≡ Some σ' : iProp Σ).
-Proof. 
-  iSplit.
-  - rewrite lookup_fmap. iIntros "Hlookup".
-    destruct (ρ !! (op, s)) as [σ'|] eqn:H; rewrite H; simpl.
-    + iDestruct (option_equivI with "Hlookup") as "#Hlookup'".
-      iExists σ'. iSplit; last done.
-      by iRewrite - "Hlookup'".
-    + iDestruct "Hlookup" as "%H'". inv H'.
-  - iIntros "(%σ' & Heq & Hlookup)". rewrite lookup_fmap.
-    destruct (ρ !! (op, s)) as [σ''|] eqn:H; rewrite H; simpl.
-    + iDestruct (option_equivI with "Hlookup") as "#Hlookup'".
-      iApply option_equivI.
-      iRewrite "Heq". 
-      by iRewrite "Hlookup'".
-    + iDestruct "Hlookup" as "%H'". inv H'.
-Qed.
-
-Corollary row_os_lookup_alt {Σ} op s (σ : sem_sig Σ) (ρ : sem_row Σ) :
-  (ρ !! (op, s) ≡ Some σ : iProp Σ) ⊢
-  (¡ ρ)%R !! (op, s) ≡ Some (¡ σ)%S.
-Proof. 
-  iIntros "Hlookup". rewrite row_os_lookup.
-  iExists σ. by iFrame.
-Qed.
 
 (* One-Shot Rows *)
 
-Class OSRow {Σ} (ρ : sem_row Σ) := { 
-  monotonic_prot : (⊢ mono_prot ⟦ ρ%R ⟧%R)
-}.
+Global Instance row_nil_once {Σ} : Once (⟨⟩ : sem_row Σ)%R.
+Proof. constructor. rewrite /= /sem_row_nil. iIntros (v Φ Φ') "_ []". Qed.
 
-Global Instance mono_prot_ne {Σ} :
-  NonExpansive (@mono_prot Σ).
+Global Instance row_cons_once {Σ} (ρ : sem_row Σ) op (σ : sem_sig Σ) `{! Once σ, ! Once ρ } :
+  Once ((op, σ) · ρ).
 Proof.
-  intros ????. rewrite /mono_prot. do 9 f_equiv; apply non_dep_fun_dist; by f_equiv.
+  constructor. rewrite /sem_row_cons /=. 
+  iIntros (v Φ Φ') "HPost (%op' & %s' & %v' & -> & H)".
+  destruct (decide (op = op')) as [->|]; first destruct s' as [|s'].
+  - iExists op', 0, v'; iSplit; try done. 
+    rewrite decide_True; last auto. 
+    inv H. iDestruct (monotonic_prot with "HPost") as "Hσ".
+    by iApply "Hσ".
+  - iExists op', (S s'), v'; iSplit; try done. 
+    rewrite decide_True; last auto.
+    inv H0. iDestruct (monotonic_prot with "HPost") as "Hρ".
+    by iApply "Hρ".
+  - iExists op', s', v'; iSplit; try done. 
+    rewrite decide_False; last auto.
+    inv H0. iDestruct (monotonic_prot with "HPost") as "Hρ".
+    by iApply "Hρ".
 Qed.
 
-Global Instance mono_prot_proper {Σ} :
-  Proper ((≡) ==> (≡)) (@mono_prot Σ).
-Proof. apply ne_proper. apply _. Qed.
-
-Arguments OSRow _ _%R.
-
-Lemma mono_prot_os_row {Σ} (ρ : sem_row Σ) `{!MonoProt ⟦ ρ ⟧%R }: OSRow ρ.
-Proof. inv MonoProt0. constructor. iIntros (v Φ Φ') "HPost Hρ".
-       iApply (monotonic_prot0 v Φ Φ' with "HPost Hρ").
-Qed.
-
-Global Instance row_nil_os_row {Σ : gFunctors } :
-  @OSRow Σ ⟨⟩.
+Global Instance row_os_once {Σ} (ρ : sem_row Σ) : Once (¡ ρ)%R.
 Proof.
-  constructor. rewrite /sem_row_iEff /= /sem_row_nil /mono_prot.
-  iIntros (v Φ Φ') "_ H". simpl. 
-  iDestruct "H" as "(% & % & % & % & -> & H & _)".
-  rewrite lookup_empty. iDestruct "H" as "%H". inv H.
+  constructor. rewrite /sem_row_os.
+  pose proof (upcl_mono_prot ρ) as []. iIntros (???).
+  iIntros "HPost /= H". 
+  iApply (monotonic_prot v Φ Φ' with "HPost H").
 Qed.
 
-Global Instance row_ins_os_row {Σ} (ρ : sem_row Σ) op (σ : sem_sig Σ) `{! OSSig σ, ! OSRow ρ } :
-  OSRow ((op, σ) · ρ).
+Global Instance row_rec_once {Σ} (R : sem_row Σ → sem_row Σ) `{Contractive R} :
+  (∀ θ, Once (R θ)) → Once (μR: θ, R θ).
 Proof.
-  constructor. iIntros (v Φ Φ') "HPost".
-  rewrite /sem_row_iEff /=.
-  iIntros "(%w & %op' & %s' & %σ' & -> & #Hlookup' & Hσ')".
-  destruct (decide ((op, 0) = (op', s'))). 
-  - rewrite /sem_row_ins. inv e. 
-    iExists w, op', 0, σ'. rewrite lookup_insert. 
-    iSplitR; first done. iFrame "#". 
-    iDestruct (option_equivI with "Hlookup'") as "#Hlookup''".
-    inv OSSig0. 
-    iDestruct (monotonic_prot0 with "HPost") as "H".
-    iDestruct (iEff_equivI σ σ') as "[Heq _]".
-    iSpecialize ("Heq" with "[]"); first by iRewrite "Hlookup''".
-    iRewrite - ("Heq" $! w Φ'). iApply "H". by iRewrite ("Heq" $! w Φ).
-  - inv OSRow0. iDestruct (monotonic_prot0 $! (effect op', #s', w)%V Φ Φ' with "HPost [Hσ']") as "(%w'' & %op'' & %s'' & %σ'' & %Heq & Hlookup & Hieff)".
-    { iExists w, op', s', σ'. iSplit; first done.
-      rewrite lookup_insert_ne; last done. iFrame "∗#". }
-    inv Heq. iExists w'', op'', s'', σ''. iSplitR; first done.
-    rewrite /sem_row_ins lookup_insert_ne; last done. iFrame "∗".
+  intros H. constructor. 
+  iIntros (???) "HPost H". rewrite !sem_row_rec_unfold_iEff.
+  specialize (H (μR: θ, R θ)%R). inv H. by iApply (monotonic_prot with "HPost").
 Qed.
 
-Global Instance row_tun_os_row {Σ} (op : operation) (ρ : sem_row Σ) `{! OSRow ρ } :
-  OSRow ⦗ ρ | op ⦘.
-Proof.
-  constructor. rewrite /sem_row_iEff /=. 
-  iIntros (v Φ Φ') "HPost".
-  iIntros "(%v' & %op' & %s' & %σ' & #Heq & #Hlookup & Hσ')".
-  destruct (decide (op = op')) as [->|Hop']. 
-  - iDestruct (row_tun_lookup with "Hlookup") as "(%s'' & -> & Hlookup')".
-    inv OSRow0.
-    iDestruct (monotonic_prot0 $! (effect op', #s'', v')%V Φ Φ' with "HPost [Hσ']") as "(%w & %op'' & %s''' & %σ'' & Heq' & Hlookup'' & Hσ'')".
-    { iExists v', op', s'', σ'. by iFrame "#∗". }
-    iExists v', op', (S s''), σ''. iDestruct "Heq'" as "%". inv H.
-    iFrame "#∗". iRewrite "Hlookup'" in "Hlookup''".
-    iDestruct (option_equivI with "Hlookup''") as "Heq'".
-    by iRewrite "Heq'" in "Hlookup". 
-  - rewrite (row_tun_lookup_ne ρ σ' op' op s'); last done.
-    inv OSRow0. 
-    iDestruct (monotonic_prot0 $! (effect op', #s', v')%V Φ Φ' with "HPost [Hσ']") as "(%w & %op'' & %s'' & %σ'' & Heq' & Hlookup'' & Hσ'')".
-    { iExists v', op', s', σ'. by iFrame "#∗". }
-    iExists v', op', s', σ''. iDestruct "Heq'" as "%". inv H.
-    iRewrite "Heq"; iSplitR; first done. iFrame.
-    rewrite - (row_tun_lookup_ne ρ σ'' op'' op s'') //.
-Qed.
-
-Global Instance row_cons_os_row {Σ} (ρ : sem_row Σ) op (σ : sem_sig Σ) `{! OSSig σ, ! OSRow ρ } :
-  OSRow ((op, σ) ·: ρ).
-Proof.
-  rewrite /sem_row_cons. simpl.
-  apply row_ins_os_row; first done.
-  by apply row_tun_os_row.
-Qed.
-
-Global Instance row_os_os_row {Σ} (ρ : sem_row Σ) :
-  OSRow (¡ ρ ).
-Proof.
-  constructor. rewrite /sem_row_iEff /=.
-  iIntros (v Φ Φ') "HPost (% & % & % & % & Heq & #Hlookup & Hσ)".
-  iExists v', op, s, σ. iFrame "∗#".
-  rewrite row_os_lookup. iDestruct "Hlookup" as "(%σ' & Heq & Hlookup)".
-  iPoseProof (sem_sig_iEff_equivI σ (¡ σ')%S with "Heq") as "H".
-  iRewrite ("H" $! v' Φ'). 
-  pose proof (upcl_mono_prot σ') as [].
-  iApply (monotonic_prot0 with "HPost"). rewrite /sem_sig_os.
-  simpl. by iRewrite - ("H" $! v' Φ).
-Qed.
-
-Global Instance row_rec_os_row {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:  
-  (∀ θ, OSRow (ρ θ)) →
-  OSRow (μR: θ, ρ θ)%R.
-Proof.
-  intros H. 
-  constructor.  iIntros. rewrite sem_row_rec_unfold.
-  specialize (H (μR: θ, ρ θ)%R).
-  inv H. iApply monotonic_prot0.
-Qed.
-
-Lemma os_row_mono_prot {Σ} (ρ : sem_row Σ) op s (σ : sem_sig Σ) `{! OSRow ρ } :
-  ρ !! (op, s) ≡ Some σ -∗ mono_prot σ.
-Proof.
-  inv OSRow0.
-  iIntros "#Hlookup % % % HPost Hσ". 
-  iDestruct (monotonic_prot0 $! (effect op, #s, v)%V Φ Φ' with "HPost") as "H".
-  iDestruct ("H" with "[Hσ]") as "H".
-  { iExists v, op, s, σ. by iFrame "#∗". }
-  iDestruct "H" as "(%v' & %op' & %s' & %σ' & %Heq & Hlookup' & Hσ')".
-  inv Heq. destruct (ρ !! (op', s')) eqn:Heq; last (iDestruct "Hlookup'" as "%H"; inv H).
-  rewrite Heq !option_equivI. iRewrite "Hlookup'" in "Hlookup".
-  rewrite sem_sig_iEff_equivI. iSpecialize ("Hlookup" $! v' Φ').
-  by iRewrite - "Hlookup".
-Qed.
-
-
-Global Instance sem_row_os_contractive {Σ} (C : sem_row Σ → sem_row Σ) `{ Contractive C } :
-  Contractive (λ θ, ¡ (C θ))%R. 
-Proof.
-  intros ?????. rewrite /sem_row_os. 
-  rewrite !lookup_fmap. do 2 f_equiv. by apply Contractive0.
-Qed.
-
-(* Subsumption relation on rows wrt to types *)
+(* Substructurality relation on rows wrt to types and environments *)
 
 Definition mono_prot_on_prop {Σ} (Ψ : iEff Σ) (P : iProp Σ) : iProp Σ :=
   □ (∀ v Φ, iEff_car Ψ v Φ -∗ P -∗ iEff_car Ψ v (λ w, Φ w ∗ P))%I.
 
 Definition row_type_sub {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : iProp Σ := 
-  (∀ v, mono_prot_on_prop ⟦ ρ ⟧%R (τ v)).
+  (∀ v, mono_prot_on_prop ρ (τ v)).
 
 Notation "ρ ≼ₜ τ" := (row_type_sub ρ%R τ%T)%I (at level 80) : bi_scope.
 
 Lemma row_type_sub_os {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ (¡ ρ) ≼ₜ τ.
 Proof.
   iIntros (w v Φ) "!# Hρ Hτ".
-  pose proof (@row_os_os_row Σ ρ) as H. inv H. 
-  by iApply (monotonic_prot0 $! _ Φ with "[Hτ]"); first iIntros "% $ //".
+  pose proof (@row_os_once Σ ρ) as H. inv H. 
+  iApply (monotonic_prot v Φ (λ w', Φ w' ∗ τ w)%I with "[Hτ] Hρ").
+  iIntros "% $ //".
 Qed.
 
 Definition row_env_sub {Σ} (ρ : sem_row Σ) (Γ : env Σ) : iProp Σ := 
-  (∀ vs, mono_prot_on_prop ⟦ ρ ⟧%R (⟦ Γ ⟧ vs)).
+  (∀ vs, mono_prot_on_prop ρ (⟦ Γ ⟧ vs)).
 
 Notation "ρ ≼ₑ Γ" := (row_env_sub ρ%R Γ%T) (at level 80) : bi_scope.
 
 Lemma row_env_sub_os {Σ} (ρ : sem_row Σ) (Γ : env Σ) : ⊢ (¡ ρ) ≼ₑ Γ.
 Proof.
   iIntros (vs v Φ) "!# Hρ HΓ".
-  pose proof (@row_os_os_row Σ ρ) as H. inv H. 
-  by iApply (monotonic_prot0 $! _ Φ with "[HΓ]"); first iIntros "% $ //".
+  pose proof (@row_os_once Σ ρ) as H. inv H. 
+  by iApply (monotonic_prot _ Φ with "[HΓ]"); first iIntros "% $ //".
 Qed.
 
 (* Subsumption relation on rows *)
 
 Lemma row_le_refl {Σ} (ρ : sem_row Σ) :
   ⊢ ρ ≤R ρ.
-Proof.
-  iIntros (op s σ) "H".
-  iExists σ. iFrame. iApply sig_le_refl.
-Qed.
+Proof. iApply iEff_le_refl. Qed.
 
 Lemma row_le_trans {Σ} (ρ₁ ρ₂ ρ₃ : sem_row Σ) :
   ρ₁ ≤R ρ₂ -∗ 
   ρ₂ ≤R ρ₃ -∗
   ρ₁ ≤R ρ₃.
-Proof.
-  iIntros "Hρ₁₂ Hρ₂₃".
-  iIntros (op s σ₁) "Hlookup".
-  iDestruct ("Hρ₁₂" with "Hlookup") as "(%σ₂ & Hlookup & Hσ₁₂)".
-  iDestruct ("Hρ₂₃" with "Hlookup") as "(%σ₃ & Hlookup & Hσ₂₃)".
-  iExists σ₃. iFrame. iApply (sig_le_trans with "Hσ₁₂ Hσ₂₃").
-Qed.
+Proof. iApply iEff_le_trans. Qed.
 
 Lemma row_le_nil {Σ} (ρ : sem_row Σ) : 
   ⊢ ⟨⟩ ≤R ρ.
-Proof.
-  iIntros (op s σ) "Hlookup". rewrite lookup_empty. 
-  iDestruct "Hlookup" as %H. inv H.
-Qed.
+Proof. iApply iEff_le_bottom. Qed.
 
-Lemma row_nil_iEff_bot {Σ} :
-  ⊢ iEff_le (⟦ ⟨⟩ ⟧)%R (⊥ : iEff Σ).
-Proof.
-  rewrite /sem_row_iEff. iIntros (??) "!#".
-  simpl. iIntros "(% & % & % & % & -> & H & _)".
-  rewrite /sem_row_nil. rewrite lookup_empty. iDestruct "H" as "%H". inv H.
-Qed.
-
-Lemma row_le_iEff {Σ} (ρ ρ' : sem_row Σ) :
-  ρ ≤R ρ' -∗ iEff_le ⟦ ρ ⟧%R ⟦ ρ' ⟧%R.
-Proof.
-  rewrite /sem_row_iEff /=.
-  iIntros "#Hle !# %v %Φ (%w & %op & %s & %σ & #Heq & #Hlookup & Hσ)".
-  iDestruct ("Hle" $! op s σ with "Hlookup") as "(%σ' & #Hlookup' & Hσle)".
-  iExists w, op, s, σ'. iFrame "∗#". by iApply "Hσle".
-Qed.
-
-Lemma row_le_ins_comp {Σ} (ρ ρ' : sem_row Σ) (op : operation) (σ σ' : sem_sig Σ) : 
-  ρ ≤R ρ' -∗ σ ≤S σ' -∗
+Lemma row_le_cons_comp {Σ} (ρ ρ' : sem_row Σ) (op : operation) (σ σ' : sem_sig Σ) : 
+  σ ≤S σ' -∗ ρ ≤R ρ' -∗ 
   (op, σ) · ρ ≤R (op, σ') · ρ'.
 Proof.
-  iIntros "#Hρρ' #Hσσ'".
-  iIntros (op'' s'' σ'') "#Hlookup".
-  destruct (decide (op = op'')) as [->|].
-  - rewrite /sem_row_ins /=. destruct s''.
-    + rewrite lookup_insert. 
-      iExists σ'. rewrite lookup_insert.
-      iSplitR; first done.
-      iDestruct (option_equivI with "Hlookup") as "#Hlookup'".
-      by iRewrite - "Hlookup'".
-    + rewrite lookup_insert_ne; last done.
-      iSpecialize ("Hρρ'" $! op'' (S s'') σ'' with "Hlookup").
-      rewrite lookup_insert_ne; last done.
-      iFrame "#".
-  - rewrite lookup_insert_ne; last (intros H; inv H).
-    iSpecialize ("Hρρ'" $! op'' s'' σ'' with "Hlookup").
-    rewrite lookup_insert_ne; last (intros H; inv H).
-    iFrame "#".
+  iIntros "#Hσσ' #Hρρ'". rewrite /sem_row_cons /=. 
+  iIntros (??) "!# (%op' & %s' & %v' & -> & H)".
+  iExists op', s', v'; iSplit; first done.
+  destruct (decide (op = op')); first destruct s' as [|];
+  first (by iApply "Hσσ'"); by iApply "Hρρ'".
 Qed.
 
-Lemma row_le_ins {Σ} (ρ : sem_row Σ) (op : operation) (σ : sem_sig Σ) :
-  ρ !! (op, 0) ≡ None -∗
-  ρ ≤R (op, σ) · ρ. 
-Proof. 
-  iIntros "#Hlookup".
-  iIntros (op' s' σ') "#Hlookup'". 
-  destruct (decide ((op, 0) = (op', s'))).
-  - rewrite <- e. 
-    iAssert (Some σ' ≡ None)%I as "Hlookup''".
-    { by iRewrite - "Hlookup'". }
-    iDestruct (option_equivI with "Hlookup''") as "[]". 
-  - iExists σ'. rewrite lookup_insert_ne; last done.
-    iFrame "#". iApply sig_le_refl.
-Qed.
+Lemma row_le_rec_unfold {Σ} (R : sem_row Σ → sem_row Σ) `{Contractive R} :
+  ⊢ (μR: θ, R θ) ≤R R (μR: θ, R θ).
+Proof. rewrite {1} sem_row_rec_unfold //. iApply row_le_refl. Qed.
 
-Lemma row_le_ins_tun {Σ} (ρ : sem_row Σ) (op : operation) (σ : sem_sig Σ) : 
-  ⊢ ⦗ ρ | op ⦘ ≤R (op, σ) · ⦗ ρ | op ⦘. 
-Proof. 
-  iApply row_le_ins. rewrite /sem_row_tun.
-  pose proof (lookup_kmap_None (sem_row_tun_f op) ρ (op, 0)) as [_ H].
-  rewrite H; first done.
-  intros i Hlookup. rewrite /sem_row_tun_f in Hlookup.
-  destruct (decide (op = i.1)); inv Hlookup.
-Qed.
+Lemma row_le_rec_fold {Σ} (R : sem_row Σ → sem_row Σ) `{ Contractive R }:
+  ⊢ R (μR: θ, R θ) ≤R (μR: θ, R θ).
+Proof. rewrite - {1} sem_row_rec_unfold. iApply row_le_refl. Qed.
 
-Lemma row_le_tun_comp {Σ} (op : operation) (ρ ρ' : sem_row Σ) :
-  ρ ≤R ρ' -∗
-  ⦗ ρ | op ⦘ ≤R ⦗ ρ' | op ⦘. 
-Proof. 
-  iIntros "Hle %op' %s' %σ' Hlookup".
-  destruct (decide (op = op')) as [->|Hneq].
-  - rewrite (row_tun_lookup ρ σ' op' s'). 
-    iDestruct "Hlookup" as "(%s'' & -> & Hlookup)".
-    iDestruct ("Hle" with "Hlookup") as (σ'') "[H H']".
-    iExists σ''. iFrame. 
-    rewrite - (row_tun_lookup_alt ρ' σ'' op' s'') //. 
-  - rewrite (row_tun_lookup_ne); last done.
-    iDestruct ("Hle" with "Hlookup") as (σ'') "[H H']".
-    iExists σ''. rewrite row_tun_lookup_ne; last done. iFrame.
-Qed.
-
-Lemma row_tun_ins_eq {Σ} op s σ (ρ : sem_row Σ) :
-  (⦗ insert (op, s) σ ρ | op ⦘ = insert (op, S s) σ ⦗ ρ | op ⦘)%R. 
-Proof.
-  rewrite {1} /sem_row_tun /=. 
-  rewrite (kmap_insert _ ρ (op, s) σ) // {1}/sem_row_tun_f /= decide_True //.
-Qed.
-
-Lemma row_tun_ins_eq_ne {Σ} op op' s σ (ρ : sem_row Σ) :
-  op ≠ op' →
-  (⦗ insert (op, s) σ ρ | op' ⦘ = insert (op, s) σ ⦗ ρ | op' ⦘)%R. 
-Proof.
-  intros ?. rewrite {1} /sem_row_tun /=. 
-  rewrite (kmap_insert _ ρ (op, s) σ) // {1}/sem_row_tun_f /= decide_False //.
-Qed.
-
-Corollary row_le_tun_ins_ne {Σ} op op' σ (ρ : sem_row Σ) :
-  op ≠ op' →
-  ⊢ ⦗ (op, σ) · ρ | op' ⦘ ≤R (op, σ) · ⦗ ρ | op' ⦘.
-Proof.
-  intros ?. rewrite row_tun_ins_eq_ne; last done.
-  iApply row_le_refl.
-Qed.
-
-Corollary row_le_ins_tun_ne {Σ} op op' σ (ρ : sem_row Σ) :
-  op ≠ op' →
-  ⊢ (op, σ) · ⦗ ρ | op' ⦘ ≤R ⦗ (op, σ) · ρ | op' ⦘.
-Proof.
-  intros ?. rewrite row_tun_ins_eq_ne; last done.
-  iApply row_le_refl.
-Qed.
-
-Lemma row_le_tun_comm {Σ} op op' (ρ : sem_row Σ) :
-  ⊢ ⦗ ⦗ ρ | op ⦘ | op' ⦘ ≤R ⦗ ⦗ ρ | op' ⦘ | op ⦘.
-Proof. 
-  iIntros (op'' s'' σ'') "Hlookup".
-  destruct (decide (op' = op'')) as [->|H].
-  - rewrite row_tun_lookup. iDestruct "Hlookup" as "(%si'' & -> & Hlookup)".
-    destruct (decide (op = op'')) as [->|H].
-    + rewrite row_tun_lookup. iDestruct "Hlookup" as "(%s & -> & Hlookup)".
-      iExists σ''. rewrite ! row_tun_lookup_alt. iSplit; [done|iApply sig_le_refl].
-    + rewrite row_tun_lookup_ne; last done. 
-      iExists σ''. rewrite row_tun_lookup_ne; last done.
-      rewrite row_tun_lookup_alt. iFrame. iApply sig_le_refl.
-  - rewrite row_tun_lookup_ne; last done. 
-    destruct (decide (op = op'')) as [->|].
-    + rewrite row_tun_lookup. iDestruct "Hlookup" as "(%si'' & -> & Hlookup)".
-      iExists σ''. rewrite row_tun_lookup_alt.
-      rewrite row_tun_lookup_ne; last done. iFrame. iApply sig_le_refl.
-    + rewrite row_tun_lookup_ne; last done.
-      iExists σ''. do 2 (rewrite row_tun_lookup_ne; try done).
-      iFrame. iApply sig_le_refl.
-Qed.
-
-Lemma row_le_tun_ne {Σ} (ρ : sem_row Σ) (op : operation) :
-  (∀ s, ρ !! (op, s) ≡ None) -∗
-  ρ ≤R ⦗ ρ | op ⦘.
-Proof. 
-  iIntros "#Hlookup".
-  iIntros (op' s' σ') "#Hlookup'".
-  iExists σ'. iSplit; last iApply sig_le_refl.
-  destruct (decide (op = op')) as [->|Hneq].
-  - iSpecialize ("Hlookup" $! s').
-    destruct (ρ !! (op', s')); first iRewrite "Hlookup" in "Hlookup'";
-    iDestruct "Hlookup'" as "%H"; inv H.
-  - rewrite row_tun_lookup_ne //.
-Qed.
-
-Lemma row_le_cons_comp {Σ} op σ σ' (ρ ρ' : sem_row Σ) :
-  σ ≤S σ' -∗
-  ρ ≤R ρ' -∗
-  (op, σ) ·: ρ ≤R (op, σ') ·: ρ'.
-Proof. 
-  iIntros "#Hσle #Hρle".
-  rewrite /sem_row_cons.
-  iApply (row_le_ins_comp with "[] Hσle"). simpl.
-  by iApply row_le_tun_comp.
-Qed.
-
-Lemma row_le_cons {Σ} (ρ : sem_row Σ) (op : operation) (σ : sem_sig Σ) : 
-  (∀ s, ρ !! (op, s) ≡ None) -∗
-  ρ ≤R (op, σ) ·: ρ. 
-Proof. 
-  iIntros "#Hlookup". rewrite /sem_row_cons /=.
-  iApply row_le_trans.
-  { iApply row_le_ins. iApply "Hlookup". }
-  iApply row_le_ins_comp; last iApply sig_le_refl.
-  iApply (row_le_tun_ne with "Hlookup").
-Qed.
-
-Lemma row_le_rec_unfold {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:
-  ⊢ (μR: θ, ρ θ) ≤R ρ (μR: θ, ρ θ).
-Proof. 
-  rewrite {1} sem_row_rec_unfold. iApply row_le_refl.
-Qed.
-
-Lemma row_le_rec_fold {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }:
-  ⊢ ρ (μR: θ, ρ θ) ≤R (μR: θ, ρ θ).
-Proof. 
-  rewrite - {1} sem_row_rec_unfold. iApply row_le_refl.
-Qed.
-
-Lemma row_os_ins_eq {Σ} op s σ (ρ : sem_row Σ) :
-  (¡ (insert (op, s) σ ρ))%R = insert (op, s) (¡ σ)%S (¡ ρ)%R.
-Proof. rewrite /sem_row_os fmap_insert //. Qed.
-
-Corollary row_le_os_ins {Σ} op σ (ρ : sem_row Σ) :
+Lemma row_le_os_cons {Σ} op σ (ρ : sem_row Σ) :
   ⊢ ¡ ((op, σ) · ρ) ≤R (op, ¡ σ)%S · (¡ ρ).
-Proof. rewrite row_os_ins_eq /=. iApply row_le_refl. Qed.
-
-Corollary row_le_ins_os {Σ} op σ (ρ : sem_row Σ) :
-   ⊢ (op, ¡ σ)%S · (¡ ρ) ≤R ¡ ((op, σ) · ρ).
-Proof. rewrite row_os_ins_eq /=. iApply row_le_refl. Qed.
+Proof. 
+  rewrite /sem_row_os. 
+  iIntros (??) "!# (%Φ' & (%op' & %s & %v' & -> & H) & Hpost)". simpl.
+  iExists op', s, v'. iSplit; first done.
+  destruct (decide (op = op')); first destruct s as [|];
+  first iNext; iExists Φ'; iFrame. 
+Qed.
 
 Lemma row_le_os_comp {Σ} (ρ ρ' : sem_row Σ) :
   ρ ≤R ρ' -∗
   ¡ ρ ≤R ¡ ρ'. 
 Proof. 
-  iIntros "Hle %op %s %σ #Hlookup".
-  rewrite row_os_lookup. iDestruct "Hlookup" as "(%σ1 & Heq & Hlookup)".
-  iDestruct ("Hle" $! op s with "Hlookup") as "(%σ' & #Hlookup' & #Hle)".
-  iExists (¡ σ')%S. rewrite row_os_lookup. iSplit. 
-  { iExists σ'. iSplit; by iFrame. }
-  iRewrite "Heq". by iApply sig_le_os_comp.
+  iIntros "#Hle". rewrite /sem_row_os. 
+  iIntros (??) "!# (%Φ' & Hρ & Hpost)". simpl.
+  iExists Φ'. iFrame. by iApply "Hle".
 Qed.
-  
+
 Lemma row_le_os_intro {Σ} (ρ : sem_row Σ) :
   ⊢ ρ ≤R ¡ ρ. 
 Proof. 
-  iIntros (op s σ) "#Hlookup".
-  iExists (¡ σ)%S. rewrite row_os_lookup. 
-  iSplit; last iApply sig_le_os_intro.
-  iExists σ. by iFrame "#".
+  rewrite /sem_row_os. iIntros (??) "!# Hρ". simpl.
+  iExists Φ. iFrame. iIntros (?) "$ //".
 Qed.
 
-Lemma row_le_os_elim {Σ} (ρ : sem_row Σ) `{! OSRow ρ}:
+Lemma row_le_os_elim {Σ} (ρ : sem_row Σ) `{! Once ρ}:
   ⊢ ¡ ρ ≤R ρ. 
 Proof. 
-  iIntros (op s σ) "#Hlookup".
-  rewrite row_os_lookup. iDestruct "Hlookup" as "(%σ' & Heq & Hlookup)".
-  iExists σ'. iFrame "#". iRewrite "Heq". 
-  iPoseProof (os_row_mono_prot with "Hlookup") as "Hmono". 
-  (* We can't use sig_le_os_elim here because it requires OSSig σ
-   * which leaves outside the current iProp context. 
-   * Instead we have to prove it directly *)
-  iIntros (v Φ) "!# Hσ'".  iDestruct "Hσ'" as "(%Φ' & Hσ' & HPost)".
-  by iApply ("Hmono" with "HPost").
+  rewrite /sem_row_os. iIntros (??) "!# (%Φ' & Hρ & Hpost)". simpl.
+  inv H. by iApply (monotonic_prot with "Hpost").
 Qed.
 
-Lemma row_os_tun_eq {Σ} op (ρ : sem_row Σ) :
-  (⦗ (¡ ρ) | op ⦘ = ¡ ⦗ ρ | op ⦘)%R. 
-Proof. rewrite /sem_row_tun /sem_row_os /= kmap_fmap //. Qed.
-
-Corollary row_le_tun_os {Σ} (op : operation) (ρ : sem_row Σ) :
-  ⊢ ⦗ (¡ ρ) | op ⦘ ≤R ¡ ⦗ ρ | op ⦘. 
-Proof. rewrite row_os_tun_eq. iApply row_le_refl. Qed.
-
-Corollary row_le_os_tun {Σ} (op : operation) (ρ : sem_row Σ) :
-  ⊢  ¡ ⦗ ρ | op ⦘ ≤R ⦗ (¡ ρ) | op ⦘.
-Proof. rewrite row_os_tun_eq. iApply row_le_refl. Qed.
-
-Lemma row_le_cons_os {Σ} op σ (ρ : sem_row Σ) :
-   ⊢ (op, ¡ σ)%S ·: (¡ ρ) ≤R ¡ ((op, σ) ·: ρ).
-Proof. 
-  rewrite /sem_row_cons.
-  rewrite row_os_ins_eq /= row_os_tun_eq. 
-  iApply row_le_refl. 
-Qed.
-
-Lemma row_le_nil_os {Σ} :
+Corollary row_le_nil_os {Σ} :
    ⊢ ¡ ⟨⟩%R ≤R (⟨⟩%R : sem_row Σ).
-Proof. 
-  apply row_le_os_elim. apply _.
-Qed.
+Proof. apply row_le_os_elim. apply _. Qed.
 
-Lemma row_le_os_idemp {Σ} (ρ : sem_row Σ) :
+Corollary row_le_os_idemp {Σ} (ρ : sem_row Σ) :
    ⊢ ¡ (¡ ρ) ≤R ¡ ρ.
 Proof. apply row_le_os_elim. apply _. Qed.
 
-Lemma row_le_rec_os {Σ} (ρ : sem_row Σ → sem_row Σ) `{ Contractive ρ }: 
-  (∀ θ, ¡ (ρ θ) ≤R (ρ θ)) -∗ ¡ (μR: θ, ρ θ) ≤R (μR: θ, ρ θ).
+Corollary row_le_rec_os {Σ} (R : sem_row Σ → sem_row Σ) `{ Contractive R }: 
+  (∀ θ, ¡ (R θ) ≤R (R θ)) -∗ ¡ (μR: θ, R θ) ≤R (μR: θ, R θ).
 Proof. 
   iIntros "#Hle". iApply row_le_trans.
   { iApply row_le_os_comp. iApply row_le_rec_unfold. }
@@ -642,66 +301,52 @@ Proof.
   iApply row_le_rec_fold.
 Qed.
 
-Lemma row_le_ins_swap_second {Σ} (op op' : operation) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
+Lemma row_le_swap_second {Σ} (op op' : operation) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
   op ≠ op' →
   ⊢ (op, σ) · (op', σ') · ρ ≤R (op', σ') · (op, σ) · ρ. 
 Proof. 
-  iIntros (?). rewrite /sem_row_ins /= (insert_commute _ (op,0) (op',0)); last (intros H'; inv H').
-  iApply row_le_refl. 
+  iIntros (Hneq). rewrite /sem_row_cons /=.
+  iIntros (??) "!# (%op'' & %s'' & %v'' & %Heq & H)". simpl.
+  destruct (decide (op = op'')) as [->|]; first destruct s'' as [|s''].
+  - iExists op'', 0, v''. iSplit; first done.
+    rewrite decide_False; last done.
+    iExists op'', 0, v''; iSplit; first done.
+    rewrite decide_True //.
+  - iDestruct "H" as "(%op''' & %s''' & %v''' & %Heq' & H)".
+    simplify_eq. rewrite decide_False; last done.
+    iExists op''', (S s'''), v'''; iSplit; first done.
+    rewrite decide_False; last done.
+    iExists op''', (S s'''), v'''; iSplit; first done.
+    rewrite decide_True //.
+  - iDestruct "H" as "(%op''' & %s''' & %v''' & %Heq' & H)".
+    destruct (decide (op' = op''')) as [->|]; first destruct s'''.
+    + iExists op'', s'', v''; iSplit; first done.
+      simplify_eq. rewrite decide_True //.
+    + iExists op'', s'', v''; iSplit; first done.
+      simplify_eq. rewrite decide_True //.
+      iExists op''', s''', v'''; iSplit; first done.
+      rewrite decide_False //.
+    + iExists op''', s'', v''; iSplit; first by simplify_eq.
+      simplify_eq. rewrite decide_False //.
+      iExists op''', s''', v'''. iSplit; first done.
+      rewrite decide_False //.
 Qed.
 
-Lemma row_le_swap_second {Σ} (op op' : operation) (σ σ' : sem_sig Σ) (ρ : sem_row Σ) : 
-  op ≠ op' →
-  ⊢ (op, σ) ·: (op', σ') ·: ρ ≤R (op', σ') ·: (op, σ) ·: ρ. 
-Proof. 
-  iIntros (Heq). rewrite /sem_row_cons /=. 
-  iApply row_le_trans; [iApply row_le_ins_comp; last iApply sig_le_refl|].
-  { iApply row_le_tun_ins_ne; done. }
-  iApply row_le_trans; first iApply row_le_ins_swap_second; first done.
-  iApply row_le_ins_comp; last iApply sig_le_refl. 
-  iApply row_le_trans; [iApply row_le_ins_comp; first iApply row_le_tun_comm|].
-  iApply sig_le_refl. iApply row_le_ins_tun_ne; last done.
-Qed.
-
-Lemma row_le_ins_swap_third {Σ} (op op' op'' : operation) (σ σ' σ'' : sem_sig Σ) (ρ : sem_row Σ) : 
+Corollary row_le_swap_third {Σ} (op op' op'' : operation) (σ σ' σ'' : sem_sig Σ) (ρ : sem_row Σ) : 
   op ≠ op' → op' ≠ op'' → op'' ≠ op →
-  ⊢ (op, σ) · (op', σ') · (op'', σ'') · ρ ≤R 
-    (op'', σ'') · (op, σ) · (op', σ') · ρ. 
-Proof. 
-  iIntros (???). rewrite /sem_row_ins /= (insert_commute _ (op',0) (op'',0)); last (intros H'; inv H').
-  rewrite (insert_commute _ (op, 0) (op'', 0)); last (intros H''; inv H'').
-  iApply row_le_refl. 
-Qed.
-
-Lemma row_le_swap_third {Σ} (op op' op'' : operation) (σ σ' σ'' : sem_sig Σ) (ρ : sem_row Σ) : 
-  op ≠ op' → op' ≠ op'' → op'' ≠ op →
-  ⊢ (op, σ) ·: (op', σ') ·: (op'', σ'') ·: ρ ≤R 
-    (op'', σ'') ·: (op, σ) ·: (op', σ') ·: ρ. 
+  ⊢ (op, σ) · (op', σ') · (op'', σ'') · ρ ≤R (op'', σ'') · (op, σ) · (op', σ') · ρ. 
 Proof. 
   iIntros (???). 
-  iApply row_le_trans; [iApply row_le_cons_comp; first iApply sig_le_refl|].
-  iApply row_le_swap_second; last done. by iApply row_le_swap_second.
+  iApply row_le_trans; first iApply row_le_cons_comp; [iApply sig_le_refl|by iApply row_le_swap_second|].
+  by iApply row_le_swap_second.
 Qed.
 
-Lemma row_le_ins_swap_fourth {Σ} (op op' op'' op''' : operation) (σ σ' σ'' σ''': sem_sig Σ) (ρ : sem_row Σ) : 
+Corollary row_le_swap_fourth {Σ} (op op' op'' op''' : operation) (σ σ' σ'' σ''': sem_sig Σ) (ρ : sem_row Σ) : 
   op ≠ op' → op ≠ op'' → op ≠ op''' → op' ≠ op'' → op' ≠ op''' → op'' ≠ op''' → 
   ⊢ (op, σ) · (op', σ') · (op'', σ'') · (op''', σ''') · ρ ≤R 
     (op''', σ''') · (op, σ) · (op', σ') · (op'', σ'') · ρ.
 Proof. 
   iIntros (??????). 
-  rewrite /sem_row_ins /= (insert_commute _ (op'',0) (op''',0)); last (intros H'; inv H').
-  rewrite (insert_commute _ (op', 0) (op''', 0)); last (intros H'; inv H').
-  rewrite (insert_commute _ (op, 0) (op''', 0)); last (intros H'; inv H').
-  iApply row_le_refl. 
-Qed.
-
-Lemma row_le_swap_fourth {Σ} (op op' op'' op''' : operation) (σ σ' σ'' σ''': sem_sig Σ) (ρ : sem_row Σ) : 
-  op ≠ op' → op ≠ op'' → op ≠ op''' → op' ≠ op'' → op' ≠ op''' → op'' ≠ op''' → 
-  ⊢ (op, σ) ·: (op', σ') ·: (op'', σ'') ·: (op''', σ''') ·: ρ ≤R 
-    (op''', σ''') ·: (op, σ) ·: (op', σ') ·: (op'', σ'') ·: ρ.
-Proof. 
-  iIntros (??????).
-  iApply row_le_trans; [iApply row_le_cons_comp; first iApply sig_le_refl|].
-  iApply row_le_swap_third; try done.
+  iApply row_le_trans; first iApply row_le_cons_comp; [iApply sig_le_refl|by iApply row_le_swap_third|].
   by iApply row_le_swap_second.
 Qed.

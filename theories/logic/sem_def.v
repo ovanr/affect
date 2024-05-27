@@ -35,89 +35,129 @@ Declare Scope sem_ty_scope.
 (* Bind Scope sem_ty_scope with sem_ty. *)
 Delimit Scope sem_ty_scope with T.
 
-(** * Semantic Effect Signature. *)
-(** Semantic types are defined using a record, which bundles an Iris predicate
-[sem_ty_car : val → iProp Σ] together with a proof of persistence. *)
+(** * Persistently Monotonic Protocols. *)
+(** Persistently Monotonic Protocols are defined using a record, which bundles an iEff protocol
+[pmono_prot_car : iEff Σ] together with a proof of it being persistently monotonic. *)
 
 Definition pers_mono {Σ} (Ψ : iEff Σ) : iProp Σ :=
   (∀ (v : val) (Φ Φ' : val → iPropI Σ),
-      □ (∀ w : val, Φ w -∗ Φ' w) -∗ 
-                        iEff_car Ψ v Φ -∗ iEff_car Ψ v Φ')%I.
+      □ (∀ w : val, Φ w -∗ Φ' w) -∗ iEff_car Ψ v Φ -∗ iEff_car Ψ v Φ')%I.
 
-Record sem_sig Σ := SemSig {
-  sem_sig_car :> iEff Σ;
-  sem_sig_pmono : ⊢ pers_mono sem_sig_car
+Record pmono_prot Σ := PMonoProt {
+  pmono_prot_car :> iEff Σ;
+  pmono_prot_prop : ⊢ pers_mono pmono_prot_car
 }.
-Arguments SemSig {_} _%I {_}.
-Arguments sem_sig_car {_} _ : simpl never.
+Arguments PMonoProt {_} _%I {_}.
+Arguments pmono_prot_car {_} _ : simpl never.
 
-
-Declare Scope sem_sig_scope.
-(* Bind Scope sem_sig_scope with sem_sig. *)
-Delimit Scope sem_sig_scope with S.
-
-(** * The COFE structure on semantic signatures *)
-(** We show that semantic sig [sem_sig] form a Complete Ordered Family of
-Equivalences (COFE). This is necessary mostly for enabling rewriting equivalent
-semantic signatures through Coq's setoid rewrite system. This part is mostly
-boilerplate. *)
-Section sem_sig_cofe.
+(** * The COFE structure on pmono protocols *)
+Section pmono_prot_cofe.
   Context {Σ : gFunctors}.
 
-  Instance sem_sig_equiv : Equiv (sem_sig Σ) := λ Ψ1 Ψ2, sem_sig_car Ψ1 ≡ sem_sig_car Ψ2.
-  Instance sem_sig_dist : Dist (sem_sig Σ) := λ n Ψ1 Ψ2, sem_sig_car Ψ1 ≡{n}≡ sem_sig_car Ψ2.
-  Lemma sem_sig_ofe_mixin : OfeMixin (sem_sig Σ).
-  Proof. by apply (iso_ofe_mixin sem_sig_car). Qed.
-  Canonical Structure sem_sigO := Ofe (sem_sig Σ) sem_sig_ofe_mixin.
-  Global Instance sem_sig_cofe : Cofe sem_sigO.
+  Instance pmono_prot_equiv : Equiv (pmono_prot Σ) := λ Ψ1 Ψ2, pmono_prot_car Ψ1 ≡ pmono_prot_car Ψ2.
+  Instance pmono_prot_dist : Dist (pmono_prot Σ) := λ n Ψ1 Ψ2, pmono_prot_car Ψ1 ≡{n}≡ pmono_prot_car Ψ2.
+  Lemma pmono_prot_ofe_mixin : OfeMixin (pmono_prot Σ).
+  Proof. by apply (iso_ofe_mixin pmono_prot_car). Qed.
+  Canonical Structure pmono_protO := Ofe (pmono_prot Σ) pmono_prot_ofe_mixin.
+  Global Instance pmono_prot_cofe : Cofe pmono_protO.
   Proof.
     apply (iso_cofe_subtype' (λ Ψ, ⊢ pers_mono Ψ)
-      (@SemSig _) sem_sig_car)=> //.
+      (@PMonoProt _) pmono_prot_car)=> //.
     - by intros [].
     - apply bi.limit_preserving_emp_valid.
-
       intros ????. rewrite /pers_mono.
       do 8 f_equiv; apply non_dep_fun_dist;
        apply (non_dep_fun_dist _  _ a (iEff_car x) (iEff_car y)); by f_equiv.
   Qed.
 
-  Global Program Instance sem_sig_inhabited : Inhabited (sem_sig Σ) := 
-    populate (SemSig inhabitant).
+  Global Program Instance pmono_prot_inhabited : Inhabited (pmono_prot Σ) := 
+    populate (PMonoProt inhabitant).
   Next Obligation.
     rewrite /pers_mono /inhabitant /=. iIntros (???) "_ _ //".
   Qed.
 
-  Global Instance sem_sig_car_ne n : Proper (dist n ==> dist n) sem_sig_car.
+  Global Instance pmono_prot_car_ne n : Proper (dist n ==> dist n) pmono_prot_car.
   Proof. by intros Ψ1 Ψ2 ?. Qed.
-  Global Instance sem_sig_car_proper : Proper ((≡) ==> (≡)) (@sem_sig_car Σ).
+  Global Instance pmono_prot_car_proper : Proper ((≡) ==> (≡)) (@pmono_prot_car Σ).
   Proof. by intros Ψ1 Ψ2 ?. Qed.
 
-  Global Instance sem_sig_ne n Ψ : Proper ((λ _ _, True) ==> dist n) (@SemSig Σ Ψ).
-  Proof. intros P1 P2 _ ?. apply non_dep_fun_dist. rewrite /sem_sig_car //. Qed.
-  Global Instance sem_sig_proper Ψ : Proper ((λ _ _, True) ==> (≡)) (@SemSig Σ Ψ).
-  Proof. intros P1 P2 _ ?. apply non_dep_fun_equiv. rewrite /sem_sig_car //. Qed.
+  Global Instance pmono_prot_ne n Ψ : Proper ((λ _ _, True) ==> dist n) (@PMonoProt Σ Ψ).
+  Proof. intros P1 P2 _ ?. apply non_dep_fun_dist. rewrite /pmono_prot_car //. Qed.
+  Global Instance pmono_prot_proper Ψ : Proper ((λ _ _, True) ==> (≡)) (@PMonoProt Σ Ψ).
+  Proof. intros P1 P2 _ ?. apply non_dep_fun_equiv. rewrite /pmono_prot_car //. Qed.
 
-End sem_sig_cofe.
+  Global Program Instance pmono_prot_bottom : Bottom (pmono_prot Σ) := @PMonoProt Σ ⊥ _.
+  Next Obligation. rewrite /pers_mono. iIntros (???) "_ [] //". Qed.
 
-Lemma sem_sig_equivI {Σ} (σ1 σ2 : sem_sig Σ) :
-  σ1 ≡ σ2 ⊢@{iProp Σ} (sem_sig_car σ1) ≡ (sem_sig_car σ2).
+End pmono_prot_cofe.
+
+Lemma pmono_prot_equivI {Σ} (Ψ1 Ψ2 : pmono_prot Σ) :
+  Ψ1 ≡ Ψ2 ⊢@{iProp Σ} (pmono_prot_car Ψ1) ≡ (pmono_prot_car Ψ2).
 Proof. iIntros "H". by iRewrite "H". Qed.
 
-Lemma sem_sig_iEff_equivI {Σ} (σ1 σ2 : sem_sig Σ) :
-  σ1 ≡ σ2 ⊢@{iProp Σ} ∀ v Φ, iEff_car (sem_sig_car σ1) v Φ ≡ iEff_car (sem_sig_car σ2) v Φ.
+Lemma pmono_prot_iEff_equivI {Σ} (Ψ1 Ψ2 : pmono_prot Σ) :
+  Ψ1 ≡ Ψ2 ⊢@{iProp Σ} ∀ v Φ, iEff_car (pmono_prot_car Ψ1) v Φ ≡ iEff_car (pmono_prot_car Ψ2) v Φ.
 Proof.
-  iIntros "H % %". iPoseProof (sem_sig_equivI with "H") as "HH".
+  iIntros "H % %". iPoseProof (pmono_prot_equivI with "H") as "HH".
   iApply (iEff_equivI _ _ with "HH").
 Qed.
 
-Arguments sem_sigO : clear implicits.
+Arguments pmono_protO : clear implicits.
+
+(** * Semantic Effect Signatures. *)
+
+Definition sem_sig Σ := (pmono_prot Σ)%type.
+
+Declare Scope sem_sig_scope.
+Delimit Scope sem_sig_scope with S.
 
 (** * Semantic Effect Row. *)
 
-Definition sem_row Σ := (gmapO (operation * natO) (sem_sigO Σ))%type.
+Definition sem_row_val_prop {Σ} (Ψ : pmono_prot Σ) : iProp Σ := 
+  ∀ v Φ, iEff_car Ψ v Φ -∗ ∃ (op : operation) (s : nat) (v' : val), ⌜ v = (effect op, #s, v')%V ⌝.
+
+Record sem_row Σ := SemRow {
+  sem_row_car :> pmono_prot Σ;
+  sem_row_prop : ⊢ sem_row_val_prop sem_row_car
+}.
+Arguments SemRow {_} _%I {_}.
+Arguments sem_row_car {_} _ : simpl never.
+
+(** * The COFE structure on semantic rows *)
+Section sem_row_cofe.
+  Context {Σ : gFunctors}.
+
+  Instance sem_row_equiv : Equiv (sem_row Σ) := λ ρ1 ρ2, sem_row_car ρ1 ≡ sem_row_car ρ2.
+  Instance sem_row_dist : Dist (sem_row Σ) := λ n ρ1 ρ2, sem_row_car ρ1 ≡{n}≡ sem_row_car ρ2.
+  Lemma sem_row_ofe_mixin : OfeMixin (sem_row Σ).
+  Proof. by apply (iso_ofe_mixin sem_row_car). Qed.
+  Canonical Structure sem_rowO := Ofe (sem_row Σ) sem_row_ofe_mixin.
+  Global Instance sem_row_cofe : Cofe sem_rowO.
+  Proof.
+    apply (iso_cofe_subtype' (λ Ψ, ⊢ sem_row_val_prop Ψ) (@SemRow _) sem_row_car)=> //.
+    - by intros [].
+    - apply bi.limit_preserving_emp_valid.
+      intros ????. rewrite /sem_row_val_prop.
+      do 6 f_equiv; apply non_dep_fun_dist. by f_equiv.
+  Qed.
+
+  Global Program Instance sem_row_inhabited : Inhabited (sem_row Σ) := 
+    populate (@SemRow Σ ⊥ _).
+  Next Obligation. rewrite /sem_row /=. iIntros (??) "[] /=". Qed.
+
+  Global Instance sem_row_car_ne n : Proper (dist n ==> dist n) sem_row_car.
+  Proof. by intros Ψ1 Ψ2 ?. Qed.
+  Global Instance sem_row_car_proper : Proper ((≡) ==> (≡)) (@sem_row_car Σ).
+  Proof. by intros Ψ1 Ψ2 ?. Qed.
+
+  Global Instance sem_row_ne n Ψ : Proper ((λ _ _, True) ==> dist n) (@SemRow Σ Ψ).
+  Proof. intros P1 P2 _ ?. apply non_dep_fun_dist. rewrite /sem_row_car //. Qed.
+  Global Instance sem_row_proper Ψ : Proper ((λ _ _, True) ==> (≡)) (@SemRow Σ Ψ).
+  Proof. intros P1 P2 _ ?. apply non_dep_fun_equiv. rewrite /sem_row_car //. Qed.
+
+End sem_row_cofe.
 
 Declare Scope sem_row_scope.
-(* Bind Scope sem_row_scope with sem_row. *)
 Delimit Scope sem_row_scope with R.
 
 
@@ -146,7 +186,6 @@ the same variable occurs twice in Γ we get that:
   it would be impossible to provide env_typed proof.
 
 *)
-
 
 Definition env Σ := (list (string * sem_ty Σ)).
 
@@ -223,9 +262,7 @@ Proof.
   unfold sig_le, tc_opaque. apply _.
 Qed.
 
-Definition row_le {Σ} (ρ ρ' : sem_row Σ) := 
-  tc_opaque (∀ l s σ, lookup (l, s) ρ ≡ Some σ -∗ 
-                      ∃ σ', lookup (l, s) ρ' ≡ Some σ' ∗ sig_le σ σ')%I. 
+Definition row_le {Σ} (ρ ρ' : sem_row Σ) := tc_opaque (iEff_le ρ ρ')%I.
 
 Global Instance row_le_persistent {Σ} ρ ρ' :
   Persistent (@row_le Σ ρ ρ').

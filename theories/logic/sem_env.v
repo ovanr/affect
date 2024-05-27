@@ -252,10 +252,7 @@ Section env_row_sub_typing.
   Proof.
     iIntros "#HΓcpy %vs %v %Φ !# Hρ HΓ.".
     iDestruct ("HΓcpy" with "HΓ.") as "#HΓ".
-    rewrite /sem_row_iEff /=. 
-    iDestruct "Hρ" as "(% & % & % & % & -> & Hlookup & Hσ)".
-    iExists v', op, s, σ. iSplitR; first done. iFrame.
-    iApply (sem_sig_pmono _ σ with "[] Hσ").
+    iApply (pmono_prot_prop Σ ρ); last iApply "Hρ".  
     iIntros "!# % $ //".
   Qed.
 

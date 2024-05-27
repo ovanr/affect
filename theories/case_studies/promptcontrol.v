@@ -64,63 +64,52 @@ Section handler_alt.
   Context `{!heapGS Σ}.
   
   Notation handler_alt_spec_type Σ :=
-    (coPset -d> operation-d> sem_sig Σ -d> sem_row Σ -d> mode -d> mode -d> (val -d> iPropO Σ) 
+    (coPset -d> operation-d> sem_sig Σ -d> sem_row Σ -d> mode -d> (val -d> iPropO Σ) 
             -d> expr -d> expr
             -d> sem_row Σ -d> (val -d> iPropO Σ) -d> iPropO Σ) (only parsing).
   
     (* Correctness of the effect branch. *)
   Definition handler_alt_spec `{irisGS eff_lang Σ} : handler_alt_spec_type Σ := (
-    λ E op σ ρ mh mρ Φ h r ρ' Φ',
+    λ E op σ ρ mh Φ h r ρ' Φ',
     
     (* Subsumption on row *)
     (ρ ≤R ρ') ∗
   
-    (* One-Shot Row *)
-    (⌜ mρ = OS → OSRow ρ ⌝) ∗
-  
+    □ (
     (* Correctness of the return branch. *)
-    □?mρ (
-      ∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}
-    ) ∧
+      (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}) ∧
   
     (* Correctness of the effect branch. *)
-    □ (
       ∀ (v k : val),
-        iEff_car (upcl mh σ) v (λ w, EWPW k w @ E <| (op, σ) ·: ρ |> {{ Φ }}) -∗
-        EWPW h v k @ E <| (op, σ) ·: ρ |> {{ Φ }}
+        iEff_car (upcl mh σ) v (λ w, EWPW k w @ E <| (op, σ) · ρ |> {{ Φ }}) -∗
+        EWPW h v k @ E <| (op, σ) · ρ |> {{ Φ }}
     ))%I.
   
-  Lemma ewpw_handler_alt E (op : operation) mh mρ σ ρ ρ' e (h r : val) Φ Φ' :
-    EWPW e @ E <| (op, σ) ·: ρ |> {{ Φ }} -∗
-    handler_alt_spec E op σ ρ mh mρ Φ h r ρ' Φ' -∗
+  Lemma ewpw_handler_alt E (op : operation) mh σ ρ ρ' e (h r : val) Φ Φ' :
+    EWPW e @ E <| (op, σ) · ρ |> {{ Φ }} -∗
+    handler_alt_spec E op σ ρ mh Φ h r ρ' Φ' -∗
     EWPW (HandlerAltV mh e op h r) @E <| ρ' |> {{ Φ' }}.
   Proof.
     iIntros "He H". rewrite /HandlerAltV. 
     iLöb as "IH" forall (e). rewrite /handler_alt /ewpw. 
     rewrite /handler_alt_spec.
     do 10 ewp_value_or_step. ewp_pure_steps. 
-    iApply (ewpw_shandler _ op mh mρ  with "He").
-    iDestruct "H" as "(#H1 & %H2 & H3 & #H4)".
+    iApply (ewpw_shandler _ op mh MS with "He").
+    iDestruct "H" as "(#H1 & #Hbr)".
     rewrite /shandler. iFrame "#%".
-    destruct mρ; simpl.
-    - iSplit; first iApply "H3".
-      iIntros (v k) "(%Φ'' & Hσ & HPost)".
-      rewrite /ewpw; do 6 ewp_value_or_step. 
-      rewrite -/handler_alt. iApply ("IH" with "[Hσ HPost]").
-      { iApply "H4". iExists Φ''. iFrame. }
-      iFrame "#%∗".
-    - iDestruct "H3" as "#H3". iIntros "!#".
-      iFrame "#". iIntros (v k) "(%Φ'' & Hσ & HPost)".
-      rewrite /ewpw; do 6 ewp_value_or_step. 
-      rewrite -/handler_alt. iApply ("IH" with "[Hσ HPost]").
-      { iApply "H4". iExists Φ''. iFrame. }
-      iFrame "#%∗".
+    iSplit; first done. simpl. iModIntro. iSplit.
+    { iDestruct "Hbr" as "[$ _]". }
+    iIntros (v k) "(%Φ'' & Hσ & HPost)".
+    rewrite /ewpw; do 6 ewp_value_or_step. 
+    rewrite -/handler_alt. iApply ("IH" with "[Hσ HPost]").
+    { iDestruct "Hbr" as "[_ H]". iApply "H". iExists Φ''. iFrame. }
+    iFrame "#%∗".
   Qed.
   
   Lemma sem_typed_handler_alt {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
       x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → x ∉ env_dom Γ₂ → k ∉ env_dom Γ₂ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
       let σ := (∀S..: αs, A αs =[ m ]=> B αs)%S in
-      let ρ := ((op, σ) ·: ρ')%R in
+      let ρ := ((op, σ) · ρ')%R in
       copy_env Γ' -∗
       ρ' ≤R ρ'' -∗
       Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
@@ -137,14 +126,14 @@ Section handler_alt.
       iSpecialize ("He" $! vs with "HΓ₁").
       iRevert "He". iLöb as "IH" forall (e). iIntros "He".
       ewpw_pure_steps. 
-      iApply (ewpw_handler_alt _ _ m MS with "He [HΓ']").
+      iApply (ewpw_handler_alt _ _ m with "He [HΓ']").
       rewrite /handler_alt.
-      repeat iSplit; eauto. simpl. iIntros "!#". 
+      repeat iSplit; first done. iModIntro. iSplit. 
       - iIntros (v) "[Hτ HΓ₂]". ewpw_pure_steps. rewrite - subst_map_insert. 
         iApply (ewpw_mono with "[HΓ₂ HΓ' Hτ]").
         { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
         iIntros "!# %w [$ HΓ₃] !>". solve_env.
-      - iIntros (v k') "!# (%Φ & Hρ & HPost)".
+      - iIntros (v k') "(%Φ & Hρ & HPost)".
         rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)".
         ewpw_pure_steps. solve_dec. 
         rewrite delete_commute - subst_map_insert. 
@@ -174,7 +163,7 @@ Section typing.
   Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
   Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
   Opaque sem_sig_eff sem_sig_os.
-  Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
+  Opaque sem_row_nil sem_row_os sem_row_tun sem_row_cons sem_row_rec.
 
   Context `{!heapGS Σ}.
 
@@ -182,35 +171,31 @@ Section typing.
       (∀S: α , (α -{ ctrl }-∘ β) -{ ctrl }-∘ β =[ OS ]=> α)%S.
 
   Definition ctrl_pre (β : sem_ty Σ) (ctrl : sem_row Σ) : sem_row Σ := 
-      (("ctrl", ctrl_sig β ctrl) ·: ⟨⟩)%R.
+      (("ctrl", ctrl_sig β ctrl) · ⟨⟩)%R.
 
-  Global Instance ctrl_sig_contractive β : Contractive (ctrl_sig β).
+  Global Instance ctrl_sig_ne β : NonExpansive (ctrl_sig β).
   Proof.
-    (* We need the sem_sig_eff_contractive lemma for this.
-       For now we prove this directly. *)
-    Transparent sem_sig_eff.
-    rewrite /ctrl_sig. intros ??????. rewrite /sem_sig_car. simpl.
-    f_equiv.  apply non_dep_fun_dist. do 6 f_equiv. f_contractive.
-    apply non_dep_fun_dist. f_equiv; first done. by f_equiv.
-    Opaque sem_sig_eff.
+    rewrite /ctrl_sig. intros ????. f_equiv.
+    rewrite /tele_app. intros ?. destruct x0; simpl. f_equiv; first done. 
+    by f_equiv. 
   Qed.
 
   Local Instance contractive_ctrl_pre β : Contractive (ctrl_pre β).
   Proof.
-    intros ????. rewrite /ctrl_pre. do 3 f_equiv. by f_contractive.
+    intros ????. rewrite /ctrl_pre. do 3 f_equiv. 
+    destruct n; first apply dist_later_0.
+    apply dist_later_S. rewrite - dist_later_S in H.
+    by f_equiv.
   Qed.
 
   Definition ctrl β : sem_row Σ := (μR: θ, ctrl_pre β θ)%R.
 
-  Local Instance ctrl_sig_ne β θ : NonExpansive (λ α : sem_ty Σ, (α -{ θ }-∘ β) -{ θ}-∘ β).
-  Proof. intros ????. by do 2 f_equiv. Qed.
-
-  Local Instance ctrl_os_row β : OSRow (ctrl β).
+  Local Instance ctrl_os_row β : Once (ctrl β).
   Proof.
-    rewrite /ctrl. apply row_rec_os_row. iIntros (θ).
-    rewrite /ctrl_pre. apply row_cons_os_row.
-    { rewrite /ctrl_sig. apply sig_eff_os_os_sig; apply _. }
-    simpl. apply row_nil_os_row.
+    rewrite /ctrl. apply row_rec_once. iIntros (θ).
+    rewrite /ctrl_pre. apply row_cons_once.
+    { rewrite /ctrl_sig. apply sig_eff_os_once; apply _. }
+    simpl. apply row_nil_once.
   Qed.
 
   Definition ctrl_ty : sem_ty Σ := 

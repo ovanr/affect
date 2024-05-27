@@ -29,7 +29,7 @@ From haffel.logic Require Import compatibility.
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
 Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
 Opaque sem_sig_eff sem_sig_os.
-Opaque sem_row_nil sem_row_ins sem_row_os sem_row_tun sem_row_cons sem_row_rec.
+Opaque sem_row_nil sem_row_os sem_row_tun sem_row_cons sem_row_rec.
 
 Definition yield := (λ: "x", perform: "yield" "x")%V.
 Definition generate :=
@@ -55,7 +55,7 @@ Section typing.
   Context `{!heapGS Σ}.
 
   Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀S: (_ : sem_ty Σ), τ =[OS]=> ())%S.
-  Definition yield_ty τ := τ -{ (yield_sig τ ·: ⟨⟩) }-> ().
+  Definition yield_ty τ := τ -{ (yield_sig τ · ⟨⟩) }-> ().
   Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
   
@@ -64,7 +64,7 @@ Section typing.
   Proof.
     iIntros "". iApply sem_typed_Tclosure. iIntros (α).
     rewrite -(app_nil_r []). iApply sem_typed_ufun; solve_sidecond. simpl.
-    set cont_ty := (() -{ yield_sig α ·: ⟨⟩ }-∘ ()). 
+    set cont_ty := (() -{ yield_sig α · ⟨⟩ }-∘ ()). 
     iApply (sem_typed_let (Refᶜ cont_ty) _ _ _ []); simpl; solve_sidecond. 
     - iApply sem_typed_alloc_cpy.
       rewrite -(app_nil_r [("i", _)]).
