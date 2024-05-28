@@ -467,13 +467,13 @@ Section compatibility.
   Qed.
 
   (* Generic App Rule *)
-  Lemma sem_typed_app_gen τ ρ' ρ κ Γ₁ Γ₂ Γ₃ e₁ e₂ :
-    ρ' ≤R ρ -∗ ρ' ≼ₜ τ -∗ ρ ≼ₑ Γ₃ -∗
-    Γ₂ ⊨ e₁ : ρ' : (τ -{ ρ }-∘ κ) ⊨ Γ₃ -∗
+  Lemma sem_typed_app_gen τ ρ' ρ ρ'' κ Γ₁ Γ₂ Γ₃ e₁ e₂ :
+    ρ' ≤R ρ -∗ ρ' ≼ₜ τ -∗ ρ'' ≼ₑ Γ₃ -∗ ρ'' ≤R ρ -∗
+    Γ₂ ⊨ e₁ : ρ' : (τ -{ ρ'' }-∘ κ) ⊨ Γ₃ -∗
     Γ₁ ⊨ e₂ : ρ : τ ⊨ Γ₂ -∗
     Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ Γ₃.
   Proof.
-    iIntros "#Hρ'ρ #Hρ'τ #HρΓ₃ #He₁ #He₂ !# %vs HΓ₁ /=".
+    iIntros "#Hρ'ρ #Hρ'τ #Hρ''Γ₃ #Hρ''ρ #He₁ #He₂ !# %vs HΓ₁ /=".
     iApply (ewpw_bind [AppRCtx _]); first done.
     iApply (ewpw_mono with "[HΓ₁]"); first (by iApply "He₂").
     iIntros "!# % [Hτ HΓ₂] !> /=".
@@ -482,8 +482,9 @@ Section compatibility.
     iApply (ewpw_mono with "[Hτ HΓ₂]").
     {  iApply (ewpw_row_type_sub with "Hρ'τ [HΓ₂] Hτ"). by iApply "He₁". }
     iIntros "!# % ((Hτκ & HΓ₃) & Hτ) !>".
+    iApply ewpw_sub; first iApply "Hρ''ρ". simpl.
     iApply (ewpw_mono with "[Hτκ Hτ HΓ₃]").
-    {  iApply (ewpw_row_env_sub with "HρΓ₃ [Hτ Hτκ] HΓ₃"). 
+    {  iApply (ewpw_row_env_sub with "Hρ''Γ₃ [Hτ Hτκ] HΓ₃"). 
        rewrite /sem_ty_aarr /sem_ty_arr /=. by iApply "Hτκ".  }
     iIntros "!# % $ !> //=".
   Qed.
@@ -497,8 +498,9 @@ Section compatibility.
     Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ [].
   Proof.
     iIntros "#Hρ'ρ #He₁ #He₂". 
-    iApply (sem_typed_app_gen with "Hρ'ρ [] [] He₁ He₂"); first iApply row_type_sub_os.
+    iApply (sem_typed_app_gen with "Hρ'ρ [] [] [] He₁ He₂"); first iApply row_type_sub_os.
     iApply row_env_sub_cpy. solve_copy.
+    iApply row_le_refl.
   Qed.
 
   Lemma sem_typed_app_nil τ ρ κ Γ₁ Γ₂ e₁ e₂ :
@@ -520,10 +522,11 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂". 
     iApply sem_typed_sub_row; first iApply row_le_os_elim.
-    iApply (sem_typed_app_gen τ (¡ ρ)%R (¡ ρ)%R). 
+    iApply (sem_typed_app_gen τ (¡ ρ)%R (¡ ρ)%R (¡ ρ)%R). 
     - iApply row_le_refl. 
     - iApply row_type_sub_os.
     - iApply row_env_sub_os.
+    - iApply row_le_refl.
     - iApply sem_typed_sub_row; first iApply row_le_os_intro.
       iApply sem_typed_sub_ty; [iApply ty_le_aarr|iApply "He₁"]; 
         first iApply row_le_os_intro; try iApply ty_le_refl.
@@ -538,10 +541,11 @@ Section compatibility.
     Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ Γ₃.
   Proof.
     iIntros "#HΓcpy #Hcpyτ #He₁ #He₂".
-    iApply sem_typed_app_gen. 
+    iApply (sem_typed_app_gen _ ρ ρ ρ). 
     - iApply row_le_refl.
     - iApply row_type_sub_cpy_type.
     - by iApply row_env_sub_cpy.
+    - iApply row_le_refl.
     - iApply sem_typed_sub_ty; [iApply ty_le_aarr|iApply "He₁"];
         [iApply row_le_refl|by iApply ty_le_cpy_elim|iApply ty_le_refl].
     - iApply sem_typed_sub_ty; [by iApply ty_le_cpy_intro|iApply "He₂"].
