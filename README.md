@@ -1,4 +1,4 @@
-# Haffel
+# Affect
 
 This project formalises an affine type and effect system for a language with effect handlers
 and proves type safety for it.
