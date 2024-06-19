@@ -15,14 +15,14 @@ From hazel.program_logic Require Import weakest_precondition
                                         protocols.
 
 (* Local imports *)
-From haffel.lib Require Import logic.
-From haffel.lang Require Import haffel.
-From haffel.logic Require Import sem_def.
-From haffel.logic Require Import mode.
-From haffel.logic Require Import sem_sig.
-From haffel.logic Require Import sem_row.
-From haffel.logic Require Import sem_env.
-From haffel.logic Require Import ewpw.
+From affect.lib Require Import logic.
+From affect.lang Require Import affect.
+From affect.logic Require Import sem_def.
+From affect.logic Require Import mode.
+From affect.logic Require Import sem_sig.
+From affect.logic Require Import sem_row.
+From affect.logic Require Import sem_env.
+From affect.logic Require Import ewpw.
 
 (* Base types. *)
 Definition sem_ty_void {Σ} : sem_ty Σ := (λ v, False)%I.

@@ -1,7 +1,7 @@
 
-From haffel.lang Require Import haffel.
-From haffel.logic Require Import sem_def.
-From haffel.logic Require Import sem_types.
+From affect.lang Require Import affect.
+From affect.logic Require Import sem_def.
+From affect.logic Require Import sem_types.
 
 Open Scope sem_ty_scope.
 

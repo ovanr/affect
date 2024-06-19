@@ -13,11 +13,11 @@ From hazel.program_logic Require Import weakest_precondition
                                         protocols.
 
 (* Local imports *)
-From haffel.lib Require Import logic.
-From haffel.lang Require Import haffel.
-From haffel.logic Require Import sem_def.
-From haffel.logic Require Import mode.
-From haffel.logic Require Import sem_sig.
+From affect.lib Require Import logic.
+From affect.lang Require Import affect.
+From affect.logic Require Import sem_def.
+From affect.logic Require Import mode.
+From affect.logic Require Import sem_sig.
 
 Program Definition sem_row_nil {Σ} : sem_row Σ := @SemRow Σ ⊥ _. 
 Next Obligation. iIntros (???) "[]". Qed.
@@ -136,6 +136,13 @@ Proof. intros ?????. rewrite /sem_row_os. intros ?. simpl.
        do 4 f_equiv. apply non_dep_fun_dist; by f_equiv. Qed.
 Global Instance sem_row_os_Proper {Σ} : Proper ((≡) ==> (≡)) (@sem_row_os Σ).
 Proof. apply ne_proper. apply _. Qed.
+
+Global Instance sem_row_os_rec_contractive {Σ} (R : sem_row Σ -d> sem_row Σ) `{Contractive R} : 
+  Contractive (λ θ, sem_row_os (R θ)).
+Proof.
+  intros ??????. rewrite /sem_row_os. simpl.
+  do 4 f_equiv. apply non_dep_fun_dist. by apply Contractive0.
+Qed. 
 
 (* Notations. *)
 

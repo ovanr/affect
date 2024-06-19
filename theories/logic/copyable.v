@@ -15,12 +15,12 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From haffel.lang Require Import haffel.
-From haffel.logic Require Import sem_def.
-From haffel.logic Require Import sem_sig.
-From haffel.logic Require Import sem_types.
-From haffel.logic Require Import sem_env.
-From haffel.logic Require Import ewpw.
+From affect.lang Require Import affect.
+From affect.logic Require Import sem_def.
+From affect.logic Require Import sem_sig.
+From affect.logic Require Import sem_types.
+From affect.logic Require Import sem_env.
+From affect.logic Require Import ewpw.
 
 
 Section copyable_types.

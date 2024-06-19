@@ -18,7 +18,7 @@ From hazel.program_logic Require Import weakest_precondition
                                         shallow_handler_reasoning
                                         state_reasoning.
 
-From haffel.lib Require Export base logic.
+From affect.lib Require Export base logic.
 
 Notation operation := (string).
 Definition effect (op : string) := (LitV (LitStr op)).

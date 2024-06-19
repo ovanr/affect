@@ -9,12 +9,12 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning
                                         tactics.
 (* Local imports *)
-From haffel.lang Require Import haffel.
-From haffel.logic Require Import sem_def.
-From haffel.logic Require Import sem_types.
-From haffel.logic Require Import sem_row.
-From haffel.logic Require Import sem_judgement.
-From haffel.logic Require Import ewpw.
+From affect.lang Require Import affect.
+From affect.logic Require Import sem_def.
+From affect.logic Require Import sem_types.
+From affect.logic Require Import sem_row.
+From affect.logic Require Import sem_judgement.
+From affect.logic Require Import ewpw.
 
 (* This file is largely based from the adequacy proof in TES:
    https://gitlab.inria.fr/cambium/tes/-/blob/main/theories/logic/adequacy.v

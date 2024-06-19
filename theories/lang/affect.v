@@ -19,10 +19,10 @@ From hazel.program_logic Require Import weakest_precondition
                                         tactics
                                         state_reasoning.
 
-From haffel.lib Require Export base logic.
-From haffel.lang Require Export subst_map.
-From haffel.lang Require Export handler.
-From haffel.lang Require Export iEff.
+From affect.lib Require Export base logic.
+From affect.lang Require Export subst_map.
+From affect.lang Require Export handler.
+From affect.lang Require Export iEff.
 
 Definition pair_elim :=
   (λ: "x", λ: "f", "f" (Fst "x") (Snd "x"))%V.

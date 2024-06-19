@@ -9,10 +9,10 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From haffel.lib Require Import base.
-From haffel.lang Require Import haffel.
-From haffel.logic Require Import sem_def.
-From haffel.logic Require Import sem_row.
+From affect.lib Require Import base.
+From affect.lang Require Import affect.
+From affect.logic Require Import sem_def.
+From affect.logic Require Import sem_row.
 
 Section env_lemmas_base.
   

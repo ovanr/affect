@@ -13,8 +13,8 @@ From hazel.program_logic Require Import weakest_precondition
                                         state_reasoning.
 
 (* Local imports *)
-From haffel.lib Require Import base.
-From haffel.lang Require Import haffel.
+From affect.lib Require Import base.
+From affect.lang Require Import affect.
 
 (* -------------------------------------------------------------------------- *)
 (** Inhabited. *)

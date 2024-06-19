@@ -12,10 +12,10 @@ From hazel.program_logic Require Import weakest_precondition
                                         protocols.
 
 (* Local imports *)
-From haffel.lib Require Import logic.
-From haffel.lang Require Import haffel.
-From haffel.logic Require Import sem_def.
-From haffel.logic Require Import mode.
+From affect.lib Require Import logic.
+From affect.lang Require Import affect.
+From affect.logic Require Import sem_def.
+From affect.logic Require Import mode.
 
 (* Universally Quantified Effect Signatures *)
 

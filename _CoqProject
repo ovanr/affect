@@ -1,4 +1,4 @@
--Q theories                haffel
+-Q theories                affect
 
 -arg -w -arg -convert_concl_no_check
 
@@ -8,7 +8,7 @@ theories/lib/logic.v
 theories/lang/subst_map.v
 theories/lang/handler.v
 theories/lang/iEff.v
-theories/lang/haffel.v
+theories/lang/affect.v
 
 theories/logic/sem_def.v
 theories/logic/mode.v

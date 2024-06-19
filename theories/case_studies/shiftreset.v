@@ -1,3 +1,4 @@
+
 From stdpp Require Import base list.
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import excl_auth.
@@ -30,32 +31,26 @@ Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top s
 Opaque sem_sig_eff sem_sig_os.
 Opaque sem_row_nil sem_row_os sem_row_tun sem_row_cons sem_row_rec.
 
-(* The tossCoin example from paper Soundly Hanlding Linearity by Tang et al. *)
-
-Definition tossCoin : val := 
-  (Λ: λ: "g", let: "b" := "g" #() in 
-              if: "b" then #(LitStr "heads") else #(LitStr "tails"))%V.
+Definition reset : val := (Λ: λ: "e", 
+  handle[OS]: "e" #() by
+    "shift" => (λ: "x" "k", "x" "k")
+  | ret     => (λ: "x", "x")
+  end)%V.
+            
+Definition shift : val := (Λ: λ: "f", perform: "shift" (λ: "x", reset ("f" "x")))%V.
 
 Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition tossCoin_ty : sem_ty Σ := 
-    (∀R: θ, (() -{ θ }-> 𝔹) -{ θ }-> Str)%T.
+  Definition shift_eff (α : sem_ty Σ) : operation * sem_sig Σ := 
+    ("shift", ∀S: (β : sem_ty Σ), (β ⊸ α) ⊸ α =[OS]=> β)%S.
 
-  Lemma tossCoin_typed : ⊢ ⊨ᵥ tossCoin : tossCoin_ty.
-  Proof.
-    iIntros. rewrite /tossCoin /tossCoin_ty.
-    iApply sem_typed_Rclosure; solve_sidecond. iIntros (θ).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
-    iApply (sem_typed_let 𝔹 θ Str _ []); solve_sidecond.
-    - iApply (sem_typed_app_ms ()); solve_sidecond.
-      { iApply sem_typed_sub_ty; first iApply ty_le_u2aarr.
-        iApply sem_typed_var'. }
-      iApply sem_typed_unit'.
-    - iApply sem_typed_if; first iApply sem_typed_var';
-      iApply sem_typed_string'.
-  Qed.
+  Definition shift_row (α : sem_ty Σ) : sem_row Σ := (shift_eff α · ⟨⟩)%R.
 
-End typing.
+  Definition shift_ty : sem_ty Σ := ∀T: α β, ((() -{ shift_row α }-∘ α) -{ shift_row α }-∘ 
+                                                -{ shift_row α }-> α. 
+
+  Definition reset_ty : sem_ty Σ := ∀T: α, (() -{ shift_row α }-∘ α) → α.
+
+  Lemma shift_typed k : ⊢ ⊨ᵥ shift k : shift_ty.
