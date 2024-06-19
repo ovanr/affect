@@ -1,4 +1,4 @@
-name: "coq-haffel"
+name: "coq-affect"
 synopsis: "A Substructural Type And Effect System"
 opam-version: "2.0"
 maintainer: "Orpheas van Rooij(orpheas.vanrooij@ru.nl)"

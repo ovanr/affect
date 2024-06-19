@@ -4,7 +4,7 @@ echo "...Affect Setup..."
 export OPAMYES=true
 
 echo "∙ Creating new opam switch"
-opam switch create haffel ocaml-base-compiler.5.0.0
+opam switch create affect ocaml-base-compiler.5.0.0
 
 echo "∙ Fetching coq-hazel library"
 git clone https://gitlab.inria.fr/cambium/hazel
