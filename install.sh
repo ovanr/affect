@@ -1,5 +1,5 @@
 
-echo "...Haffel Setup..."
+echo "...Affect Setup..."
 
 export OPAMYES=true
 
@@ -17,7 +17,7 @@ echo "∙ Appling patch"
 git apply ../hazel.patch
 
 echo "∙ Commiting patch"
-git add .; git commit -m "hazel patch for haffel applied" 
+git add .; git commit -m "Hazel patch for Affect applied" 
 
 echo "∙ Installing coq-hazel"
 opam install . 
@@ -26,5 +26,5 @@ cd ..
 echo "∙ Installing local dependencies"
 opam install . --deps-only
 
-echo "∙ Compiling haffel"
+echo "∙ Compiling Affect"
 make
