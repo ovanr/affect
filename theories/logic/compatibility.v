@@ -1165,7 +1165,7 @@ Section compatibility.
     iIntros "!# %v [Hι HΓ₂] //= !>". rewrite /rec_perform.
     iApply (ewpw_bind [AppRCtx _]); first done.
     ewpw_pure_steps. iApply ewpw_do_ms.
-    iExists op, 0, v. iSplit; first done.
+    iExists op, v. iSplit; first done.
     rewrite decide_True //. iNext.
     rewrite sem_sig_eff_eq /=. iFrame "#∗".
     iExists τs, v. iFrame. iSplitR; first done.
@@ -1185,28 +1185,12 @@ Section compatibility.
     iIntros "!# %v [Hι HΓ₂] //= !>". rewrite /rec_perform.
     iApply (ewpw_bind [AppRCtx _]); first done.
     ewpw_pure_steps. iApply ewpw_do_ms. simpl.
-    iExists op, 0, v. iSplit; first done.
+    iExists op, v. iSplit; first done.
     rewrite decide_True //. iNext.
     rewrite sem_sig_eff_eq /=.
     iExists τs, v. iFrame. iSplitR; first done.
     iDestruct ("HΓcpy" with "HΓ₂") as "#HΓ₂'".
     iIntros "!#"; iIntros "%b Hκ"; ewpw_pure_steps; iFrame "∗#".
-  Qed.
-
-  Lemma sem_typed_lft τ op σ ρ Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-    Γ₁ ⊨ (lft: op e) : ((op, σ) · ρ)%R : τ ⊨ Γ₂.
-  Proof.
-    iIntros "#He !# %vs HΓ₁ /=".
-    iApply ewpw_lft. by iApply "He".
-  Qed.
-
-  Lemma sem_typed_unlft τ ρ op Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : (⦗ ρ | op ⦘) : τ ⊨ Γ₂ -∗
-    Γ₁ ⊨ (unlft: op e) : ρ : τ ⊨ Γ₂.
-  Proof.
-    iIntros "#He !# %vs HΓ₁ /=".
-    iApply ewpw_unlft. by iApply "He".
   Qed.
 
   Lemma sem_typed_shandler {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :

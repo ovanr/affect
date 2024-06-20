@@ -114,7 +114,7 @@ Delimit Scope sem_sig_scope with S.
 (** * Semantic Effect Row. *)
 
 Definition sem_row_val_prop {Σ} (Ψ : pmono_prot Σ) : iProp Σ := 
-  ∀ v Φ, iEff_car Ψ v Φ -∗ ∃ (op : operation) (s : nat) (v' : val), ⌜ v = (effect op, #s, v')%V ⌝.
+  ∀ v Φ, iEff_car Ψ v Φ -∗ ∃ (op : operation) (v' : val), ⌜ v = (effect op, v')%V ⌝.
 
 Record sem_row Σ := SemRow {
   sem_row_car :> pmono_prot Σ;
