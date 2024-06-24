@@ -102,6 +102,10 @@ Proof.
   iApply (iEff_equivI _ _ with "HH").
 Qed.
 
+Lemma pmono_prot_distI {Σ} (Ψ1 Ψ2 : iEff Σ) (P1 : ⊢ pers_mono Ψ1) (P2 : ⊢ pers_mono Ψ2) n :
+  Ψ1 ≡{n}≡ Ψ2 → (@PMonoProt Σ Ψ1 P1) ≡{n}≡ (@PMonoProt Σ Ψ2 P2).
+Proof. intros H. done. Qed.
+
 Arguments pmono_protO : clear implicits.
 
 (** * Semantic Effect Signatures. *)

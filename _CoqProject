@@ -29,6 +29,7 @@ theories/case_studies/tossCoin.v
 theories/case_studies/c.v
 theories/case_studies/verboseClose.v
 theories/case_studies/state.v
+theories/case_studies/state_veri.v
 theories/case_studies/generator_iterator.v
 theories/case_studies/cooperative_concurrency.v
 theories/case_studies/promptcontrol.v
