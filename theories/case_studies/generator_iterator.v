@@ -65,6 +65,7 @@ Section typing.
   Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀S: (_ : sem_ty Σ), τ =[OS]=> ())%S.
   Definition yield_ty τ := τ -{ (yield_sig τ · ⟨⟩) }-> ().
   Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
+  Definition iter_ty_un τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-> ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
   
   Lemma sem_typed_generate :
@@ -130,7 +131,8 @@ Section typing.
           ** iApply sem_typed_sub_nil.
              iApply (sem_typed_RApp (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
              iApply sem_typed_var.
-          ** iApply sem_typed_frame. iApply sem_typed_sub_nil.
+          ** iApply sem_typed_sub_nil.
+             iApply sem_typed_frame.
              iApply sem_typed_val. rewrite /yield /yield_ty. iApply sem_typed_closure; solve_sidecond.
              simpl. iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg ()] with "[]"). 
              iApply sem_typed_var'.
@@ -151,14 +153,14 @@ Section typing.
   Qed.
 
   Lemma sem_typed_iterate τ :
-    ⊢ ⊨ᵥ iterate : (generator_ty τ → iter_ty τ).
+    ⊢ ⊨ᵥ iterate : (generator_ty τ → iter_ty_un τ).
   Proof.
     iIntros. iApply sem_typed_closure; first done. rewrite /iter_ty /=.
     rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_RLam; solve_sidecond. iIntros (θ).
     rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_sub_nil. 
-    iApply sem_typed_afun; solve_sidecond. simpl.
+    iApply sem_typed_ufun; solve_sidecond. simpl.
     iApply sem_typed_app_nil;
       [|iApply sem_typed_swap_second; iApply sem_typed_var'].
     rewrite - {1}((app_nil_r [("f", _)])). 
