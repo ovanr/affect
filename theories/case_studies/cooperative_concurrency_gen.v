@@ -8,7 +8,7 @@ From iris.algebra Require Import excl_auth.
 From hazel.program_logic Require Import weakest_precondition 
                                         tactics 
                                         shallow_handler_reasoning 
-                                        deep_handler_reasoning 
+deep_handler_reasoning 
                                         state_reasoning.
 
 (* Local imports *)
@@ -24,6 +24,8 @@ From affect.logic Require Import sem_judgement.
 From affect.logic Require Import sem_operators.
 From affect.logic Require Import compatibility.
 From affect.logic Require Import tactics.
+
+From affect.case_studies Require Import state.
 
 (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
@@ -99,6 +101,14 @@ Definition runner : val :=
       | InjR <> => impossible
       end
   )%V.
+
+Definition prog : expr := (
+  runner <_> <_> (λ: <>, 
+    (perform: "put" #0) ;;   
+    let: "p1" := async <_> <_> (λ: <>, perform: "put" ((perform: "get" #()) + #1)) in
+    await <_> <_> "p1"
+  )
+)%E.
 
 Section typing.
 
@@ -545,4 +555,64 @@ Section typing.
       iApply impossible_typed. 
   Qed.
                   
+  Definition coopstate : sem_row Σ := coop st.
+
+  Lemma prog_typed :
+    ⊢ ⊨ prog : st : ().
+  Proof.
+    rewrite /prog. iIntros.
+    iApply (sem_typed_app_nil (() -{ coopstate }-∘ ())).
+    - iApply sem_typed_sub_ty; first iApply ty_le_u2aarr.
+      iApply sem_typed_sub_ty.
+      { iApply ty_le_uarr; [iApply row_le_refl| |iApply ty_le_cpy_elim].
+        iApply ty_le_aarr; [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_cpy_intro; solve_copy]. }
+      set R := (λ α θ', (() -{ coop θ' }-∘ '! α) -{ θ' }-> '! α)%T.
+      rewrite /coopstate -/(R () st).
+      iApply (sem_typed_RApp (R ())).
+      iApply (sem_typed_TApp (λ α, ∀R: θ, R α θ)).
+      iApply sem_typed_val. iApply runner_typed.
+    - rewrite - {1} (app_nil_r []).
+      iApply sem_typed_sub_nil.
+      iApply sem_typed_afun; solve_sidecond. simpl.
+      iApply (sem_typed_seq ()).
+      + rewrite /coopstate /coop.
+        iApply sem_typed_sub_row; first iApply row_le_rec_fold.
+        rewrite -/(coop st) {1} /coop_pre {7} /st.
+        iApply sem_typed_sub_row; first iApply row_le_swap_third; try done.
+        iApply sem_typed_sub_row; first iApply row_le_swap_second; try done.
+        iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg ()] with "[] []"); first solve_copy.
+        iApply sem_typed_int'.
+      + set p1type := (Promise ('! ())%T st).
+        iApply (sem_typed_let p1type _ _ _  []); solve_sidecond.
+        * set A := (λ α θ', (() -{ coop θ' }-∘ '! α) -{ coop θ' }-> Promise ('! α) θ')%T.
+          iApply (sem_typed_app_nil (() -{ coopstate }-∘ '! ())).
+          { iApply sem_typed_sub_ty; first iApply ty_le_u2aarr.
+            rewrite /coopstate /p1type -/(A () st).
+            iApply (sem_typed_TApp (λ α, A α st)).
+            iApply (sem_typed_RApp (λ θ', ∀T: α, A α θ')).
+            iApply sem_typed_val. iApply async_typed. }
+          iApply sem_typed_sub_nil. rewrite - {1} (app_nil_r []).
+          iApply sem_typed_afun; solve_sidecond. simpl.
+          iApply sem_typed_sub_row; first iApply row_le_rec_fold.
+          rewrite -/(coop st) {1} /coop_pre {7} /st.
+          iApply sem_typed_sub_row; first iApply row_le_swap_third; try done.
+          iApply sem_typed_sub_row; first iApply row_le_swap_second; try done.
+          iApply sem_typed_sub_ty; first iApply ty_le_cpy_intro; first solve_copy.
+          iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg ()] with "[] []"); solve_sidecond.
+          iApply sem_typed_sub_row; first iApply row_le_swap_fourth; try done.
+          do 2 (iApply sem_typed_sub_row; first iApply row_le_swap_third; try done).
+          iApply (sem_typed_bin_op ℤ ℤ ℤ); [constructor| |iApply sem_typed_int'].
+          iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg ()] with "[] []"); solve_sidecond.
+          iApply sem_typed_unit'.
+        * set A := (λ α θ', Promise ('! α) θ' -{ coop θ' }-> '! α)%T.
+          iApply (sem_typed_app_nil p1type).
+          { iApply sem_typed_sub_ty; first iApply ty_le_u2aarr.
+            iApply sem_typed_sub_ty; first iApply ty_le_uarr; [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_cpy_elim| ].
+            rewrite /coopstate /p1type -/(A () st).
+            iApply (sem_typed_TApp (λ α, A α st)).
+            iApply (sem_typed_RApp (λ θ', ∀T: α, A α θ')).
+            iApply sem_typed_val. iApply await_typed. }
+          iApply sem_typed_var'.
+  Qed.
+
 End typing.
