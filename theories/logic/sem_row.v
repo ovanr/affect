@@ -215,6 +215,12 @@ Qed.
 Definition row_type_sub {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : iProp Σ := 
   (∀ v, mono_prot_on_prop ρ (τ v)).
 
+Global Instance row_type_sub_persistent {Σ} ρ τ :
+  Persistent (@row_type_sub Σ ρ τ).
+Proof.
+  unfold row_type_sub. apply _.
+Qed.
+
 Notation "ρ ≼ₜ τ" := (row_type_sub ρ%R τ%T)%I (at level 80) : bi_scope.
 
 Lemma row_type_sub_os {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ (¡ ρ) ≼ₜ τ.
@@ -227,6 +233,12 @@ Qed.
 
 Definition row_env_sub {Σ} (ρ : sem_row Σ) (Γ : env Σ) : iProp Σ := 
   (∀ vs, mono_prot_on_prop ρ (⟦ Γ ⟧ vs)).
+
+Global Instance row_env_sub_persistent {Σ} ρ Γ :
+  Persistent (@row_env_sub Σ ρ Γ).
+Proof.
+  unfold row_env_sub. apply _.
+Qed.
 
 Notation "ρ ≼ₑ Γ" := (row_env_sub ρ%R Γ%T) (at level 80) : bi_scope.
 

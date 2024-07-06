@@ -797,6 +797,33 @@ Section compatibility.
     iIntros "% HC !>". iFrame "#∗".
   Qed.
 
+  (* Qualified introduction and elimination *)
+  Lemma sem_typed_QIntro Γ₁ Γ₂ P e τ : 
+    □ (P -∗ Γ₁ ⊨ e : ⟨⟩ : τ ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (P =Q> τ)%T ⊨ Γ₂.
+  Proof.
+    iIntros "#He !# %vs HΓ₁₂ //=".
+    iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
+    ewpw_pure_steps. iIntros "{$HΓ₂} HP //=". ewpw_pure_steps.
+    iApply (ewpw_mono with "[HP HΓ₁]"). 
+    { iApply ("He" with "HP HΓ₁"). }
+    iIntros "!# %w [$ _] //=".
+  Qed.
+
+  Lemma sem_typed_QApp P τ ρ Γ₁ Γ₂ e :
+    □ P -∗
+    Γ₁ ⊨ e : ρ : (P =Q> τ) ⊨ Γ₂ -∗
+    Γ₁ ⊨ e <_> : ρ : τ ⊨ Γ₂. 
+  Proof.
+    iIntros "#HP #He !# %vs HΓ₁ /=".
+    iApply (ewpw_bind [AppLCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [iApply "He"; solve_env|].
+    iIntros "!# %w [Hw HΓ₂] //= !>".
+    iApply ewpw_sub; first iApply row_le_nil.
+    iApply (ewpw_mono_os with "[Hw]"); [iApply ("Hw" with "HP")|].
+    iIntros "% Hτ !>". iFrame "#∗".
+  Qed.
+
   (* Signature abstraction and application *)
   Lemma sem_typed_RLam C Γ₁ Γ₂ e : 
     copy_env Γ₁ -∗

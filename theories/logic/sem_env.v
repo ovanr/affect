@@ -256,6 +256,17 @@ Section env_row_sub_typing.
     iIntros "!# % $ //".
   Qed.
 
+  Lemma row_env_sub_cons {Σ} (ρ : sem_row Σ) x τ (Γ : env Σ) : 
+    ρ ≼ₑ Γ -∗ ρ ≼ₜ τ -∗ ρ ≼ₑ ((x, τ) :: Γ).
+  Proof.
+    iIntros "#HρΓ #Hρτ %vs %v %Φ !# Hρ (%w & %Heq & Hτ & HΓ)".
+    iSpecialize ("HρΓ" $! vs v Φ with "Hρ HΓ").
+    iSpecialize ("Hρτ" $! w v _ with "HρΓ Hτ").
+    iApply (pmono_prot_prop Σ ρ with "[] Hρτ"). 
+    iIntros "!# % [[$ HΓ] Hτ]".
+    iExists w. by iFrame.
+  Qed.
+
 End env_row_sub_typing.
 
 Section env_sub_typing.
