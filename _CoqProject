@@ -32,4 +32,5 @@ theories/case_studies/state.v
 theories/case_studies/state_veri.v
 theories/case_studies/generator_iterator.v
 theories/case_studies/cooperative_concurrency.v
+theories/case_studies/cooperative_concurrency_gen.v
 theories/case_studies/promptcontrol.v

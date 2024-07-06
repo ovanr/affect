@@ -34,11 +34,19 @@ Opaque sem_row_nil sem_row_os sem_row_cons sem_row_rec.
 Definition yield := (λ: "x", perform: "yield" "x")%V.
 Definition generate :=
   (Λ: λ: "i", let: "cont" := ref (λ: <>, "i" <_> yield) in
-      λ: <>, let: "comp" := "cont" <!- (λ: <>, #())  in
-              shandle: "comp" #() by
-                "yield" => λ: "x" "k", "cont" <- "k" ;; SOME "x"
-               | ret    =>  λ: "x", NONE
+      λ: <>, shandle: ("cont" <!- (λ: <>, #())) #() by
+                "yield" => λ: "x" "k", "cont" <!- "k" ;; SOME "x"
+               | ret    => λ: "x", NONE
              end
+  )%V.
+
+Definition generate_deep :=
+  (Λ: λ: "i", let: "cont" := ref (λ: <>, NONE) in
+              "cont" <!- (λ: <>, handle: "i" <_> yield by
+                                   "yield" => λ: "x" "k", "cont" <!- "k" ;; SOME "x"
+                                  | ret    =>  λ: "x", NONE
+                                end) ;;
+              λ: <>, ("cont" <!- λ: <>, NONE) #()
   )%V.
 
 Definition iterate :=
@@ -57,6 +65,7 @@ Section typing.
   Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀S: (_ : sem_ty Σ), τ =[OS]=> ())%S.
   Definition yield_ty τ := τ -{ (yield_sig τ · ⟨⟩) }-> ().
   Definition iter_ty τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-∘ ())%T.
+  Definition iter_ty_un τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-> ())%T.
   Definition generator_ty τ := (() → Option τ)%T.
   
   Lemma sem_typed_generate :
@@ -79,35 +88,79 @@ Section typing.
         iApply sem_typed_var'.
     - set Γ₁ :=[("cont", Refᶜ cont_ty)]; rewrite -(app_nil_r Γ₁). 
       iApply sem_typed_ufun; solve_sidecond. simpl.
-      iApply (sem_typed_let cont_ty _ _ _ [("cont", Refᶜ cont_ty)]); solve_sidecond.
-      + iApply sem_typed_contraction; solve_sidecond.
+      iApply sem_typed_contraction; first solve_copy.
+      rewrite app_singletons.
+      iApply (sem_typed_shandler (TT:=[tele _]) OS "yield" (tele_app (λ _, α)) (tele_app (λ _, ())) () (Option α) ⊥ _ [("cont", Refᶜ cont_ty)] [] [] [("cont", Refᶜ cont_ty)]); solve_sidecond.
+      * iLeft. iPureIntro. apply _.
+      * iApply row_le_refl. 
+      * iApply sem_typed_app_os; [|iApply sem_typed_unit']. 
         iApply sem_typed_replace_cpy_os; first iApply sem_typed_var'.
-        do 2 (iApply sem_typed_frame). rewrite -(app_nil_r []).
+        iApply sem_typed_frame. rewrite -(app_nil_r []).
+        iApply sem_typed_sub_nil.
         iApply sem_typed_afun; solve_sidecond.
         simpl. iApply sem_typed_unit'.
-      + rewrite app_singletons.
-        iApply (sem_typed_shandler (TT:=[tele _]) OS "yield" (tele_app (λ _, α)) (tele_app (λ _, ())) () (Option α) ⊥ _ 
-                      [("comp", cont_ty)] [] [] [("cont", Refᶜ cont_ty)]); solve_sidecond.
-        * iLeft. iPureIntro. apply _.
-        * iApply row_le_refl. 
-        * iApply sem_typed_app_os; [iApply sem_typed_var'|iApply sem_typed_unit']. 
-        * iIntros (?). do 2 iApply sem_typed_swap_third.
-          iApply sem_typed_seq.
-          { iApply sem_typed_store_cpy; iApply sem_typed_var. }
-          iApply sem_typed_some. iApply sem_typed_var.
-        * simpl. do 2 iApply sem_typed_weaken.
-          iApply sem_typed_none.
+      * iIntros (?). do 2 iApply sem_typed_swap_third.
+        iApply sem_typed_seq.
+        { iApply sem_typed_replace_cpy_os; iApply sem_typed_var. }
+        iApply sem_typed_some. iApply sem_typed_var.
+      * simpl. do 2 iApply sem_typed_weaken.
+        iApply sem_typed_none.
   Qed.
   
+  Lemma sem_typed_generate_deep :
+    ⊢ ⊨ᵥ generate_deep : (∀T: α, iter_ty α → generator_ty α).
+  Proof.
+    iIntros "". iApply sem_typed_Tclosure. iIntros (α).
+    rewrite -(app_nil_r []). iApply sem_typed_ufun; solve_sidecond. simpl.
+    set cont_ty := (() ⊸ Option α). 
+    iApply (sem_typed_let (Refᶜ cont_ty) _ _ _ [("i", _)]); simpl; solve_sidecond. 
+    - iApply sem_typed_alloc_cpy.
+      rewrite -(app_nil_l [("i", _)]).
+      iApply sem_typed_afun; solve_sidecond.
+      iApply sem_typed_sub_nil. iApply sem_typed_none.
+    - iApply (sem_typed_seq _ _ _ _ [("cont", Refᶜ cont_ty)]).
+      + iApply sem_typed_contraction; solve_copy. iApply sem_typed_frame.
+        iApply sem_typed_replace_cpy_os; first iApply sem_typed_var.
+        iApply sem_typed_contraction; solve_copy. iApply sem_typed_frame.
+        rewrite -(app_nil_r [("cont", _); ("i", _)]).
+        iApply sem_typed_afun; solve_sidecond. simpl (_ ::? _).
+        iApply sem_typed_swap_second. rewrite app_singletons.
+        iApply (sem_typed_handler (TT:=[tele _]) OS "yield" (tele_app (λ _, α)) (tele_app (λ _, ())) () (Option α) ⊥ _ [("i", iter_ty α)] [] [] [("cont", Refᶜ cont_ty)]); solve_sidecond.
+        * iApply row_le_refl. 
+        * iApply (sem_typed_app_os (yield_ty α) _ _ _ [("i", iter_ty α)]); solve_sidecond.
+          ** iApply sem_typed_sub_nil.
+             iApply (sem_typed_RApp (λ ρ, ( α -{ ρ }-> ()) -{ ρ }-∘ ())); solve_sidecond.
+             iApply sem_typed_var.
+          ** iApply sem_typed_sub_nil.
+             iApply sem_typed_frame.
+             iApply sem_typed_val. rewrite /yield /yield_ty. iApply sem_typed_closure; solve_sidecond.
+             simpl. iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg ()] with "[]"). 
+             iApply sem_typed_var'.
+        * iIntros (?). do 2 iApply sem_typed_swap_third.
+          iApply sem_typed_seq.
+          { iApply sem_typed_replace_cpy_os; iApply sem_typed_var'. }
+          iApply sem_typed_some. iApply sem_typed_var'.
+        * simpl. do 2 iApply sem_typed_weaken.
+          iApply sem_typed_none.
+      + rewrite -(app_nil_r [("cont", _)]).
+        iApply sem_typed_ufun; solve_sidecond. simpl.
+        iApply sem_typed_app_os; [|iApply sem_typed_unit']. 
+        iApply sem_typed_replace_cpy_os; first iApply sem_typed_var'.
+        iApply sem_typed_frame. rewrite -(app_nil_r []).
+        iApply sem_typed_sub_nil.
+        iApply sem_typed_afun; solve_sidecond.
+        simpl. iApply sem_typed_none.
+  Qed.
+
   Lemma sem_typed_iterate τ :
-    ⊢ ⊨ᵥ iterate : (generator_ty τ → iter_ty τ).
+    ⊢ ⊨ᵥ iterate : (generator_ty τ → iter_ty_un τ).
   Proof.
     iIntros. iApply sem_typed_closure; first done. rewrite /iter_ty /=.
     rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_RLam; solve_sidecond. iIntros (θ).
     rewrite - {1}(app_nil_r [("g", _)]). 
     iApply sem_typed_sub_nil. 
-    iApply sem_typed_afun; solve_sidecond. simpl.
+    iApply sem_typed_ufun; solve_sidecond. simpl.
     iApply sem_typed_app_nil;
       [|iApply sem_typed_swap_second; iApply sem_typed_var'].
     rewrite - {1}((app_nil_r [("f", _)])). 
