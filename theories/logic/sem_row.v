@@ -198,6 +198,20 @@ Qed.
 Definition mono_prot_on_prop {Σ} (Ψ : iEff Σ) (P : iProp Σ) : iProp Σ :=
   □ (∀ v Φ, iEff_car Ψ v Φ -∗ P -∗ iEff_car Ψ v (λ w, Φ w ∗ P))%I.
 
+(* For semantic signatures, being monotonic on all propositions is the same as being monotonic
+   because semantic signatures are persistently monotonic by definition *)
+Lemma mono_prot_on_prop_monotonic {Σ} (σ : sem_sig Σ) : 
+  (⊢ ∀ P, mono_prot_on_prop σ P) ↔ MonoProt σ.
+Proof.
+  split.
+  - iIntros (H). constructor. iIntros (v Φ Φ') "Hpost HΨ".
+    iDestruct (H with "HΨ Hpost") as "H".
+    iApply (pmono_prot_prop _ σ with "[] H").
+    { iIntros "!# % [HΦ HPost]". by iApply "HPost". }
+  - iIntros (H) "%P %v %Φ !# Hσ HP". inv H.
+    iApply (monotonic_prot with "[HP] Hσ"). iIntros (?) "$ //".
+Qed.
+
 Definition row_type_sub {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : iProp Σ := 
   (∀ v, mono_prot_on_prop ρ (τ v)).
 
