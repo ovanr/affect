@@ -84,13 +84,6 @@ Definition sem_ty_row_forall `{heapGS Σ}
   (A : sem_row Σ → sem_ty Σ) : sem_ty Σ := 
     (λ v, ∀ θ, □ EWPW (v <_>)%E {{ v, A θ v }})%I.
 
-(* Qualified type. *)
-Definition sem_ty_qualified `{heapGS Σ} 
-    (P : iProp Σ) (τ : sem_ty Σ)  : sem_ty Σ := 
-  (λ (v : val), (
-      □ P -∗ 
-      EWPW (v <_>) {{ u, τ u }}))%I.
-
 (* Existential type. *)
 Definition sem_ty_exists `{irisGS eff_lang Σ} 
   (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∃ τ, C τ v)%I.
@@ -144,9 +137,6 @@ Notation "'∀T:' α , C " := (sem_ty_forall (λ α, C%T))
 
 Notation "'∀R:' θ , C " := (sem_ty_row_forall (λ θ, C%T)) 
   (at level 180) : sem_ty_scope.
- 
-Notation "P '=Q>' τ " := (sem_ty_qualified P%I%R%T τ) 
-  (at level 130) : sem_ty_scope.
 
 Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T)) 
   (at level 180) : sem_ty_scope.
