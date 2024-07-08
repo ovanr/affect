@@ -411,13 +411,23 @@ Proof.
   intros H'. simplify_eq. assert (s' = 0) by lia. simplify_eq. 
 Qed.
 
+Lemma sem_row_tun_ne (op op' : operation) (ρ : sem_row Σ) (s : nat) v Φ :
+  op ≠ op' →
+  iEff_car ρ (effect op, #s, v)%V Φ -∗
+  iEff_car (⦗ ρ | op' ⦘)%R (effect op, #s, v)%V Φ.
+Proof. iIntros (?) "Hρ". iExists op, s, v; iSplit; first done. rewrite decide_False //. Qed.
+
+Lemma sem_row_tun_eq (op : operation) (ρ : sem_row Σ) (s : nat) v Φ :
+  iEff_car ρ (effect op, #s, v)%V Φ -∗
+  iEff_car (⦗ ρ | op ⦘)%R (effect op, #(S s), v)%V Φ.
+Proof. iIntros "Hρ". iExists op, (S s), v; iSplit; first done. rewrite decide_True //. Qed.
+
 Definition shandler_spec
   (E : coPset)
   (op : operation)
   (σ : sem_sig Σ)
   (ρ : sem_row Σ)
   (mh : mode)
-  (mρ : mode)
   (Φ : val -d> iPropO Σ)
   (h r : expr)
   (ρ'  : sem_row Σ)
@@ -425,39 +435,33 @@ Definition shandler_spec
   (* Subsumption on row *)
   (ρ ≤R ρ') ∗
 
-  (* One-Shot Row *)
-  (⌜ mρ = OS → Once ρ ⌝) ∗
-
-  □?mρ (
+  ∃ P, mono_prot_on_prop ρ P ∗ P ∗
+  □  (P -∗
   (* Correctness of the return branch. *)
   (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}) ∧
-
   (* Correctness of the effect branch. *)
   (∀ (v k : val),
      iEff_car (upcl mh σ) v (λ w, EWPW k w @ E <| (op, σ) · ρ |> {{ Φ }}) -∗
-       EWPW h v k @ E <| ρ' |> {{ Φ' }}))
-  )%I.
+       EWPW h v k @ E <| ρ' |> {{ Φ' }})
+  ))%I.
 
-Lemma ewpw_shandler E (op : operation) mh mρ σ ρ ρ' e (h r : val) Φ Φ' :
+Lemma ewpw_shandler E (op : operation) mh σ ρ ρ' e (h r : val) Φ Φ' :
   EWPW e @ E <| (op, σ) · ρ |> {{ Φ }} -∗
-  shandler_spec E op σ ρ mh mρ Φ h r ρ' Φ' -∗
+  shandler_spec E op σ ρ mh Φ h r ρ' Φ' -∗ 
   EWPW (SHandlerV mh e op h r) @E <| ρ' |> {{ Φ' }}.
 Proof.
-  iIntros "He H". rewrite /SHandlerV /ewpw. 
+  iIntros "He [#Hle (%P & #Hmono & HP & #Hbr)]". rewrite /SHandlerV /ewpw. 
   iLöb as "IH" forall (e). rewrite {2} /shandler. ewp_pure_steps.
   iApply (ewp_try_with with "[He]").
   { ewp_pure_steps. iApply "He". }
-  rewrite /shandler_spec.
-  iDestruct "H" as "(#Hle & %HOS & Hbr)". 
   iSplit; last iSplit.
-  - rewrite {2} bi.intuitionistically_if_elim. iDestruct "Hbr" as "[$ _]".
+  - iDestruct ("Hbr" with "HP") as "[$ _]".
   - iIntros (??) "_ (% & [] & _)".
   - iIntros (v k) "(% & ->) Hρ".
     ewp_pure_steps. 
     iDestruct "Hρ" as "(%Φ'' & (%op' & %s' & %v' & -> & H) & #HPost)".
     destruct (decide (op = op')) as [<-|]; first destruct s' as [|s'].
-    + ewp_pure_steps'. 
-      rewrite {2} bi.intuitionistically_if_elim.
+    + ewp_pure_steps'. iSpecialize ("Hbr" with "HP").
       destruct mh; simpl.
       ++ iApply (ewp_bind [AppRCtx _; AppRCtx _]); first done. 
          iApply ewp_alloc. iIntros "!> %l Hl !> /=". ewp_pure_steps.
@@ -477,42 +481,21 @@ Proof.
       { iApply handler_effect_propagated_cond. lia. }
       iApply (ewp_bind [AppRCtx _]); first done.
       iApply (ewpw_sub with "Hle"). iApply ewpw_unlft. rewrite /ewpw.
-       ewp_pure_steps. iApply ewp_do_ms. destruct mρ. simpl.
-       ++ specialize (HOS eq_refl).
-         iAssert (shandler_spec E op σ _ mh OS Φ h r ρ' Φ') with "[Hbr]" as "Hspec".
-         { rewrite /shandler_spec. simpl. by iFrame "#∗". }
-         iExists (λ v, Φ'' v ∗ shandler_spec E op σ ρ mh OS Φ h r ρ' Φ')%I.
-         iSplitL; [|iIntros "!# %w [HΦ'' H]"; do 5 ewp_value_or_step; 
-                    iSpecialize ("HPost" with "HΦ''"); iApply ("IH" with "HPost H")].
-         iExists op, (S s'), v'. iFrame "#∗"; iSplit; first done.
-         rewrite decide_True //. inv HOS. iApply (monotonic_prot with "[Hspec] H").
-         iIntros (w) "$ //".
-       ++ simpl. iDestruct "Hbr" as "#Hbr".
-          iExists Φ''. iSplitL "H". 
-          { iExists op, (S s'), v'. iSplit; first done. rewrite decide_True //. }
-          iIntros "!# %w HΦ''". do 5 ewp_value_or_step.
-          iApply ("IH" with "[HΦ'' HPost] [Hbr]"); first by iApply "HPost".
-          by iFrame "#∗".
+       ewp_pure_steps. iApply ewp_do_ms.
+       iExists (λ v, Φ'' v ∗ P)%I. 
+       iSplitL; first (iApply sem_row_tun_eq; iApply ("Hmono" with "H HP")).
+       simpl. iIntros "!# %w [HΦ'' H]"; do 5 ewp_value_or_step. 
+       iSpecialize ("HPost" with "HΦ''"). 
+       iApply ("IH" with "HPost H").
     + do 19 ewp_value_or_step. iApply (ewp_if_false with "[]").
       { iApply handler_effect_propagated_cond. tauto. }
       iApply (ewp_bind [AppRCtx _]); first done.
       iApply (ewpw_sub with "Hle"). iApply ewpw_unlft. rewrite /ewpw.
-       ewp_pure_steps. iApply ewp_do_ms. destruct mρ. simpl.
-       ++ specialize (HOS eq_refl).
-         iAssert (shandler_spec E op σ _ mh OS Φ h r ρ' Φ') with "[Hbr]" as "Hspec".
-         { rewrite /shandler_spec. simpl. by iFrame "#∗". }
-         iExists (λ v, Φ'' v ∗ shandler_spec E op σ ρ mh OS Φ h r ρ' Φ')%I.
-         iSplitL; [|iIntros "!# %w [HΦ'' H]"; do 5 ewp_value_or_step; 
-                    iSpecialize ("HPost" with "HΦ''"); iApply ("IH" with "HPost H")].
-         iExists op', s', v'. iFrame "#∗"; iSplit; first done.
-         rewrite decide_False //. inv HOS. iApply (monotonic_prot with "[Hspec] H").
-         iIntros (w) "$ //".
-       ++ simpl. iDestruct "Hbr" as "#Hbr".
-          iExists Φ''. iSplitL "H". 
-          { iExists op', s', v'. iSplit; first done. rewrite decide_False //. }
-          iIntros "!# %w HΦ''". do 5 ewp_value_or_step.
-          iApply ("IH" with "[HΦ'' HPost] [Hbr]"); first by iApply "HPost".
-          by iFrame "#∗".
+      ewp_pure_steps. iApply ewp_do_ms.
+       iExists (λ v, Φ'' v ∗ P)%I. 
+       iSplitL; first (iApply sem_row_tun_ne; first done; iApply ("Hmono" with "H HP")).
+      simpl. iIntros "!# %w [HΦ'' H]"; do 5 ewp_value_or_step. 
+      iSpecialize ("HPost" with "HΦ''"); iApply ("IH" with "HPost H").
 Qed.
 
 Notation handler_spec_type Σ :=
@@ -592,17 +575,6 @@ Proof.
       iIntros (w) "!# HΦ''". iApply ("HPost" with "HΦ''").
       iNext. iApply "IH". by iFrame "#∗".
 Qed.
-
-Lemma sem_row_tun_ne (op op' : operation) (ρ : sem_row Σ) (s : nat) v Φ :
-  op ≠ op' →
-  iEff_car ρ (effect op, #s, v)%V Φ -∗
-  iEff_car (⦗ ρ | op' ⦘)%R (effect op, #s, v)%V Φ.
-Proof. iIntros (?) "Hρ". iExists op, s, v; iSplit; first done. rewrite decide_False //. Qed.
-
-Lemma sem_row_tun_eq (op : operation) (ρ : sem_row Σ) (s : nat) v Φ :
-  iEff_car ρ (effect op, #s, v)%V Φ -∗
-  iEff_car (⦗ ρ | op ⦘)%R (effect op, #(S s), v)%V Φ.
-Proof. iIntros "Hρ". iExists op, (S s), v; iSplit; first done. rewrite decide_True //. Qed.
 
 Notation handler2_spec_type Σ :=
   (coPset -d> operation -d> sem_sig Σ -d> operation -d> sem_sig Σ -d> sem_row Σ -d> mode -d> (val -d> iPropO Σ) 

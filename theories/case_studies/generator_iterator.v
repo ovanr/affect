@@ -91,7 +91,7 @@ Section typing.
       iApply sem_typed_contraction; first solve_copy.
       rewrite app_singletons.
       iApply (sem_typed_shandler (TT:=[tele _]) OS "yield" (tele_app (λ _, α)) (tele_app (λ _, ())) () (Option α) ⊥ _ [("cont", Refᶜ cont_ty)] [] [] [("cont", Refᶜ cont_ty)]); solve_sidecond.
-      * iLeft. iPureIntro. apply _.
+      * solve_copy.
       * iApply row_le_refl. 
       * iApply sem_typed_app_os; [|iApply sem_typed_unit']. 
         iApply sem_typed_replace_cpy_os; first iApply sem_typed_var'.

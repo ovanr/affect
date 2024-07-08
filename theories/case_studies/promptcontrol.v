@@ -94,10 +94,11 @@ Section handler_alt.
     iLöb as "IH" forall (e). rewrite /handler_alt /ewpw. 
     rewrite /handler_alt_spec.
     do 10 ewp_value_or_step. ewp_pure_steps. 
-    iApply (ewpw_shandler _ op mh MS with "He").
+    iApply (ewpw_shandler _ op mh with "He").
     iDestruct "H" as "(#H1 & #Hbr)".
-    rewrite /shandler. iFrame "#%".
-    iSplit; first done. simpl. iModIntro. iSplit.
+    rewrite /shandler. iFrame "#%". iExists True%I. iSplit. 
+    { iIntros  (??) "!# H _". iApply (pmono_prot_prop _ ρ with "[] H"). iIntros "!# % $ //". }
+    iSplit; first done. iIntros "!# _". iSplit.
     { iDestruct "Hbr" as "[$ _]". }
     iIntros (v k) "(%Φ'' & Hσ & HPost)".
     rewrite /ewpw; do 6 ewp_value_or_step. 
