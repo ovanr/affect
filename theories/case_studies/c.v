@@ -91,6 +91,14 @@ Section typing.
     iApply sem_typed_var'.
   Qed.
 
+  Lemma C_gen_typed_alt : ⊢ ⊨ᵥ C_gen : C_gen_ty.
+  Proof.
+    iIntros. rewrite /C_gen /C_gen_ty /C.
+    iApply sem_typed_Mclosure_alt.
+    { iApply sem_typed_val. iApply C_os_typed. }
+    iApply sem_typed_val. iApply C_ms_typed.
+  Qed.
+
   Lemma C_gen_typed : ⊢ ⊨ᵥ C_gen : C_gen_ty.
   Proof.
     iIntros. rewrite /C_gen /C_gen_ty /C.

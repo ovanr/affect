@@ -159,6 +159,17 @@ Section compatibility.
     iIntros "!# % [$ _] //=". 
   Qed.
 
+  (* mode abstraction and application *)
+  Lemma sem_typed_Mclosure_alt C e : 
+    (⊨ e : ⟨⟩ : C OS) -∗
+    (⊨ e : ⟨⟩ : C MS) -∗
+    ⊨ᵥ (Λ: e) : (∀M: ν , C ν)%T.
+  Proof.
+    iIntros "#HeOS #HeMS". 
+    iApply sem_typed_Mclosure. 
+    iIntros ([]); [iApply "HeOS"|iApply "HeMS"].
+  Qed.
+
   Lemma sem_typed_closure_to_unrestricted τ ρ κ x e :
     ⊨ᵥ (λ: x, e) : (τ -{ ρ }-∘ κ) -∗
     ⊨ᵥ (λ: x, e) : (τ -{ ρ }-> κ).
@@ -848,6 +859,18 @@ Section compatibility.
     ewpw_pure_steps.
     iApply ewpw_mono; [by iApply "He"|].
     iIntros "!# % [$ _] //=".
+  Qed.
+
+  (* mode abstraction and application *)
+  Lemma sem_typed_MLam_alt C Γ₁ Γ₂ e : 
+    copy_env Γ₁ -∗
+    (Γ₁ ⊨ e : ⟨⟩ : C OS ⊨ []) -∗
+    (Γ₁ ⊨ e : ⟨⟩ : C MS ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀M: ν , C ν)%T ⊨ Γ₂.
+  Proof.
+    iIntros "#Hcpy #HeOS #HeMS".
+    iApply (sem_typed_MLam with "Hcpy").
+    iIntros ([]); [iApply "HeOS"|iApply "HeMS"].
   Qed.
 
   Lemma sem_typed_MApp C ρ m Γ₁ Γ₂ e :
