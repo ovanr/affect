@@ -247,7 +247,7 @@ End env_lemmas_set_operations.
 
 Section env_row_sub_typing.
 
-  Lemma row_env_sub_cpy {Σ} (ρ : sem_row Σ) (Γ : env Σ) : 
+  Lemma row_env_sub_copy {Σ} (ρ : sem_row Σ) (Γ : env Σ) : 
     copy_env Γ -∗ ρ ≼ₑ Γ.
   Proof.
     iIntros "#HΓcpy %vs %v %Φ !# Hρ HΓ.".

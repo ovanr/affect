@@ -73,10 +73,10 @@ Ltac solve_copy :=
     iApply copy_env_cons).
 
 Ltac solve_row_type_sub :=
-  try (iApply row_type_sub_cpy_type || iApply row_type_sub_cpy || iApply row_type_sub_os).
+  try (iApply row_type_sub_copy || iApply row_type_sub_bang || iApply row_type_sub_fbang || iApply row_type_sub_mfbang_mbang).
 
 Ltac solve_row_env_sub :=
-  try (iApply row_env_sub_cpy || iApply row_env_sub_os).
+  try (iApply row_env_sub_copy || iApply row_env_sub_fbang).
 
 Ltac solve_sidecond := 
     try rewrite !env_dom_nil;

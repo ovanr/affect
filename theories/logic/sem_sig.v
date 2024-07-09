@@ -113,25 +113,32 @@ Notation "'∀S:' x .. y , κ '=[' m ']=>' ι" :=
 
 (* Eval cbn in (∀S.: (α : sem_ty Σ), (sem_ty_prod α α) =[ OS ]=> (sem_ty_cpy α))%S. *)
 
-Program Definition sem_sig_os {Σ} (σ : sem_sig Σ) : sem_sig Σ := @PMonoProt Σ (upcl OS σ) _.
+Program Definition sem_sig_flip_bang {Σ} (σ : sem_sig Σ) : sem_sig Σ := @PMonoProt Σ (upcl OS σ) _.
 Next Obligation.
   iIntros (?????) "#HΦ Hσ". 
   pose proof (upcl_mono_prot σ) as []. 
   iApply (monotonic_prot with "HΦ Hσ").
 Qed.
 
-Notation "¡ σ" := (sem_sig_os σ) (at level 10) : sem_sig_scope.
+Notation "¡ σ" := (sem_sig_flip_bang σ) (at level 10) : sem_sig_scope.
 
-Global Instance sem_sig_os_ne {Σ} : NonExpansive (@sem_sig_os Σ).
+(* generalised flip-bang signature *)
+Notation "¡_[ m ] σ" := (
+  match m with
+      OS => sem_sig_flip_bang σ
+    | MS => σ
+  end) (at level 10) : sem_sig_scope.
+
+Global Instance sem_sig_flip_bang_ne {Σ} : NonExpansive (@sem_sig_flip_bang Σ).
 Proof.
-  intros ????. rewrite /sem_sig_os. intros ?.
+  intros ????. rewrite /sem_sig_flip_bang. intros ?.
   apply non_dep_fun_dist. simpl.
   intros ??. apply non_dep_fun_dist. simpl.
   intros ?. do 3 f_equiv. apply non_dep_fun_dist.
   by apply iEff_car_ne.
 Qed.
 
-Global Instance sem_sig_os_proper {Σ} : Proper ((≡) ==> (≡)) (@sem_sig_os Σ).
+Global Instance sem_sig_flip_bang_proper {Σ} : Proper ((≡) ==> (≡)) (@sem_sig_flip_bang Σ).
 Proof. apply ne_proper. apply _. Qed.
 
 (* Once Constraint *)
@@ -142,7 +149,7 @@ Global Instance sig_eff_os_once {TT : tele} {Σ} (A B : tele_arg TT → sem_ty �
   Once (∀S..: αs , (A αs) =[ OS ]=> (B αs))%S.
 Proof. apply sem_sig_eff_mono_prot. Qed.
   
-Global Instance sig_os_os_sig {Σ} (σ : sem_sig Σ) : Once (¡ σ)%S.
+Global Instance sig_fbang_once_sig {Σ} (σ : sem_sig Σ) : Once (¡ σ)%S.
 Proof. apply upcl_mono_prot. Qed.
 
 (* Sub-Typing on Signatures *)
@@ -187,26 +194,27 @@ Lemma sig_le_eff_mode {Σ} {TT : tele} (ι κ : tele_arg TT → sem_ty Σ) :
   ⊢ (∀S..: α , ι α =[ MS ]=> κ α) ≤S (∀S..: α , ι α =[ OS ]=> κ α).
 Proof. iApply sig_le_eff; first iApply mode_le_MS; iIntros "!# % % !# $". Qed.
 
-Lemma sig_le_os_intro {Σ} (σ : sem_sig Σ) :
-  ⊢ σ ≤S (¡ σ).
+Lemma sig_le_fbang_intro {Σ} m (σ : sem_sig Σ) :
+  ⊢ σ ≤S (¡_[ m ] σ).
 Proof.
-  rewrite /sem_sig_os. 
-  iIntros (v Φ) "!# Hσ". simpl.
-  iExists Φ. iFrame. iIntros "% $".
+  rewrite /sem_sig_flip_bang. 
+  iIntros (v Φ) "!# Hσ". simpl. destruct m; last done.
+  iExists Φ. iFrame. simpl. iIntros "% $".
 Qed.
 
-Lemma sig_le_os_elim {Σ} (σ : sem_sig Σ) `{! Once σ} :
+Lemma sig_le_fbang_elim {Σ} (σ : sem_sig Σ) `{! Once σ} :
   ⊢ ¡ σ ≤S σ.
 Proof.
-  rewrite /sem_sig_os. 
+  rewrite /sem_sig_flip_bang. 
   iIntros (v Φ) "!# (%Φ' & Hσ & Himp)". simpl.
   inv H. iApply (monotonic_prot with "Himp Hσ").
 Qed.
   
-Lemma sig_le_os_comp {Σ} (σ σ' : sem_sig Σ) :
-  σ ≤S σ' -∗ (¡ σ) ≤S (¡ σ').
+Lemma sig_le_fbang_comp {Σ} (m : mode) (σ σ' : sem_sig Σ) :
+  σ ≤S σ' -∗ (¡_[ m ] σ) ≤S (¡_[ m ] σ').
 Proof.
   iIntros "#Hleσ". 
-  rewrite /sig_le /sem_sig_os /tc_opaque.
+  destruct m; last done.
+  rewrite /sig_le /sem_sig_flip_bang /tc_opaque.
   by iApply iEff_le_upcl.
 Qed.

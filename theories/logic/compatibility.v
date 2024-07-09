@@ -137,10 +137,21 @@ Section compatibility.
     iIntros "!# % [$ _] //=".
   Qed.
 
-  (* Signature abstraction and application *)
+  (* row abstraction and application *)
   Lemma sem_typed_Rclosure C e : 
     (∀ θ, ⊨ e : ⟨⟩ : C θ) -∗
     ⊨ᵥ (Λ: e) : (∀R: θ , C θ)%T.
+  Proof.
+    iIntros "#He !# %ρ !# /=".
+    ewpw_pure_steps. rewrite - {2} [e]subst_map_empty. 
+    iApply (ewpw_mono with "[He]"); [by iApply "He"|].
+    iIntros "!# % [$ _] //=". 
+  Qed.
+
+  (* mode abstraction and application *)
+  Lemma sem_typed_Mclosure C e : 
+    (∀ ν, ⊨ e : ⟨⟩ : C ν) -∗
+    ⊨ᵥ (Λ: e) : (∀M: ν , C ν)%T.
   Proof.
     iIntros "#He !# %ρ !# /=".
     ewpw_pure_steps. rewrite - {2} [e]subst_map_empty. 
@@ -498,8 +509,8 @@ Section compatibility.
     Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ [].
   Proof.
     iIntros "#Hρ'ρ #He₁ #He₂". 
-    iApply (sem_typed_app_gen with "Hρ'ρ [] [] [] He₁ He₂"); first iApply row_type_sub_os.
-    iApply row_env_sub_cpy. solve_copy.
+    iApply (sem_typed_app_gen with "Hρ'ρ [] [] [] He₁ He₂"); first iApply row_type_sub_fbang.
+    iApply row_env_sub_copy. solve_copy.
     iApply row_le_refl.
   Qed.
 
@@ -510,7 +521,7 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂".
     iApply (sem_typed_app _ ⟨⟩%R).
-    { iApply row_le_trans; [iApply row_le_os_elim|iApply row_le_nil]. }
+    { iApply row_le_trans; [iApply row_le_fbang_elim|iApply row_le_nil]. }
     { iApply sem_typed_sub_nil. iApply "He₁". }
     iApply "He₂".
   Qed.
@@ -521,16 +532,16 @@ Section compatibility.
     Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂". 
-    iApply sem_typed_sub_row; first iApply row_le_os_elim.
+    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
     iApply (sem_typed_app_gen τ (¡ ρ)%R (¡ ρ)%R (¡ ρ)%R). 
     - iApply row_le_refl. 
-    - iApply row_type_sub_os.
-    - iApply row_env_sub_os.
+    - iApply row_type_sub_fbang.
+    - iApply row_env_sub_fbang.
     - iApply row_le_refl.
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro.
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS).
       iApply sem_typed_sub_ty; [iApply ty_le_aarr|iApply "He₁"]; 
-        first iApply row_le_os_intro; try iApply ty_le_refl.
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro.
+        first iApply (row_le_mfbang_intro OS); try iApply ty_le_refl.
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS).
       iApply "He₂".
   Qed.
 
@@ -543,12 +554,11 @@ Section compatibility.
     iIntros "#HΓcpy #Hcpyτ #He₁ #He₂".
     iApply (sem_typed_app_gen _ ρ ρ ρ). 
     - iApply row_le_refl.
-    - iApply row_type_sub_cpy_type.
-    - by iApply row_env_sub_cpy.
+    - by iApply row_type_sub_copy.
+    - by iApply row_env_sub_copy.
     - iApply row_le_refl.
-    - iApply sem_typed_sub_ty; [iApply ty_le_aarr|iApply "He₁"];
-        [iApply row_le_refl|by iApply ty_le_cpy_elim|iApply ty_le_refl].
-    - iApply sem_typed_sub_ty; [by iApply ty_le_cpy_intro|iApply "He₂"].
+    - iApply "He₁".
+    - iApply "He₂".
   Qed.
 
   Lemma sem_typed_seq τ ρ κ Γ₁ Γ₂ Γ₃ e₁ e₂ : 
@@ -589,11 +599,11 @@ Section compatibility.
     Γ₁ ⊨ (e₁,e₂) : ρ : (τ × κ) ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂". 
-    iApply sem_typed_sub_row; first iApply row_le_os_elim.
+    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
     iApply (sem_typed_pair_gen τ (¡ ρ)%R).
-    - iApply row_type_sub_os.
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro. iApply "He₁".
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro. iApply "He₂".
+    - iApply row_type_sub_fbang.
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₂".
   Qed.
 
   Lemma sem_typed_pair_ms τ ρ κ Γ₁ Γ₂ Γ₃ e₁ e₂ : 
@@ -603,12 +613,10 @@ Section compatibility.
     Γ₁ ⊨ (e₁,e₂) : ρ : (τ × κ) ⊨ Γ₃.
   Proof.
     iIntros "#Hcpyτ #He₁ #He₂".
-    iApply sem_typed_sub_ty. 
-    { iApply ty_le_prod; [iApply ty_le_refl|iApply ty_le_cpy_elim]. }
     iApply sem_typed_pair_gen. 
-    - iApply row_type_sub_cpy_type.
+    - by iApply row_type_sub_copy.
     - iApply "He₁".
-    - iApply sem_typed_sub_ty; [by iApply ty_le_cpy_intro|iApply "He₂"].
+    - iApply "He₂".
   Qed.
 
   Lemma sem_typed_fst x τ κ Γ : 
@@ -797,7 +805,7 @@ Section compatibility.
     iIntros "% HC !>". iFrame "#∗".
   Qed.
 
-  (* Signature abstraction and application *)
+  (* row abstraction and application *)
   Lemma sem_typed_RLam C Γ₁ Γ₂ e : 
     copy_env Γ₁ -∗
     (∀ θ, Γ₁ ⊨ e : ⟨⟩ : C θ ⊨ []) -∗
@@ -823,6 +831,35 @@ Section compatibility.
     iIntros "!# %v [HC HΓ₂] /= !>".
     iApply ewpw_sub; first iApply row_le_nil.
     iApply (ewpw_mono_os with "[HC]"); [iApply ("HC" $! ρ')|].
+    iIntros "%w HCρ !>". iFrame "∗#".
+  Qed.
+
+  (* mode abstraction and application *)
+  Lemma sem_typed_MLam C Γ₁ Γ₂ e : 
+    copy_env Γ₁ -∗
+    (∀ ν, Γ₁ ⊨ e : ⟨⟩ : C ν ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀M: ν , C ν)%T ⊨ Γ₂.
+  Proof.
+    iIntros "#Hcpy #He !# %vs HΓ₁₂ /=".
+    iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
+    ewpw_pure_steps. iFrame.
+    iDestruct ("Hcpy" with "HΓ₁") as "#HΓ₁'".
+    iIntros (m). ewpw_pure_steps. iIntros "!#".
+    ewpw_pure_steps.
+    iApply ewpw_mono; [by iApply "He"|].
+    iIntros "!# % [$ _] //=".
+  Qed.
+
+  Lemma sem_typed_MApp C ρ m Γ₁ Γ₂ e :
+    Γ₁ ⊨ e : ρ : (∀M: ν , C ν) ⊨ Γ₂ -∗
+    Γ₁ ⊨ e <_> : ρ : C m ⊨ Γ₂. 
+  Proof.
+    iIntros "#He !# %vs HΓ₁ /=".
+    iApply (ewpw_bind [AppLCtx _]); first done.
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
+    iIntros "!# %v [HC HΓ₂] /= !>".
+    iApply ewpw_sub; first iApply row_le_nil.
+    iApply (ewpw_mono_os with "[HC]"); [iApply ("HC" $! m)|].
     iIntros "%w HCρ !>". iFrame "∗#".
   Qed.
 
@@ -918,11 +955,11 @@ Section compatibility.
     Γ₁ ⊨ CONS e₁ e₂ : ρ : List τ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂".
-    iApply sem_typed_sub_row; first iApply row_le_os_elim.
+    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
     iApply (sem_typed_cons_gen τ (¡ ρ)%R).
-    - iApply row_type_sub_os.
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro. iApply "He₁".
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro. iApply "He₂".
+    - iApply row_type_sub_fbang.
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₂".
   Qed.
 
   Lemma sem_typed_cons_ms τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ :
@@ -933,7 +970,7 @@ Section compatibility.
   Proof.
     iIntros "#Hτcpy #He₁ #He₂".
     iApply (sem_typed_cons_gen with "[] He₁ He₂"). 
-    iApply row_type_sub_cpy. by iApply copy_ty_list.
+    iApply row_type_sub_copy. by iApply copy_ty_list.
   Qed.
 
   Lemma sem_typed_match_list τ ρ κ Γ₁ Γ₂ Γ₃ x xs e₁ e₂ e₃ :
@@ -1086,11 +1123,11 @@ Section compatibility.
     Γ₁ ⊨ (e₁ <- e₂) : ρ : () ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂".
-    iApply sem_typed_sub_row; first iApply row_le_os_elim.
+    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
     iApply (sem_typed_store_cpy_gen τ (¡ ρ)%R).
-    - iApply row_type_sub_os.
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro. iApply "He₁".
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro. iApply "He₂".
+    - iApply row_type_sub_fbang.
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₂".
   Qed.
 
   Lemma sem_typed_store_cpy_ms τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ :
@@ -1101,7 +1138,7 @@ Section compatibility.
   Proof.
     iIntros "#Hcpyτ #He₁ #He₂".
     iApply (sem_typed_store_cpy_gen with "[] He₁ He₂"). 
-    by iApply row_type_sub_cpy.
+    by iApply row_type_sub_copy.
   Qed.
 
   Lemma sem_typed_replace_cpy_gen τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ :
@@ -1133,11 +1170,11 @@ Section compatibility.
     Γ₁ ⊨ (e₁ <!- e₂) : ρ : τ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂".
-    iApply sem_typed_sub_row; first iApply row_le_os_elim.
+    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
     iApply (sem_typed_replace_cpy_gen τ (¡ ρ)%R).
-    - iApply row_type_sub_os.
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro. iApply "He₁".
-    - iApply sem_typed_sub_row; first iApply row_le_os_intro. iApply "He₂".
+    - iApply row_type_sub_fbang.
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
+    - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₂".
   Qed.
   
   Lemma sem_typed_replace_cpy_ms τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ :
@@ -1148,7 +1185,7 @@ Section compatibility.
   Proof.
     iIntros "#Hcpy #He₁ #He₂".
     iApply (sem_typed_replace_cpy_gen with "[] He₁ He₂"). 
-    by iApply row_type_sub_cpy.
+    by iApply row_type_sub_copy.
   Qed.
 
   (* Effect handling rules *)

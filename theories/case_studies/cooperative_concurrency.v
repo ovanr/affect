@@ -27,9 +27,9 @@ From affect.logic Require Import tactics.
 
 (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_cpy sem_env_cpy sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
-Opaque sem_sig_eff sem_sig_os.
-Opaque sem_row_nil sem_row_os sem_row_cons sem_row_rec.
+Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_sig_eff sem_sig_flip_bang.
+Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
 
 Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
@@ -225,7 +225,7 @@ Section typing.
     iApply (sem_typed_app_os (Promise ('! ()))).
     - iApply sem_typed_sub_u2aarr.
       iApply sem_typed_sub_ty; [iApply ty_le_uarr|]; 
-        [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_cpy_elim|].
+        [iApply row_le_refl|iApply ty_le_refl|iApply (ty_le_mbang_elim MS)|].
       iApply sem_typed_sub_nil. simpl. rewrite -/coop.
       set C := (λ α, (Promise ('! α)) -{ coop }-> ('! α)).
       rewrite -/(C ()). iApply sem_typed_TApp; first solve_copy.
@@ -238,7 +238,7 @@ Section typing.
       + iApply sem_typed_sub_nil.
         rewrite - {1} (app_nil_r []).
         iApply sem_typed_afun; solve_sidecond. simpl.
-        iApply sem_typed_sub_ty; [iApply ty_le_cpy_intro; solve_copy|].
+        iApply sem_typed_sub_ty; [iApply ty_le_bang_intro; solve_copy|].
         iApply sem_typed_unit'.
   Qed.
 
@@ -475,10 +475,10 @@ Section typing.
            iApply sem_typed_sub_u2aarr.
            iApply sem_typed_sub_ty; first iApply ty_le_uarr; 
             [iApply row_le_refl|iApply ty_le_uarr|iApply ty_le_refl|];
-            [iApply row_le_os_intro|iApply ty_le_refl|iApply ty_le_refl|].
+            [iApply (row_le_mfbang_intro OS)|iApply ty_le_refl|iApply ty_le_refl|].
            iApply sem_typed_sub_ty; first iApply ty_le_uarr; 
             [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_aarr|];
-            [iApply row_le_os_elim|iApply ty_le_refl|iApply ty_le_refl|].
+            [iApply row_le_fbang_elim|iApply ty_le_refl|iApply ty_le_refl|].
            set C := (λ (θ : sem_row Σ), (('! β ⊸ ()) -{ ¡ θ }-> ()) → List ('! β ⊸ ()) -{ ¡ θ }-∘ ())%T.
            rewrite -/(C ⊥).
            iApply sem_typed_RApp; first solve_copy. 

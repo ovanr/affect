@@ -46,7 +46,7 @@ Next Obligation.
   iIntros (??????) "(%op' & %v' & -> & H)". by iExists op', v'.
 Qed.
 
-Program Definition sem_row_os {Σ} (ρ : sem_row Σ) : sem_row Σ := 
+Program Definition sem_row_flip_bang {Σ} (ρ : sem_row Σ) : sem_row Σ := 
   @SemRow Σ (@PMonoProt Σ (upcl OS ρ) _) _.
 Next Obligation.
   iIntros (?????) "#HΦ Hσ".
@@ -57,6 +57,13 @@ Next Obligation.
   iIntros (????) "(%Φ' & Hρ & _)".
   iApply (sem_row_prop _ ρ with "Hρ").
 Qed.
+
+(* generalised flip-bang row *)
+Notation "¡_[ m ] ρ" := (
+  match m with
+      OS => sem_row_flip_bang ρ
+    | MS => ρ
+  end) (at level 10) : sem_row_scope.
 
 Definition sem_row_rec {Σ} (R : sem_row Σ → sem_row Σ) `{Contractive R} : sem_row Σ :=
   fixpoint R.
@@ -84,16 +91,16 @@ Proof.
   intros ?. simpl. do 6 f_equiv; first f_contractive; f_equiv; apply non_dep_fun_dist; by f_equiv.
 Qed.
 
-Global Instance sem_row_os_ne {Σ} : NonExpansive (@sem_row_os Σ).
-Proof. intros ?????. rewrite /sem_row_os. intros ?. simpl. 
+Global Instance sem_row_flip_bang_ne {Σ} : NonExpansive (@sem_row_flip_bang Σ).
+Proof. intros ?????. rewrite /sem_row_flip_bang. intros ?. simpl. 
        do 4 f_equiv. apply non_dep_fun_dist; by f_equiv. Qed.
-Global Instance sem_row_os_Proper {Σ} : Proper ((≡) ==> (≡)) (@sem_row_os Σ).
+Global Instance sem_row_flip_bang_Proper {Σ} : Proper ((≡) ==> (≡)) (@sem_row_flip_bang Σ).
 Proof. apply ne_proper. apply _. Qed.
 
-Global Instance sem_row_os_rec_contractive {Σ} (R : sem_row Σ -d> sem_row Σ) `{Contractive R} : 
-  Contractive (λ θ, sem_row_os (R θ)).
+Global Instance sem_row_flip_bang_rec_contractive {Σ} (R : sem_row Σ -d> sem_row Σ) `{Contractive R} : 
+  Contractive (λ θ, sem_row_flip_bang (R θ)).
 Proof.
-  intros ??????. rewrite /sem_row_os. simpl.
+  intros ??????. rewrite /sem_row_flip_bang. simpl.
   do 4 f_equiv. apply non_dep_fun_dist. by apply Contractive0.
 Qed. 
 
@@ -101,7 +108,7 @@ Qed.
 
 Notation "⟨⟩" := (sem_row_nil) : sem_row_scope.
 Notation "opσ · ρ" := (sem_row_cons opσ.1%S opσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
-Notation "¡ ρ" := (sem_row_os ρ%R) (at level 10) : sem_row_scope.
+Notation "¡ ρ" := (sem_row_flip_bang ρ%R) (at level 10) : sem_row_scope.
 Notation "'μR:' θ , ρ " := (sem_row_rec (λ θ, ρ%R)) (at level 50) : sem_row_scope.
 
 (* One-Shot Rows *)
@@ -125,9 +132,9 @@ Proof.
     by iApply "Hρ".
 Qed.
 
-Global Instance row_os_once {Σ} (ρ : sem_row Σ) : Once (¡ ρ)%R.
+Global Instance row_fbang_once {Σ} (ρ : sem_row Σ) : Once (¡ ρ)%R.
 Proof.
-  constructor. rewrite /sem_row_os.
+  constructor. rewrite /sem_row_flip_bang.
   pose proof (upcl_mono_prot ρ) as []. iIntros (???).
   iIntros "HPost /= H". 
   iApply (monotonic_prot v Φ Φ' with "HPost H").
@@ -165,10 +172,10 @@ Definition row_type_sub {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : iProp Σ :=
 
 Notation "ρ ≼ₜ τ" := (row_type_sub ρ%R τ%T)%I (at level 80) : bi_scope.
 
-Lemma row_type_sub_os {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ (¡ ρ) ≼ₜ τ.
+Lemma row_type_sub_fbang {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ (¡ ρ) ≼ₜ τ.
 Proof.
   iIntros (w v Φ) "!# Hρ Hτ".
-  pose proof (@row_os_once Σ ρ) as H. inv H. 
+  pose proof (@row_fbang_once Σ ρ) as H. inv H. 
   iApply (monotonic_prot v Φ (λ w', Φ w' ∗ τ w)%I with "[Hτ] Hρ").
   iIntros "% $ //".
 Qed.
@@ -178,10 +185,10 @@ Definition row_env_sub {Σ} (ρ : sem_row Σ) (Γ : env Σ) : iProp Σ :=
 
 Notation "ρ ≼ₑ Γ" := (row_env_sub ρ%R Γ%T) (at level 80) : bi_scope.
 
-Lemma row_env_sub_os {Σ} (ρ : sem_row Σ) (Γ : env Σ) : ⊢ (¡ ρ) ≼ₑ Γ.
+Lemma row_env_sub_fbang {Σ} (ρ : sem_row Σ) (Γ : env Σ) : ⊢ (¡ ρ) ≼ₑ Γ.
 Proof.
   iIntros (vs v Φ) "!# Hρ HΓ".
-  pose proof (@row_os_once Σ ρ) as H. inv H. 
+  pose proof (@row_fbang_once Σ ρ) as H. inv H. 
   by iApply (monotonic_prot _ Φ with "[HΓ]"); first iIntros "% $ //".
 Qed.
 
@@ -220,51 +227,54 @@ Lemma row_le_rec_fold {Σ} (R : sem_row Σ → sem_row Σ) `{ Contractive R }:
   ⊢ R (μR: θ, R θ) ≤R (μR: θ, R θ).
 Proof. rewrite - {1} sem_row_rec_unfold. iApply row_le_refl. Qed.
 
-Lemma row_le_os_cons {Σ} op σ (ρ : sem_row Σ) :
-  ⊢ ¡ ((op, σ) · ρ) ≤R (op, ¡ σ)%S · (¡ ρ).
+Lemma row_le_mfbang_cons {Σ} op m σ (ρ : sem_row Σ) :
+  ⊢ ¡_[ m ] ((op, σ) · ρ) ≤R (op, ¡_[ m ] σ)%S · (¡_[ m ] ρ).
 Proof. 
-  rewrite /sem_row_os. 
+  rewrite /sem_row_flip_bang. destruct m; last iApply row_le_refl.
   iIntros (??) "!# (%Φ' & (%op' & %v' & -> & H) & Hpost)". simpl.
   iExists op', v'. iSplit; first done.
   destruct (decide (op = op')); first iNext; iExists Φ'; iFrame. 
 Qed.
 
-Lemma row_le_os_comp {Σ} (ρ ρ' : sem_row Σ) :
+Lemma row_le_mfbang_comp {Σ} (m : mode) (ρ ρ' : sem_row Σ) :
   ρ ≤R ρ' -∗
-  ¡ ρ ≤R ¡ ρ'. 
+  ¡_[ m ] ρ ≤R ¡_[ m ] ρ'. 
 Proof. 
-  iIntros "#Hle". rewrite /sem_row_os. 
+  iIntros "#Hle". destruct m; last iApply "Hle".
+  rewrite /sem_row_flip_bang. 
   iIntros (??) "!# (%Φ' & Hρ & Hpost)". simpl.
   iExists Φ'. iFrame. by iApply "Hle".
 Qed.
 
-Lemma row_le_os_intro {Σ} (ρ : sem_row Σ) :
-  ⊢ ρ ≤R ¡ ρ. 
+Lemma row_le_mfbang_intro {Σ} (m : mode) (ρ : sem_row Σ) :
+  ⊢ ρ ≤R ¡_[ m ] ρ. 
 Proof. 
-  rewrite /sem_row_os. iIntros (??) "!# Hρ". simpl.
+  destruct m; last iApply row_le_refl.
+  rewrite /sem_row_flip_bang. iIntros (??) "!# Hρ". simpl.
   iExists Φ. iFrame. iIntros (?) "$ //".
 Qed.
 
-Lemma row_le_os_elim {Σ} (ρ : sem_row Σ) `{! Once ρ}:
+Lemma row_le_fbang_elim {Σ} (ρ : sem_row Σ) `{! Once ρ}:
   ⊢ ¡ ρ ≤R ρ. 
 Proof. 
-  rewrite /sem_row_os. iIntros (??) "!# (%Φ' & Hρ & Hpost)". simpl.
+  rewrite /sem_row_flip_bang. iIntros (??) "!# (%Φ' & Hρ & Hpost)". simpl.
   inv H. by iApply (monotonic_prot with "Hpost").
 Qed.
 
-Corollary row_le_nil_os {Σ} :
+Corollary row_le_fbang_nil {Σ} :
    ⊢ ¡ ⟨⟩%R ≤R (⟨⟩%R : sem_row Σ).
-Proof. apply row_le_os_elim. apply _. Qed.
+Proof. apply row_le_fbang_elim. apply _. Qed.
 
-Corollary row_le_os_idemp {Σ} (ρ : sem_row Σ) :
+Corollary row_le_fbang_idemp {Σ} (ρ : sem_row Σ) :
    ⊢ ¡ (¡ ρ) ≤R ¡ ρ.
-Proof. apply row_le_os_elim. apply _. Qed.
+Proof. apply row_le_fbang_elim. apply _. Qed.
 
-Corollary row_le_rec_os {Σ} (R : sem_row Σ → sem_row Σ) `{ Contractive R }: 
-  (∀ θ, ¡ (R θ) ≤R (R θ)) -∗ ¡ (μR: θ, R θ) ≤R (μR: θ, R θ).
+Corollary row_le_mfbang_rec {Σ} (m : mode) (R : sem_row Σ → sem_row Σ) `{ Contractive R }: 
+  (∀ θ, ¡_[ m ] (R θ) ≤R (R θ)) -∗ ¡_[ m ] (μR: θ, R θ) ≤R (μR: θ, R θ).
 Proof. 
-  iIntros "#Hle". iApply row_le_trans.
-  { iApply row_le_os_comp. iApply row_le_rec_unfold. }
+  iIntros "#Hle". destruct m; last iApply row_le_refl.
+  iApply row_le_trans.
+  { iApply (row_le_mfbang_comp OS). iApply row_le_rec_unfold. }
   iApply row_le_trans; first iApply "Hle". 
   iApply row_le_rec_fold.
 Qed.
