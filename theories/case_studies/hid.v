@@ -1,0 +1,63 @@
+From stdpp Require Import base list.
+From iris.proofmode Require Import base tactics.
+From iris.algebra Require Import excl_auth.
+
+
+(* Hazel Reasoning *)
+From hazel.program_logic Require Import weakest_precondition 
+                                        tactics 
+                                        shallow_handler_reasoning 
+                                        deep_handler_reasoning 
+                                        state_reasoning.
+
+(* Local imports *)
+From affect.lib Require Import base.
+From affect.lang Require Import affect.
+From affect.logic Require Import sem_def.
+From affect.logic Require Import sem_env.
+From affect.logic Require Import sem_sig.
+From affect.logic Require Import sem_row.
+From affect.logic Require Import sem_types.
+From affect.logic Require Import sem_judgement.
+From affect.logic Require Import copyable.
+From affect.logic Require Import sem_operators.
+From affect.logic Require Import compatibility.
+From affect.logic Require Import tactics.
+
+(* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
+Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
+Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_sig_eff sem_sig_flip_bang.
+Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
+
+Definition hid : val := (Λ: Λ: Λ: λ: "f" "x", "f" #();; "x")%V.
+
+Section typing.
+
+  Context `{!heapGS Σ}.
+
+  Definition hid_ty : sem_ty Σ := 
+    (∀M: ν, ∀R: θ, ∀T: α, (() -{ ¡_[ ν ] θ }-∘ ()) → '!_[ ν ] α -{ ¡_[ ν ] θ }-∘ α)%T.
+
+  Lemma hid_typed : ⊢ ⊨ᵥ hid : hid_ty.
+  Proof.
+    iIntros. rewrite /hid /hid_ty.
+    iApply sem_typed_Mclosure; solve_sidecond. iIntros (ν).
+    rewrite - (app_nil_l []).
+    iApply sem_typed_RLam; solve_sidecond. iIntros (θ).
+    rewrite - (app_nil_l []).
+    iApply sem_typed_TLam; solve_sidecond. iIntros (α).
+    rewrite - (app_nil_l []).
+    iApply sem_typed_ufun; solve_sidecond. simpl.
+    rewrite - (app_nil_r [("f", _)]).
+    iApply sem_typed_afun; solve_sidecond. simpl.
+    iApply sem_typed_swap_second.
+    iApply (sem_typed_seq () (¡_[ ν ] θ)%R _ _ [("x", ('!_[ν] α)%T)]).
+    - iApply (sem_typed_app_gen () (¡ ⟨⟩)%R (¡_[ν] θ)%R (¡_[ν] θ)%R).
+      + iApply row_le_trans; [iApply row_le_fbang_elim|iApply row_le_nil].
+      + iApply row_type_sub_fbang.
+      + iApply row_env_sub_cons. iApply row_type_sub_mfbang_mbang.
+    iApply sem_typed_app_nil; iApply sem_typed_var'.
+  Qed.
+
+End typing.
