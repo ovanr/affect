@@ -880,6 +880,20 @@ Section compatibility.
     iIntros "!# %w [Hw $] //= !>".
   Qed.
 
+  (* bang intro *)
+  Lemma sem_typed_bang Γ₁ Γ₂ e τ :
+    copy_env Γ₁ -∗
+    (Γ₁ ⊨ₒᵥ e : τ ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ₒᵥ e : '! τ ⊨ Γ₂.
+  Proof.
+    iIntros "#Hcopy #He !# %vs HΓ₁₂ /=".
+    iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ $]".
+    iApply pwp_intuitionistically.
+    iDestruct ("Hcopy" with "HΓ₁") as "#HΓ".
+    iModIntro. iApply (pwp_wand with "(He HΓ)").
+    iIntros "% [$ ?]".
+  Qed.
+
   (* Existential type packing and unpacking *)
   Lemma sem_typed_pack C τ ρ Γ₁ Γ₂ e :
     Γ₁ ⊨ e : ρ : C τ ⊨ Γ₂ -∗
