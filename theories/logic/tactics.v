@@ -102,6 +102,9 @@ Ltac match_ewpw_goal lemma tac :=
 Ltac ewpw_pure_step_lemma :=
   iApply ewpw_pure_step'.
 
+Ltac pwp_pure_step_lemma :=
+  iApply pwp_pure_step'.
+
 (* Tactic for applying the lemma [ewp_bind]. *)
 Ltac ewpw_bind_rule_lemma k :=
   iApply (ewpw_bind k).
@@ -112,6 +115,9 @@ Ltac ewpw_bind_rule :=
 (* The tactic [ewp_bind_rule]*)
 Ltac ewpw_pure_step :=
   match_ewpw_goal ewpw_pure_step_lemma pure_step_tac.
+
+Ltac pwp_pure_step :=
+  match_ewpw_goal pwp_pure_step_lemma pure_step_tac.
 
 (* The tactic [ewp_value_or_step] either applies the reasoning rule
    for values ([ewp_value]) or applies the combination of the bind

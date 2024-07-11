@@ -14,6 +14,7 @@ From hazel.program_logic Require Import weakest_precondition
                                         protocols.
 
 (* Local imports *)
+From affect.lib Require Import pure_weakestpre.
 From affect.lib Require Import logic.
 From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.
@@ -94,7 +95,41 @@ Qed.
 
 Section reasoning.
 
-Context `{!heapGS Σ}. 
+Context `{!heapGS Σ}.
+
+Lemma ewpw_mask_mono e E1 E2 Φ :
+  E1 ⊆ E2 → EWPW e @ E1 {{ Φ }} -∗ EWPW e @ E2 {{ Φ }}.
+Proof. apply ewp_mask_mono. Qed.
+
+Lemma pwp_ewp e E Ψ1 Ψ2 Φ : PWP e [{ Φ }] -∗ EWP e @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }}.
+Proof.
+  iIntros "H". iApply (ewp_mask_mono ∅); first set_solver.
+  clear E. iRevert (e) "H". iApply pwp_ind.
+  iIntros "!>" (e) "IH". rewrite !ewp_unfold /pwp_pre /ewp_pre /=.
+  destruct (to_val e) as [v|] eqn:?; [done|].
+  destruct (to_eff _) as [[[m v] k]|] eqn:?.
+  - destruct e; simplify_eq/=.
+    iDestruct ("IH" $! (Build_state ∅))
+      as ((?&?&[]&Hstep)) "_"; simplify_eq/=; last done.
+    destruct Hstep as [[|[]?] ???? Hstep]; simplify_eq/=; by inversion Hstep.
+  - iIntros (σ1 _ κs _ _) "Hs". iDestruct ("IH" $! σ1) as "[% IH]".
+    iModIntro. iSplit; [by auto using reducible_no_obs_reducible|].
+    iIntros (e2 σ2 Hstep) "_ !> !> !> !>".
+    iDestruct ("IH" with "[//]") as (???) "[$ _] /="; by simplify_eq/=.
+Qed.
+
+Lemma pwp_ewpw e E ρ Φ : PWP e [{ Φ }] -∗ EWPW e @E <| ρ |> {{ Φ }}.
+Proof. apply pwp_ewp. Qed.
+
+Lemma pwp_pure_step' e e' Φ :
+  pure_prim_step e e' → 
+  PWP e' [{ Φ }] -∗ PWP e [{ Φ }]. 
+Proof.
+  iIntros ([? Hstep]) "Hwp". iApply (pwp_pure_step _ _ _ True 1 with "Hwp"); last done.
+  intros _. apply nsteps_once. split; simpl.
+  - intros. eexists _, _, []; simpl; auto.
+  - intros ? [] ?? [] ?; naive_solver.
+Qed.
 
 Lemma ewpw_value (E : coPset) ρ Φ (v : val) :
   Φ v -∗ EWPW v @E <| ρ |> {{ Φ }}.

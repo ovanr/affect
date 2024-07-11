@@ -49,10 +49,10 @@ Notation "'handle-altₘ:' e 'by' op '=>' h | 'ret' => r 'end'" :=
   (HandlerAlt MS e op h r)
   (e, op, h, r at level 200, only parsing) : expr_scope.
 
-Definition control : val := (Λ: Λ: λ: "f", perform: "ctrl" "f")%V.
+Definition control : val := (λ: "f", perform: "ctrl" "f")%V.
 
 Definition prompt : val := 
-  (Λ: λ: "e", 
+  (λ: "e", 
     handle-alt: "e" #() by 
       "ctrl" => (λ: "x" "k", "x" "k")
     |  ret   => (λ: "x", "x")
@@ -207,10 +207,8 @@ Section typing.
   Proof.
     iIntros. rewrite /control /ctrl_ty.
     iApply sem_typed_Tclosure; solve_sidecond. iIntros (α).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_TLam; solve_sidecond. iIntros (β).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_Tclosure; solve_sidecond. iIntros (β).
+    iApply sem_typed_closure; solve_sidecond. simpl.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
     rewrite /ctrl_pre -/(ctrl β).
     iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg (α : sem_ty Σ)] _ "ctrl" _ (tele_app (λ α, α))).
@@ -221,8 +219,7 @@ Section typing.
   Proof.
     iIntros. rewrite /prompt /prompt_ty.
     iApply sem_typed_Tclosure; solve_sidecond. iIntros (β).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_closure; solve_sidecond. simpl.
     rewrite - (app_nil_r [("e", _)]).
     set Γ₁ := [("e", () -{ ctrl β }-∘ β)].
     iApply (sem_typed_handler_alt (TT:=[tele _]) OS "ctrl" (tele_app (λ α, (α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β)) (tele_app (λ α,  α)) β β ⟨⟩%R ⟨⟩%R Γ₁ [] [] []); solve_sidecond.  

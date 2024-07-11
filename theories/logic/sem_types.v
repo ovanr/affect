@@ -32,6 +32,8 @@ Definition sem_ty_int {Σ} : sem_ty Σ := (λ v, ∃ n : Z, ⌜ v = #n ⌝)%I.
 Definition sem_ty_string {Σ} : sem_ty Σ := (λ v, ∃ s : string, ⌜ v = #(LitStr s)⌝)%I.
 Definition sem_ty_top {Σ} : sem_ty Σ := (λ v, True)%I.
 
+Global Instance sem_ty_inhabited {Σ} : Inhabited (sem_ty Σ) := populate sem_ty_void. 
+
 Definition sem_ty_bang {Σ} (τ : sem_ty Σ) : sem_ty Σ := (λ v, □ τ v)%I.
 (* generalised bang type *)
 Notation "'!_[ m ] τ" := (
@@ -81,19 +83,16 @@ Definition sem_ty_uarr `{heapGS Σ}
   (κ : sem_ty Σ) : sem_ty Σ := sem_ty_arr MS ρ τ κ.
 
 (* Polymorphic type. *)
-Definition sem_ty_forall `{heapGS Σ} 
-    (m : mode) (C : sem_ty Σ → sem_ty Σ)  : sem_ty Σ := 
-    (λ v, ∀ τ, □? m (EWPW (v <_>)%E {{ v, C τ v }}))%I.
+Definition sem_ty_forall {Σ} 
+    (C : sem_ty Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∀ τ, C τ v)%I.
 
 (* Polymorphic effect type. *)
-Definition sem_ty_row_forall `{heapGS Σ} 
-  (m : mode) (A : sem_row Σ → sem_ty Σ) : sem_ty Σ := 
-    (λ v, ∀ θ, □? m (EWPW (v <_>)%E {{ v, A θ v }}))%I.
+Definition sem_ty_row_forall {Σ} 
+  (A : sem_row Σ → sem_ty Σ) : sem_ty Σ := (λ v, ∀ θ, A θ v)%I.
 
 (* Polymorphic type. *)
-Definition sem_ty_mode_forall `{heapGS Σ} 
-  (m : mode) (C : mode → sem_ty Σ) : sem_ty Σ := 
-    (λ v, ∀ ν, □? m (EWPW (v <_>)%E {{ v, C ν v }}))%I.
+Definition sem_ty_mode_forall {Σ} 
+  (C : mode → sem_ty Σ) : sem_ty Σ := (λ v, ∀ ν, C ν v)%I.
 
 (* Existential type. *)
 Definition sem_ty_exists `{irisGS eff_lang Σ} 
@@ -143,22 +142,13 @@ Notation "'Ref' τ" := (sem_ty_ref τ%T)
 Notation "'Refᶜ' τ" := (sem_ty_ref_cpy τ%T) 
   (at level 50) : sem_ty_scope.
 
-Notation "'∀T:' α , C " := (sem_ty_forall MS (λ α, C%T)) 
+Notation "'∀T:' α , C " := (sem_ty_forall (λ α, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'∀R:' θ , C " := (sem_ty_row_forall MS (λ θ, C%T)) 
+Notation "'∀R:' θ , C " := (sem_ty_row_forall (λ θ, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'∀M:' ν , C " := (sem_ty_mode_forall MS (λ ν, C%T)) 
-  (at level 180) : sem_ty_scope.
-
-Notation "'∀T:[' m ']' α , C " := (sem_ty_forall m (λ α, C%T)) 
-  (at level 180) : sem_ty_scope.
-
-Notation "'∀R:[' m ']' θ , C " := (sem_ty_row_forall m (λ θ, C%T)) 
-  (at level 180) : sem_ty_scope.
-
-Notation "'∀M:[' m ']' ν , C " := (sem_ty_mode_forall m (λ ν, C%T)) 
+Notation "'∀M:' ν , C " := (sem_ty_mode_forall (λ ν, C%T)) 
   (at level 180) : sem_ty_scope.
 
 Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T)) 
@@ -241,22 +231,25 @@ Section types_properties.
   Global Instance sem_ty_ref_cpy_ne : NonExpansive (@sem_ty_ref_cpy Σ _).
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_forall_ne m n :
-    Proper (pointwise_relation _ (dist n) ==> dist n) (sem_ty_forall m).
-  Proof. intros ????. unfold sem_ty_forall. 
-         do 3 f_equiv. f_equiv. by apply non_dep_fun_dist.
+  Global Instance sem_ty_forall_ne n :
+    Proper (pointwise_relation _ (dist n) ==> dist n) (@sem_ty_forall Σ).
+  Proof.
+    intros ????. unfold sem_ty_forall; repeat f_equiv. 
+    by apply non_dep_fun_dist.
   Qed.
 
-  Global Instance sem_ty_forall_row_ne m n :
-    Proper (pointwise_relation _ (dist n) ==> dist n) (sem_ty_row_forall m).
-  Proof. intros ????. unfold sem_ty_row_forall. 
-         do 3 f_equiv. f_equiv. by apply non_dep_fun_dist.
+  Global Instance sem_ty_forall_row_ne n :
+    Proper (pointwise_relation _ (dist n) ==> dist n) (@sem_ty_row_forall Σ).
+  Proof.
+    intros ????. unfold sem_ty_row_forall; repeat f_equiv.
+    by apply non_dep_fun_dist.
   Qed.
 
-  Global Instance sem_ty_forall_mode_ne m n :
-    Proper (pointwise_relation _ (dist n) ==> dist n) (sem_ty_mode_forall m).
-  Proof. intros ????. unfold sem_ty_mode_forall. 
-         do 3 f_equiv. f_equiv. by apply non_dep_fun_dist.
+  Global Instance sem_ty_forall_mode_ne n :
+    Proper (pointwise_relation _ (dist n) ==> dist n) (@sem_ty_mode_forall Σ).
+  Proof.
+    intros ????. unfold sem_ty_mode_forall; repeat f_equiv. 
+    by apply non_dep_fun_dist.
   Qed.
 
   Global Instance sem_ty_exist_ne n :
@@ -312,22 +305,22 @@ Section types_properties.
   Global Instance sem_ty_ref_cpy_proper : Proper ((≡) ==> (≡)) (@sem_ty_ref_cpy Σ _).
   Proof. intros ????. unfold sem_ty_ref_cpy; by repeat f_equiv. Qed.
 
-  Global Instance sem_ty_forall_proper m :
-    Proper (pointwise_relation _ (≡) ==> (≡)) (sem_ty_forall m).
+  Global Instance sem_ty_forall_proper :
+    Proper (pointwise_relation _ (≡) ==> (≡)) (@sem_ty_forall Σ).
   Proof. 
     intros ????. unfold sem_ty_forall; repeat f_equiv. 
     by apply non_dep_fun_equiv. 
   Qed.
 
-  Global Instance sem_ty_row_forall_proper m :
-    Proper (pointwise_relation _ (≡) ==> (≡)) (sem_ty_row_forall m).
+  Global Instance sem_ty_row_forall_proper :
+    Proper (pointwise_relation _ (≡) ==> (≡)) (@sem_ty_row_forall Σ).
   Proof. 
     intros ????. unfold sem_ty_row_forall; repeat f_equiv. 
     by apply non_dep_fun_equiv. 
   Qed.
 
-  Global Instance sem_ty_mode_forall_proper m :
-    Proper (pointwise_relation _ (≡) ==> (≡)) (sem_ty_mode_forall m).
+  Global Instance sem_ty_mode_forall_proper :
+    Proper (pointwise_relation _ (≡) ==> (≡)) (@sem_ty_mode_forall Σ).
   Proof. 
     intros ????. unfold sem_ty_mode_forall; repeat f_equiv. 
     by apply non_dep_fun_equiv. 
@@ -354,19 +347,22 @@ Section types_properties.
   Qed.
 
   Global Instance sem_ty_forall_type_persistent `{heapGS Σ} (C : sem_ty Σ → sem_ty Σ) v :
-    Persistent ((sem_ty_forall MS C) v).
+    (∀ τ w, Persistent (C τ w)) →
+    Persistent ((sem_ty_forall C) v). 
   Proof.
     unfold sem_ty_forall. simpl. apply _.
   Qed.
 
   Global Instance sem_ty_row_forall_persistent `{heapGS Σ} (C : sem_row Σ → sem_ty Σ) v :
-    Persistent ((sem_ty_row_forall MS C) v).
+    (∀ τ w, Persistent (C τ w)) →
+    Persistent ((sem_ty_row_forall C) v).
   Proof.
     unfold sem_ty_row_forall. simpl. apply _.
   Qed.
 
   Global Instance sem_ty_mode_forall_persistent `{heapGS Σ} (C : mode → sem_ty Σ) v :
-    Persistent ((sem_ty_mode_forall MS C) v).
+    (∀ τ w, Persistent (C τ w)) →
+    Persistent ((sem_ty_mode_forall C) v).
   Proof.
     unfold sem_ty_mode_forall. simpl. apply _.
   Qed.
@@ -424,14 +420,17 @@ Section copyable_types.
       iExists v'. iRight. by iFrame "#".
   Qed.
 
-  Lemma copy_ty_forallT C : ⊢ copy_ty (∀T: α, C α).
-  Proof. iIntros "!# % #$". Qed.
+  Lemma copy_ty_forallT (C : _ → sem_ty Σ) :
+    (∀ α, copy_ty (C α)) -∗ copy_ty (∀T: α, C α).
+  Proof. iIntros "#H !# % HC /= %T". by iApply "H". Qed.
 
-  Lemma copy_ty_forallR C : ⊢ copy_ty (∀R: θ, C θ).
-  Proof. iIntros "!# % #$". Qed.
+  Lemma copy_ty_forallR (C : _ → sem_ty Σ) :
+    (∀ θ, copy_ty (C θ)) -∗ copy_ty (∀R: θ, C θ).
+  Proof. iIntros "#H !# % HC /= %T". by iApply "H". Qed.
 
-  Lemma copy_ty_forallM C : ⊢ copy_ty (∀M: ν, C ν).
-  Proof. iIntros "!# % #$". Qed.
+  Lemma copy_ty_forallM (C : _ → sem_ty Σ) :
+    (∀ ν, copy_ty (C ν)) -∗ copy_ty (∀M: ν, C ν).
+  Proof. iIntros "#H !# % HC /= %T". by iApply "H". Qed.
 
   Lemma copy_ty_ref τ : ⊢ copy_ty (Refᶜ τ).
   Proof. iIntros "!# % #$". Qed.
@@ -704,62 +703,44 @@ Qed.
     (Option τ₁) ≤T (Option τ₂).
   Proof. iIntros "#?". iApply ty_le_sum; last done. iIntros "!# % $". Qed.
 
-  Lemma ty_le_forall m (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
+  Lemma ty_le_forall (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
     (∀ α, τ₁ α ≤T τ₂ α) -∗
-    (∀T:[m] α, τ₁ α)%T ≤T (∀T:[m] α, τ₂ α).
-  Proof.
-    iIntros "#Hτ₁₂ !# %v". destruct m; simpl. 
-    - iIntros "Hτ₁ %τ /=". iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
-      iIntros "!# % Hτ !>". by iApply "Hτ₁₂".
-    - iIntros "#Hτ₁ %τ /= !#". rewrite /sem_ty_forall /=.
-      iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
-      iIntros "!# % Hτ !>". by iApply "Hτ₁₂".
-  Qed.
+    (∀T: α, τ₁ α)%T ≤T (∀T: α, τ₂ α).
+  Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
+(*
   Lemma ty_le_mbang_forall_intro m (τ : sem_ty Σ → sem_ty Σ) :
     ⊢ (∀T:[m] α, τ α)%T ≤T '!_[m] (∀T:[m] α, τ α).
   Proof.
     destruct m; simpl; first iApply ty_le_refl.
     iApply (ty_le_mbang_intro MS); iApply copy_ty_forallT.
-  Qed.
+  Qed. *)
 
-  Lemma ty_le_row_forall m (τ₁ τ₂ : sem_row Σ → sem_ty Σ) :
+  Lemma ty_le_row_forall (τ₁ τ₂ : sem_row Σ → sem_ty Σ) :
     (∀ θ, τ₁ θ ≤T τ₂ θ) -∗
-    (∀R:[m] θ, τ₁ θ) ≤T (∀R:[m] θ, τ₂ θ).
-  Proof.
-    iIntros "#Hτ₁₂ !# %v". destruct m; simpl. 
-    - iIntros "Hτ₁ %τ /=". iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
-      iIntros "!# % Hτ !>". by iApply "Hτ₁₂".
-    - iIntros "#Hτ₁ %τ /= !#". rewrite /sem_ty_row_forall /=. 
-      iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
-      iIntros "!# % Hτ !>". by iApply "Hτ₁₂".
-  Qed.
+    (∀R: θ, τ₁ θ) ≤T (∀R: θ, τ₂ θ).
+  Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
+(*
   Lemma ty_le_mbang_row_forall_intro m (τ : sem_row Σ → sem_ty Σ) :
     ⊢ (∀R:[m] θ, τ θ)%T ≤T '!_[m] (∀R:[m] θ, τ θ).
   Proof.
     destruct m; simpl; first iApply ty_le_refl.
     iApply (ty_le_mbang_intro MS); iApply copy_ty_forallR.
-  Qed.
+  Qed. *)
 
-  Lemma ty_le_mode_forall m (τ₁ τ₂ : mode → sem_ty Σ) :
+  Lemma ty_le_mode_forall (τ₁ τ₂ : mode → sem_ty Σ) :
     (∀ ν, τ₁ ν ≤T τ₂ ν) -∗
-    (∀M:[m] ν, τ₁ ν) ≤T (∀M:[m] ν, τ₂ ν).
-  Proof.
-    iIntros "#Hτ₁₂ !# %v". destruct m; simpl. 
-    - iIntros "Hτ₁ %τ /=". iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
-      iIntros "!# % Hτ !>". by iApply "Hτ₁₂".
-    - iIntros "#Hτ₁ %τ /= !#". rewrite /sem_ty_mode_forall /=. 
-      iApply (ewpw_mono with "[Hτ₁]"); [iApply "Hτ₁"|].
-      iIntros "!# % Hτ !>". by iApply "Hτ₁₂".
-  Qed.
+    (∀M: ν, τ₁ ν) ≤T (∀M: ν, τ₂ ν).
+  Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
+(*
   Lemma ty_le_mbang_mode_forall_intro m (τ : mode → sem_ty Σ) :
     ⊢ (∀M:[m] ν, τ ν)%T ≤T '!_[m] (∀M:[m] ν, τ ν).
   Proof.
     destruct m; simpl; first iApply ty_le_refl.
     iApply (ty_le_mbang_intro MS); iApply copy_ty_forallM.
-  Qed.
+  Qed. *)
 
   Lemma ty_le_exists (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
     (∀ α, τ₁ α ≤T τ₂ α) -∗

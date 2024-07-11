@@ -32,8 +32,8 @@ Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
 (* The tossCoin example from paper Soundly Hanlding Linearity by Tang et al. *)
 
 Definition tossCoin : val := 
-  (Λ: λ: "g", let: "b" := "g" #() in 
-              if: "b" then #(LitStr "heads") else #(LitStr "tails"))%V.
+  (λ: "g", let: "b" := "g" #() in 
+           if: "b" then #(LitStr "heads") else #(LitStr "tails"))%V.
 
 Section typing.
 
@@ -46,8 +46,7 @@ Section typing.
   Proof.
     iIntros. rewrite /tossCoin /tossCoin_ty.
     iApply sem_typed_Rclosure; solve_sidecond. iIntros (θ).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_closure; solve_sidecond. simpl.
     iApply (sem_typed_let 𝔹 θ Str _ []); solve_sidecond.
     - iApply (sem_typed_app_ms ()); solve_sidecond.
       { iApply sem_typed_sub_ty; first iApply ty_le_u2aarr.

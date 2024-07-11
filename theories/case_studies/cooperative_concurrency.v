@@ -33,15 +33,15 @@ Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
 
 Definition impossible : expr := ((rec: "f" <> := "f" #()) #())%E.
 
-Definition async : val := (Λ: λ: "c", perform: "async" "c")%V.
+Definition async : val := (λ: "c", perform: "async" "c")%V.
 
-Definition await : val := (Λ: λ: "p", perform: "await" "p")%V.
+Definition await : val := (λ: "p", perform: "await" "p")%V.
 
 Definition yield : val := 
-  (λ: <>, await <_> (async <_> (λ: <>, #())))%V. 
+  (λ: <>, await (async (λ: <>, #())))%V. 
 
 Definition iter  : val:= 
-  (Λ: rec: "f" "g" "xs" := 
+  (rec: "f" "g" "xs" := 
     list-match: "xs" with
         CONS "x" => "xxs" => "g" "x" ;; "f" "g" "xxs"
       | NIL => #()
@@ -57,10 +57,10 @@ Definition add : val :=
   (λ: "q" "f", "q" <!- CONS "f" ("q" <!- NIL) ;; #())%V.
 
 Definition resume_task : val := 
-  (λ: "add", Λ: λ: "v" "k", "add" (λ: <>, "k" "v"))%V.
+  (λ: "add", λ: "v" "k", "add" (λ: <>, "k" "v"))%V.
 
 Definition runner : val :=
-  (Λ: λ: "main", 
+  (λ: "main", 
     let: "q" := ref NIL in  
 
     let: "add" := add "q" in
@@ -68,11 +68,11 @@ Definition runner : val :=
     let: "resume_task" := resume_task "add" in
 
     let: "fulfill" := 
-      (rec: "fulfill" <> := λ: "promise" "comp",   
+      (rec: "fulfill" "promise" := λ: "comp",   
           handle2: "comp" #() by
             "async" => (λ: "x" "k", 
                   let: "new_prom" := ref (InjR NIL) in
-                  "add" (λ: <>, "fulfill" <_> "new_prom" "x") ;;
+                  "add" (λ: <>, "fulfill" "new_prom" "x") ;;
                   "k" "new_prom"
             )
           | "await" => (λ: "x" "k", 
@@ -87,13 +87,13 @@ Definition runner : val :=
                 InjL <> => impossible
               | InjR "ks" =>
                   "promise" <!- InjL "x" ;;
-                  iter <_> ("resume_task" <_> "x") "ks" ;;
+                  iter ("resume_task" "x") "ks" ;;
                   "next" #()
               end)%E
           end)
       in
       let: "pmain" := ref (InjR NIL) in
-      "fulfill" <_> "pmain" "main" ;;
+      "fulfill" "pmain" "main" ;;
       match: "pmain" <!- InjR NIL with
         InjL "v" => "v"
       | InjR <> => impossible
@@ -194,8 +194,7 @@ Section typing.
   Proof.
     rewrite /async. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
-    rewrite - {1} (app_nil_r []).
-    iApply sem_typed_ufun; solve_sidecond. simpl. rewrite /coop.
+    iApply sem_typed_closure; solve_sidecond. simpl. rewrite /coop.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
     rewrite /coop_pre -/coop.
     iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg (α : sem_ty Σ)] _ "async"
@@ -208,8 +207,7 @@ Section typing.
   Proof.
     rewrite /await. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
-    rewrite - {1} (app_nil_r []).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_closure; solve_sidecond. simpl.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
     rewrite /coop_pre -/coop. 
     iApply sem_typed_sub_row; first iApply row_le_swap_second; first done.
@@ -246,9 +244,7 @@ Section typing.
     ⊢ ⊨ᵥ iter : iter_ty τ.
   Proof.
     iApply sem_typed_Rclosure. iIntros (σ).
-    iApply sem_typed_sub_nil.
-    rewrite - {1} (app_nil_r []). 
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_closure; solve_sidecond. simpl.
     rewrite - [[("g", _); ("f", _)]]app_nil_r. 
     iApply sem_typed_afun; solve_sidecond. simpl.
     set Γ₂ := [("g", τ -{ ¡ σ }-> ());
@@ -318,12 +314,11 @@ Section typing.
     iIntros. rewrite /resume_task_ty.
     iApply sem_typed_closure; solve_sidecond. simpl.
     set add := ("add", add_ty)%T. rewrite -(app_nil_r [add]).
+    iApply sem_typed_oval.
     iApply sem_typed_TLam; solve_sidecond. 
-    { iApply mode_env_sub_cons; first iApply mode_env_sub_ms; first solve_copy.
-      iApply mode_type_sub_ms; solve_copy. }
     iIntros (α).
     rewrite -(app_nil_r [add]).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_oval_typed_ufun; solve_sidecond. simpl.
     rewrite -(app_nil_r [("v", '! α); add]).
     set v := ("v", '! α).
     iApply sem_typed_ufun; solve_sidecond. simpl.
@@ -340,8 +335,7 @@ Section typing.
     ⊢ ⊨ᵥ runner : runner_ty.
   Proof.
     iIntros. iApply sem_typed_Tclosure. iIntros (α).
-    rewrite - {1} (app_nil_r []).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_closure; solve_sidecond. simpl.
     set main := ("main", () -{ coop }-∘ '! α).
     iApply (sem_typed_let _ _ _ _  [main]); solve_sidecond.
     { iApply (sem_typed_alloc_cpy (List (() ⊸ ()))). iApply sem_typed_nil. }
@@ -368,10 +362,11 @@ Section typing.
     rewrite -/next -/resume_task -/add.
     iApply (sem_typed_let _ _ _ _ [main]); solve_sidecond.
     - assert (Hrw : [resume_task;add;next;main] = [resume_task;add;next] ++ [main]) by done.
-      rewrite Hrw. clear Hrw.
+      rewrite Hrw. clear Hrw. iApply sem_typed_oval.
       iApply (sem_typed_ufun_poly_rec (λ β, Promise ('! β)) (λ _, ⊥) (λ β, (() -{ coop }-∘ '! β) ⊸ ())); 
-        solve_sidecond. simpl.
-     iIntros (β) "/=". 
+        solve_sidecond.
+      { iIntros. iApply copy_ty_uarr. }
+     simpl. iIntros (β) "/=". 
      set promise := ("promise", Promise ('! β)).
      set fulfill := ("fulfill", ∀T: β', Promise ('! β') → (() -{ coop }-∘ '! β') ⊸ ()).
      rewrite -(app_nil_r [promise;fulfill;resume_task;add;next]).
@@ -384,6 +379,8 @@ Section typing.
                     (tele_app (λ α, Promise ('! α))) 
                     (tele_app (λ α, Promise ('! α))) 
                     (tele_app (λ α, '! α))  _ _ _ _ [comp] []); solve_sidecond.
+     + iIntros. iApply copy_ty_uarr.
+     + iIntros. iApply copy_ty_uarr.
      + iApply row_le_refl.
      + iApply (sem_typed_app_os () _ ('! β)); [iApply sem_typed_var'|]. 
        rewrite -/await_sig -/(async_sig coop) -/coop. 

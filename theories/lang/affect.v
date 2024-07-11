@@ -33,11 +33,6 @@ Notation "'let:' '(' x1 ',' x2 ')' := e1 'in' e2" := (ELetPair x1%binder x2%bind
   (at level 200, x1, x2 at level 1, e1, e2 at level 200,
    format "'[' 'let:'  '(' x1 ',' x2 ')'  :=  '[' e1 ']'  'in'  '/' e2 ']'") : expr_scope.
 
-(* Notations for type abstraction and application *) 
-Notation "Λ: e" := (λ: <>, e)%E (at level 200, only parsing) : expr_scope.
-Notation "Λ: e" := (λ: <>, e)%V (at level 200, only parsing) : val_scope.
-Notation "e '<_>'" := (App e%E #()) (at level 10, only parsing) : expr_scope.
-
 (* Existential type packing and unpacking functions *)
 (* Since hazel is an untyped language there is no notion of packing a type 
  * into an existential type nor unpacking an existential type.

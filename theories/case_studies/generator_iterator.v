@@ -33,7 +33,7 @@ Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
 
 Definition yield := (λ: "x", perform: "yield" "x")%V.
 Definition generate :=
-  (Λ: λ: "i", let: "cont" := ref (λ: <>, "i" <_> yield) in
+  (λ: "i", let: "cont" := ref (λ: <>, "i" yield) in
       λ: <>, shandle: ("cont" <!- (λ: <>, #())) #() by
                 "yield" => λ: "x" "k", "cont" <!- "k" ;; SOME "x"
                | ret    => λ: "x", NONE
@@ -41,8 +41,8 @@ Definition generate :=
   )%V.
 
 Definition generate_deep :=
-  (Λ: λ: "i", let: "cont" := ref (λ: <>, NONE) in
-              "cont" <!- (λ: <>, handle: "i" <_> yield by
+  (λ: "i", let: "cont" := ref (λ: <>, NONE) in
+              "cont" <!- (λ: <>, handle: "i" yield by
                                    "yield" => λ: "x" "k", "cont" <!- "k" ;; SOME "x"
                                   | ret    =>  λ: "x", NONE
                                 end) ;;
@@ -51,7 +51,7 @@ Definition generate_deep :=
 
 Definition iterate :=
   (λ: "g", 
-    Λ: (λ: "f", 
+    (λ: "f", 
     (rec: "go" "g" := 
         match: "g" #() with
             NONE => #()
@@ -59,8 +59,8 @@ Definition iterate :=
         end) "g"))%V.
 
 Definition list_iter :=
-    (Λ: Λ: λ: "xs",
-      (Λ: (λ: "f", 
+    (λ: "xs",
+      ((λ: "f", 
             (rec: "go" "xs" := 
               list-match: "xs" with
                 CONS "x" => "xxs" => ("f" "x" ;; "go" "xxs")
@@ -75,9 +75,9 @@ Section typing.
 
   Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀S: (_ : sem_ty Σ), τ =[OS]=> ())%S.
   Definition yield_ty τ := τ -{ ¡ (yield_sig τ · ⟨⟩) }-> ().
-  Definition iter_ty τ := (∀R:[OS] θ, (τ -{ ¡ θ }-> ()) -{ ¡ θ }-∘ ())%T.
+  Definition iter_ty τ := (∀R: θ, (τ -{ ¡ θ }-> ()) -{ ¡ θ }-∘ ())%T.
   Definition iter_ty_un τ := (∀R: θ, (τ -{ θ }-> ()) -{ θ }-> ())%T.
-  Definition iter_ty_gen m τ := (∀R:[m] θ, ('!_[m] τ -{ ¡_[m] θ }-> ()) -{ ¡_[m] θ }-[m]-> ())%T.
+  Definition iter_ty_gen m τ := (∀R: θ, ('!_[m] τ -{ ¡_[m] θ }-> ()) -{ ¡_[m] θ }-[m]-> ())%T.
   Definition list_iter_ty := (∀M: ν, ∀T: α, List ('!_[ν] α) → iter_ty_gen ν α).
   Definition generator_ty τ := (() → Option τ)%T.
   
@@ -85,7 +85,7 @@ Section typing.
     ⊢ ⊨ᵥ generate : (∀T: α, iter_ty α → generator_ty α).
   Proof.
     iIntros "". iApply sem_typed_Tclosure. iIntros (α).
-    rewrite -(app_nil_r []). iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_closure; solve_sidecond. simpl.
     set cont_ty := (() -{ ¡ (yield_sig α · ⟨⟩) }-∘ ()). 
     iApply (sem_typed_let (Refᶜ cont_ty) _ _ _ []); simpl; solve_sidecond. 
     - iApply sem_typed_alloc_cpy.
@@ -130,7 +130,7 @@ Section typing.
     ⊢ ⊨ᵥ generate_deep : (∀T: α, iter_ty α → generator_ty α).
   Proof.
     iIntros "". iApply sem_typed_Tclosure. iIntros (α).
-    rewrite -(app_nil_r []). iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_closure; solve_sidecond. simpl.
     set cont_ty := (() ⊸ Option α). 
     iApply (sem_typed_let (Refᶜ cont_ty) _ _ _ [("i", _)]); simpl; solve_sidecond. 
     - iApply sem_typed_alloc_cpy.
@@ -177,13 +177,12 @@ Section typing.
     ⊢ ⊨ᵥ iterate : (generator_ty τ → iter_ty_un τ).
   Proof.
     iIntros. iApply sem_typed_closure; first done. rewrite /iter_ty /=.
-    rewrite - {1}(app_nil_r [("g", _)]). 
+    rewrite - {1}(app_nil_r [("g", _)]).
+    iApply sem_typed_oval.
     iApply sem_typed_RLam; simpl; solve_sidecond. 
-    { iApply mode_env_sub_ms; solve_copy. }
     iIntros (θ).
-    rewrite - {1}(app_nil_r [("g", _)]). 
-    iApply sem_typed_sub_nil. 
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    rewrite - {1}(app_nil_r [("g", _)]).
+    iApply sem_oval_typed_ufun; solve_sidecond. simpl.
     iApply sem_typed_app_nil;
       [|iApply sem_typed_swap_second; iApply sem_typed_var'].
     rewrite - {1}((app_nil_r [("f", _)])). 
@@ -210,16 +209,14 @@ Section typing.
   Proof.
     iIntros. rewrite /list_iter /list_iter_ty.
     iApply sem_typed_Mclosure. iIntros (ν).
-    rewrite - {1}(app_nil_r []).
-    iApply sem_typed_TLam; solve_copy. iIntros (α).
-    rewrite - {1}(app_nil_r []).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_Tclosure. iIntros (α).
+    iApply sem_typed_closure; solve_sidecond. simpl.
     rewrite - {1}(app_nil_r [("xs", _)]). 
     iApply sem_typed_sub_env; first iApply env_le_cons; first iApply env_le_refl.
     iApply ty_le_list_bang.
-    rewrite - {1}(app_nil_r [("xs", _)]). 
-    iApply sem_typed_RLam. 
-    { iApply mode_env_sub_cons; first iApply mode_env_sub_ms; solve_copy. iApply mode_type_sub_mbang. }
+    rewrite - {1}(app_nil_r [("xs", _)]).
+    iApply sem_typed_oval.
+    iApply sem_typed_RLam.
     iIntros (θ).
     rewrite - {1}(app_nil_r [("xs", _)]). 
     iApply sem_typed_fun; solve_sidecond. simpl.

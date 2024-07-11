@@ -4,6 +4,7 @@
 
 theories/lib/base.v
 theories/lib/logic.v
+theories/lib/pure_weakestpre.v
 
 theories/lang/subst_map.v
 theories/lang/handler.v

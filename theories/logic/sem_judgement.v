@@ -16,6 +16,7 @@ From hazel.program_logic Require Import weakest_precondition
 
 (* Local imports *)
 From affect.lib Require Import base.
+From affect.lib Require Import pure_weakestpre.
 From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.
 From affect.logic Require Import sem_sig.
@@ -38,10 +39,25 @@ Definition sem_typed `{!heapGS Σ}
                     env_sem_typed Γ₁ vs -∗ 
                     (EWPW (subst_map vs e) <| ρ |> {{ v, τ v ∗ env_sem_typed Γ₂ vs }})))%I.
 
+Definition sem_oval_typed `{!heapGS Σ}
+  (Γ₁ : env Σ)
+  (e : expr)
+  (τ : sem_ty Σ) 
+  (Γ₂ : env Σ) : iProp Σ :=
+    tc_opaque (□ (∀ (vs : gmap string val),
+                    env_sem_typed Γ₁ vs -∗ 
+                    (PWP (subst_map vs e) [{ v, τ v ∗ env_sem_typed Γ₂ vs }])))%I.
+
 Global Instance sem_typed_persistent `{!heapGS Σ} (Γ Γ' : env Σ) e ρ τ :
   Persistent (sem_typed Γ e ρ τ Γ').
 Proof.
   unfold sem_typed, tc_opaque. apply _.
+Qed.
+
+Global Instance sem_oval_typed_persistent `{!heapGS Σ} (Γ Γ' : env Σ) e τ :
+  Persistent (sem_oval_typed Γ e τ Γ').
+Proof.
+  unfold sem_oval_typed, tc_opaque. apply _.
 Qed.
 
 Notation "Γ₁ ⊨ e : ρ : α ⊨ Γ₂" := (sem_typed Γ₁ e%E ρ%R α%T Γ₂)
@@ -49,6 +65,12 @@ Notation "Γ₁ ⊨ e : ρ : α ⊨ Γ₂" := (sem_typed Γ₁ e%E ρ%R α%T Γ�
 
 Notation "⊨ e : ρ : α" := (sem_typed [] e%E ρ%R α%T [])
   (at level 74, e, ρ, α at next level) : bi_scope.
+
+Notation "Γ₁ ⊨ₒᵥ e : α ⊨ Γ₂" := (sem_oval_typed Γ₁ e%E α%T Γ₂)
+  (at level 74, e, α at next level) : bi_scope.
+
+Notation "⊨ₒᵥ e : α" := (sem_oval_typed [] e%E α%T [])
+  (at level 74, e, α at next level) : bi_scope.
 
 (* The value semantic typing judgement is also defined
  * to be persistent, so only persistent values hold for it.
@@ -59,6 +81,7 @@ Definition sem_val_typed `{!irisGS eff_lang Σ}
 
 Notation "⊨ᵥ v : τ" := (sem_val_typed v%V τ%T)
   (at level 20, v, τ at next level) : bi_scope.
+
 Global Instance sem_typed_val_persistent `{!irisGS eff_lang Σ} v τ :
   Persistent (sem_val_typed v τ).
 Proof.

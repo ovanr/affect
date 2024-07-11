@@ -131,7 +131,6 @@ Proof.
   iIntros "#HmΓ #Hmτ %γ !# (%w & %Heq & Hτ & HΓ)".
   iSpecialize ("HmΓ" $! γ with "HΓ").
   iSpecialize ("Hmτ" $! w with "Hτ").
-  Search "intuitionistically_if".
   iDestruct (bi.intuitionistically_if_sep_2 m (⟦ Γ ⟧ γ) (τ w) with "[HmΓ Hmτ]") as "HmΓτ".
   { iFrame. }
   iApply (intuitionistically_if_mono_iprop with "[] HmΓτ").

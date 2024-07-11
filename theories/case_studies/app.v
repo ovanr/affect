@@ -30,7 +30,7 @@ Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top s
 Opaque sem_sig_eff sem_sig_flip_bang.
 Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
 
-Definition app : val := (Λ: Λ: Λ: λ: "f" "x", "f" "x")%V.
+Definition app : val := (λ: "f" "x", "f" "x")%V.
 
 Section typing.
 
@@ -43,12 +43,9 @@ Section typing.
   Proof.
     iIntros. rewrite /app /app_ty.
     iApply sem_typed_Rclosure; solve_sidecond. iIntros (θ).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_TLam; solve_sidecond. iIntros (α).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_TLam; solve_sidecond. iIntros (β).
-    rewrite - (app_nil_l []).
-    iApply sem_typed_ufun; solve_sidecond. simpl.
+    iApply sem_typed_Tclosure; solve_sidecond. iIntros (α).
+    iApply sem_typed_Tclosure; solve_sidecond. iIntros (β).
+    iApply sem_typed_closure; solve_sidecond. simpl.
     rewrite - (app_nil_r [("f", _)]).
     iApply sem_typed_afun; solve_sidecond. simpl.
     iApply sem_typed_app_nil; iApply sem_typed_var'.
