@@ -61,26 +61,14 @@ Definition sem_ty_sum {Σ} (τ κ : sem_ty Σ) : sem_ty Σ :=
   (λ v, ∃ v', (⌜v = InjLV v'%V⌝ ∗ τ v') ∨ (⌜ v = InjRV v'⌝ ∗ κ v'))%I.
 
 (* Arrow type. *)
-Definition sem_ty_arr (m : mode) `{heapGS Σ} 
+Definition sem_ty_arr `{heapGS Σ} 
   (ρ : sem_row Σ)
   (τ : sem_ty Σ)
   (κ : sem_ty Σ) : sem_ty Σ :=
-  (λ (v : val), □? m (
+  (λ (v : val),
     ∀ (w : val),
       τ w -∗ 
-      EWPW (v w) <| ρ |> {{ u, κ u}}))%I.
-
-(* Affine Arrow type. *)
-Definition sem_ty_aarr `{heapGS Σ}
-  (ρ : sem_row Σ)
-  (τ : sem_ty Σ)
-  (κ : sem_ty Σ) : sem_ty Σ := sem_ty_arr OS ρ τ κ.
-
-(* Unrestricted Arrow type. *)
-Definition sem_ty_uarr `{heapGS Σ}
-  (ρ : sem_row Σ)
-  (τ : sem_ty Σ)
-  (κ : sem_ty Σ) : sem_ty Σ := sem_ty_arr MS ρ τ κ.
+      EWPW (v w) <| ρ |> {{ u, κ u}})%I.
 
 (* Polymorphic type. *)
 Definition sem_ty_forall {Σ} 
@@ -157,23 +145,23 @@ Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T))
 Notation "'μT:' α , C " := (sem_ty_rec (λ α, C%T))
   (at level 180) : sem_ty_scope.
 
-Notation "τ '-{' ρ '}-[' m ']->' κ" := (sem_ty_arr m ρ%R τ%T κ%T)
+Notation "τ ⊸ κ" := (sem_ty_arr ⟨⟩%R τ%T κ%T)
+  (at level 99, κ at level 200) : sem_ty_scope.
+
+Notation "τ '-{' ρ '}-[' m ']->' κ" := ('!_[ m ] (sem_ty_arr ρ%R τ%T κ%T))%T
   (at level 100, m, ρ, κ at level 200) : sem_ty_scope.
 
-Notation "τ '-[' m ']->' κ" := (sem_ty_arr m ⟨⟩%R τ%T κ%T)
+Notation "τ '-[' m ']->' κ" := ('!_[ m ] (sem_ty_arr ⟨⟩%R τ%T κ%T))%T
   (at level 100, m, κ at level 200) : sem_ty_scope.
 
-Notation "τ ⊸ κ" := (sem_ty_aarr ⟨⟩%R τ%T κ%T)
+Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_arr ρ%R τ%T κ%T)
+  (at level 100, ρ, κ at level 200) : sem_ty_scope.
+Notation "τ ⊸ κ" := (sem_ty_arr ⟨⟩%R τ%T κ%T)
   (at level 99, κ at level 200) : sem_ty_scope.
 
-Notation "τ '-{' ρ '}-∘' κ" := (sem_ty_aarr ρ%R τ%T κ%T)
+Notation "τ '-{' ρ '}->' κ" := (sem_ty_bang (sem_ty_arr ρ%R τ%T κ%T))
   (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ ⊸ κ" := (sem_ty_aarr ⟨⟩%R τ%T κ%T)
-  (at level 99, κ at level 200) : sem_ty_scope.
-
-Notation "τ '-{' ρ '}->' κ" := (sem_ty_uarr ρ%R τ%T κ%T)
-  (at level 100, ρ, κ at level 200) : sem_ty_scope.
-Notation "τ → κ" := (sem_ty_uarr ⟨⟩%R τ%T κ%T)
+Notation "τ → κ" := (sem_ty_bang (sem_ty_arr ⟨⟩%R τ%T κ%T))
   (at level 99, κ at level 200) : sem_ty_scope.
 
 (* Derived Types *)
@@ -202,8 +190,8 @@ Section types_properties.
   Ltac solve_non_expansive :=
     repeat intros ?;
     unfold sem_ty_unit, sem_ty_int, sem_ty_bool, sem_ty_bang,
-           sem_ty_prod, sem_ty_sum, sem_ty_arr, sem_ty_aarr, sem_ty_uarr,
-           sem_ty_uarr, sem_ty_ref, sem_ty_ref_cpy, 
+           sem_ty_prod, sem_ty_sum, sem_ty_arr,
+           sem_ty_ref, sem_ty_ref_cpy, 
            sem_ty_rec, sem_ty_list, sem_ty_forall, sem_ty_exists;
     repeat (f_equiv || done || intros ? || by apply non_dep_fun_dist).
 
@@ -216,14 +204,8 @@ Section types_properties.
   Global Instance sem_ty_sum_ne : NonExpansive2 (@sem_ty_sum Σ).
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_arr_ne m : NonExpansive3 (sem_ty_arr m).
+  Global Instance sem_ty_arr_ne : NonExpansive3 sem_ty_arr.
   Proof. solve_non_expansive. Qed.
-
-  Global Instance sem_ty_aarr_ne : NonExpansive3 sem_ty_aarr.
-  Proof. rewrite /sem_ty_aarr. apply _. Qed.
-
-  Global Instance sem_ty_uarr_ne : NonExpansive3 sem_ty_uarr.
-  Proof. rewrite /sem_ty_uarr. apply _. Qed.
 
   Global Instance sem_ty_ref_ne : NonExpansive (@sem_ty_ref Σ _).
   Proof. solve_non_expansive. Qed.
@@ -290,14 +272,8 @@ Section types_properties.
   Global Instance sem_ty_sum_proper : Proper ((≡) ==> (≡) ==> (≡)) (@sem_ty_sum Σ).
   Proof. solve_non_expansive. Qed.
 
-  Global Instance sem_ty_arr_proper m : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) (sem_ty_arr m).
+  Global Instance sem_ty_arr_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) sem_ty_arr.
   Proof. solve_non_expansive. Qed.
-
-  Global Instance sem_ty_aarr_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) sem_ty_aarr.
-  Proof. rewrite /sem_ty_aarr. apply _. Qed.
-
-  Global Instance sem_ty_uarr_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) sem_ty_uarr.
-  Proof. rewrite /sem_ty_uarr. apply _. Qed.
 
   Global Instance sem_ty_ref_proper : Proper ((≡) ==> (≡)) (@sem_ty_ref Σ _).
   Proof. intros ????. unfold sem_ty_ref; by repeat f_equiv. Qed.
@@ -338,12 +314,6 @@ Section types_properties.
   Proof.
     intros C1 C2 HA. apply equiv_dist=> n.
     apply sem_ty_rec_ne=> A. by apply equiv_dist.
-  Qed.
-
-  Global Instance sem_ty_uarr_persistent `{heapGS Σ} (τ κ : sem_ty Σ) (ρ : sem_row Σ) v :
-    Persistent ((sem_ty_uarr ρ τ κ) v).
-  Proof.
-    rewrite /sem_ty_uarr /sem_ty_arr. simpl. apply _.
   Qed.
 
   Global Instance sem_ty_forall_type_persistent `{heapGS Σ} (C : sem_ty Σ → sem_ty Σ) v :
@@ -398,10 +368,7 @@ Section copyable_types.
   Proof. iIntros "!# %v #$". Qed.
 
   Lemma copy_ty_uarr τ σ κ : ⊢ copy_ty (τ -{ σ }-> κ).
-  Proof. 
-    rewrite /sem_ty_uarr /sem_ty_arr /=.
-    iIntros "/= !# %v #$". 
-  Qed.
+  Proof. apply copy_ty_bang. Qed.
   
   Lemma copy_ty_prod τ κ : copy_ty τ -∗ copy_ty κ -∗ copy_ty (τ × κ).
   Proof. 
@@ -525,7 +492,7 @@ Section sub_typing.
 
   Lemma ty_le_refl (τ : sem_ty Σ) : ⊢ τ ≤T τ.
   Proof. iIntros "!# % $". Qed.
-  
+
   Lemma ty_le_trans (τ₁ τ₂ τ₃ : sem_ty Σ) :
     τ₁ ≤T τ₂ -∗
     τ₂ ≤T τ₃ -∗
@@ -534,7 +501,7 @@ Section sub_typing.
     iIntros "#Hτ₁₂ #Hτ₂₃ !# %v Hτ₁". 
     iApply "Hτ₂₃". by iApply "Hτ₁₂".
   Qed.
-  
+
   Lemma ty_le_void (τ : sem_ty Σ) :
     ⊢ Void ≤T τ.
   Proof. iIntros "% !# []". Qed.
@@ -549,19 +516,23 @@ Section sub_typing.
     iDestruct ("Hcpy" with "Hτ") as "#Hτ'".
     iIntros "!# {$#Hτ'}". 
   Qed.
-        
+
+  Lemma ty_le_bang_elim (τ : sem_ty Σ) :
+    ⊢ ('! τ) ≤T τ.
+  Proof. iIntros "!# %v #$". Qed.
+
+
   Lemma ty_le_mbang_elim (m : mode) (τ : sem_ty Σ) :
     ⊢ ('!_[m] τ) ≤T τ.
-  Proof. destruct m; first iApply ty_le_refl. iIntros "!# %v #$". Qed.
+  Proof. destruct m; first iApply ty_le_refl. iApply ty_le_bang_elim. Qed.
+
+  Lemma ty_le_bang_comp (τ1 τ2 : sem_ty Σ) :
+    τ1 ≤T τ2 -∗ ('! τ1) ≤T ('! τ2).
+  Proof. iIntros "#Hττ' !# %v #H!τ !#". by iApply "Hττ'". Qed.
 
   Lemma ty_le_mbang_comp m (τ τ' : sem_ty Σ) :
     τ ≤T τ' -∗ ('!_[m] τ) ≤T ('!_[m] τ').
-  Proof. 
-    iIntros "#Hττ'".
-    destruct m; first iApply "Hττ'".
-    iIntros "!# %v #H!τ !#". 
-    by iApply "Hττ'".
-  Qed.
+  Proof. iIntros "#Hττ'". destruct m; [done|by iApply ty_le_bang_comp]. Qed.
 
   Lemma ty_le_mbang_idemp_intro m (τ : sem_ty Σ) :
     ⊢ '!_[m] τ ≤T '!_[m] ('!_[m] τ).
@@ -583,69 +554,35 @@ Section sub_typing.
     - iDestruct (mode_le_OS_inv with "H") as "->".
       iApply ty_le_refl.
     - destruct m'; [iApply (ty_le_mbang_elim MS)|iApply ty_le_refl].
-Qed.
-
-  Lemma ty_le_mbang_arr_intro (τ κ : sem_ty Σ) (ρ : sem_row Σ) (m : mode) :
-    ⊢ (τ -{ ρ }-[ m ]-> κ) ≤T '!_[m] (τ -{ ρ }-[ m ]-> κ).
-  Proof.
-    iIntros. destruct m; simpl; first iApply ty_le_refl.
-    iApply (ty_le_mbang_intro MS).
-    iApply copy_ty_uarr.
   Qed.
 
-  Lemma ty_le_arr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) (m m' : mode) :
-    m' ≤M m -∗
-    ρ ≤R ρ' -∗
-    τ₂ ≤T τ₁ -∗
-    κ₁ ≤T κ₂ -∗
-    (τ₁ -{ ρ }-[ m ]-> κ₁) ≤T (τ₂ -{ ρ' }-[ m' ]-> κ₂).
-  Proof.
-    iIntros "#Hm #Hρ  #Hτ₂₁ #Hκ₁₂ !# %v Hτκ₁". 
-    destruct m.
-    - iDestruct "Hm" as "[<-|%H]"; last inv H.  
-      rewrite /sem_ty_arr /=. 
-      iApply (intuitionistically_if_mono_iprop with "[] Hτκ₁").
-      iIntros "!# Hτκ₁ % Hτ₂".
-      iApply (ewpw_sub with "Hρ").
-      iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
-      { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
-      iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
-    - rewrite /sem_ty_arr /=.  
-      iApply bi.intuitionistically_intuitionistically_if.
-      iDestruct "Hτκ₁" as "#Hτκ₁". iIntros "!# %w Hτ₂".
-      iApply (ewpw_sub with "Hρ").
-      iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
-      { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
-      iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
-  Qed.
-      
-  Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (ρ : sem_row Σ) :
-    ⊢ (τ -{ ρ }-> κ) ≤T (τ -{ ρ }-∘ κ).
-  Proof.
-    iApply ty_le_arr; [|iApply row_le_refl|iApply ty_le_refl|iApply ty_le_refl].
-    iApply mode_le_MS.
-  Qed.
-
-  Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
+  Lemma ty_le_arr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
     ρ ≤R ρ' -∗
     τ₂ ≤T τ₁ -∗
     κ₁ ≤T κ₂ -∗
     (τ₁ -{ ρ }-∘ κ₁) ≤T (τ₂ -{ ρ' }-∘ κ₂).
   Proof.
-    iIntros "#Hρ  #Hτ₂₁ #Hκ₁₂".
-    iApply ty_le_arr; [iApply mode_le_refl|iApply "Hρ"|iApply "Hτ₂₁"|iApply "Hκ₁₂"].
+    iIntros "#Hρ  #Hτ₂₁ #Hκ₁₂ !# %v Hτκ₁". 
+    rewrite /sem_ty_arr /=. iIntros "% Hτ₂".
+    iApply (ewpw_sub with "Hρ").
+    iApply (ewpw_mono with "[Hτκ₁ Hτ₂]").
+    { iApply ("Hτκ₁" with "[Hτ₂]"); by iApply "Hτ₂₁". }
+    iIntros "!# % Hκ !>". by iApply "Hκ₁₂".
   Qed.
-  
+
   Lemma ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
     ρ ≤R ρ' -∗
     τ₂ ≤T τ₁ -∗
     κ₁ ≤T κ₂ -∗
     (τ₁ -{ ρ }-> κ₁) ≤T (τ₂ -{ ρ' }-> κ₂).
   Proof.
-    iIntros "#Hρ  #Hτ₂₁ #Hκ₁₂".
-    iApply ty_le_arr; [iApply mode_le_refl|iApply "Hρ"|iApply "Hτ₂₁"|iApply "Hκ₁₂"].
+    iIntros "#Hρ  #Hτ₂₁ #Hκ₁₂". iApply ty_le_bang_comp. by iApply ty_le_arr.
   Qed.
-  
+      
+  Lemma ty_le_u2aarr (τ κ : sem_ty Σ) (ρ : sem_row Σ) :
+    ⊢ (τ -{ ρ }-> κ) ≤T (τ -{ ρ }-∘ κ).
+  Proof. apply ty_le_bang_elim. Qed.
+
   Lemma ty_le_ref (τ₁ τ₂ : sem_ty Σ) :
     τ₁ ≤T τ₂ -∗
     (Ref τ₁) ≤T (Ref τ₂).
@@ -708,39 +645,36 @@ Qed.
     (∀T: α, τ₁ α)%T ≤T (∀T: α, τ₂ α).
   Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
-(*
-  Lemma ty_le_mbang_forall_intro m (τ : sem_ty Σ → sem_ty Σ) :
-    ⊢ (∀T:[m] α, τ α)%T ≤T '!_[m] (∀T:[m] α, τ α).
-  Proof.
-    destruct m; simpl; first iApply ty_le_refl.
-    iApply (ty_le_mbang_intro MS); iApply copy_ty_forallT.
-  Qed. *)
+  Lemma ty_le_bang_forall (τ : sem_ty Σ → sem_ty Σ) :
+    ⊢ (∀T: α, '! (τ α))%T ≤T '! (∀T: α, τ α).
+  Proof. iIntros "!# %v #Hτ !> %σ". iApply "Hτ". Qed.
+  Lemma ty_le_forall_bang (τ : sem_ty Σ → sem_ty Σ) :
+    ⊢ '! (∀T: α, τ α) ≤T (∀T: α, '! (τ α))%T.
+  Proof. iIntros "!# %v #Hτ %σ !>". iApply "Hτ". Qed.
 
   Lemma ty_le_row_forall (τ₁ τ₂ : sem_row Σ → sem_ty Σ) :
     (∀ θ, τ₁ θ ≤T τ₂ θ) -∗
     (∀R: θ, τ₁ θ) ≤T (∀R: θ, τ₂ θ).
   Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
-(*
-  Lemma ty_le_mbang_row_forall_intro m (τ : sem_row Σ → sem_ty Σ) :
-    ⊢ (∀R:[m] θ, τ θ)%T ≤T '!_[m] (∀R:[m] θ, τ θ).
-  Proof.
-    destruct m; simpl; first iApply ty_le_refl.
-    iApply (ty_le_mbang_intro MS); iApply copy_ty_forallR.
-  Qed. *)
+  Lemma ty_le_bang_row_forall (τ : sem_row Σ → sem_ty Σ) :
+    ⊢ (∀R: θ, '! (τ θ))%T ≤T '! (∀R: θ, τ θ).
+  Proof. iIntros "!# %v #Hτ !> %θ". iApply "Hτ". Qed.
+  Lemma ty_le_row_forall_bang (τ : sem_row Σ → sem_ty Σ) :
+    ⊢ '! (∀R: θ, τ θ) ≤T (∀R: θ, '! (τ θ))%T.
+  Proof. iIntros "!# %v #Hτ %θ !>". iApply "Hτ". Qed.
 
   Lemma ty_le_mode_forall (τ₁ τ₂ : mode → sem_ty Σ) :
     (∀ ν, τ₁ ν ≤T τ₂ ν) -∗
     (∀M: ν, τ₁ ν) ≤T (∀M: ν, τ₂ ν).
   Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
-(*
-  Lemma ty_le_mbang_mode_forall_intro m (τ : mode → sem_ty Σ) :
-    ⊢ (∀M:[m] ν, τ ν)%T ≤T '!_[m] (∀M:[m] ν, τ ν).
-  Proof.
-    destruct m; simpl; first iApply ty_le_refl.
-    iApply (ty_le_mbang_intro MS); iApply copy_ty_forallM.
-  Qed. *)
+  Lemma ty_le_bang_mode_forall (τ : mode → sem_ty Σ) :
+    ⊢ (∀M: ν, '! (τ ν))%T ≤T '! (∀M: ν, τ ν).
+  Proof. iIntros "!# %v #Hτ !> %ν". iApply "Hτ". Qed.
+  Lemma ty_le_mode_forall_bang (τ : mode → sem_ty Σ) :
+    ⊢ '! (∀M: ν, τ ν) ≤T (∀M: ν, '! (τ ν))%T.
+  Proof. iIntros "!# %v #Hτ %ν !>". iApply "Hτ". Qed.
 
   Lemma ty_le_exists (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
     (∀ α, τ₁ α ≤T τ₂ α) -∗
@@ -805,5 +739,4 @@ Qed.
     iApply (ty_le_mbang_prod_intro with "[] Hle").
     iApply ty_le_mbang_idemp_intro.
   Qed.
-  
 End sub_typing.

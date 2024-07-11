@@ -27,7 +27,7 @@ From affect.logic Require Import compatibility.
 
 (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
 Opaque sem_sig_eff sem_sig_flip_bang.
 Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
 
@@ -118,7 +118,7 @@ Section typing.
       * iIntros (?). do 2 iApply sem_typed_swap_third.
         rewrite -/(yield_sig α) /cont_ty.
         iApply sem_typed_sub_env; first iApply env_le_cons; first iApply env_le_refl.
-        { iApply ty_le_aarr; first iApply (row_le_mfbang_intro OS); iApply ty_le_refl. }
+        { iApply ty_le_arr; first iApply (row_le_mfbang_intro OS); iApply ty_le_refl. }
         iApply sem_typed_seq.
         { iApply sem_typed_replace_cpy_os; iApply sem_typed_var. }
         iApply sem_typed_some. iApply sem_typed_var.
@@ -148,7 +148,7 @@ Section typing.
         * iApply row_le_refl. 
         * iApply (sem_typed_app_os (yield_ty α) _ _ _ [("i", iter_ty α)]); solve_sidecond.
           ** iApply sem_typed_sub_nil. iApply sem_typed_sub_ty.
-             { iApply ty_le_aarr; first iApply (row_le_mfbang_elim OS); iApply ty_le_refl. }
+             { iApply ty_le_arr; first iApply (row_le_mfbang_elim OS); iApply ty_le_refl. }
              iApply (sem_typed_RApp (λ ρ, ( α -{ ¡ ρ }-> ()) -{ ¡ ρ }-∘ ())); solve_sidecond.
              iApply sem_typed_var.
           ** iApply sem_typed_sub_nil.
