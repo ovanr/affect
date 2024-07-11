@@ -860,14 +860,16 @@ Section compatibility.
   Qed.
 
   (* mode abstraction and application *)
-  Lemma sem_typed_MLam C Γ₁ Γ₂ e : 
-    (∀ ν, Γ₁ ⊨ₒᵥ e : C ν ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ₒᵥ e : (∀M: ν , C ν)%T ⊨ Γ₂.
+  Lemma sem_typed_bang Γ₁ Γ₂ e τ :
+    copy_env Γ₁ -∗
+    (Γ₁ ⊨ₒᵥ e : τ ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ₒᵥ e : '! τ ⊨ Γ₂.
   Proof.
-    iIntros "#He !# %vs HΓ₁₂ /=".
+    iIntros "#Hcopy #He !# %vs HΓ₁₂ /=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ $]".
-    unshelve iApply pwp_forall; [apply _|]; iIntros (α).
-    iApply (pwp_wand with "(He HΓ₁)").
+    iApply pwp_intuitionistically.
+    iDestruct ("Hcopy" with "HΓ₁") as "#HΓ".
+    iModIntro. iApply (pwp_wand with "(He HΓ)").
     iIntros "% [$ ?]".
   Qed.
 
@@ -878,6 +880,17 @@ Section compatibility.
     iIntros "#He !# %vs HΓ₁ /=".
     iApply (ewpw_mono with "[HΓ₁]"); [iApply "He"; solve_env|].
     iIntros "!# %w [Hw $] //= !>".
+  Qed.
+
+  Lemma sem_typed_TLam C Γ₁ Γ₂ e : 
+    (∀ α, Γ₁ ⊨ₒᵥ e : C α ⊨ []) -∗
+    Γ₁ ++ Γ₂ ⊨ₒᵥ e : (∀T: α , C α)%T ⊨ Γ₂.
+  Proof.
+    iIntros "#He !# %vs HΓ₁₂ //=".
+    iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ $]". 
+    unshelve iApply pwp_forall; [apply _|]; iIntros (α).
+    iApply (pwp_wand with "(He HΓ₁)").
+    iIntros "% [$ ?]".
   Qed.
 
   (* Existential type packing and unpacking *)
