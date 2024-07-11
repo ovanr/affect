@@ -626,6 +626,21 @@ Qed.
     iApply mode_le_MS.
   Qed.
 
+  Lemma ty_le_bang_forall (τ : sem_ty Σ → sem_ty Σ) :
+    ⊢ '! (∀T: α, τ α) ≤T (∀T: α, '! (τ α)). 
+  Proof.
+    iIntros "!# %". rewrite /sem_ty_bang.
+    iIntros "#Hτ /= %". iApply "Hτ".
+  Qed.
+
+  Lemma ty_le_bang_forall_inv (τ : sem_ty Σ → sem_ty Σ) :
+    ⊢ (∀T: α, '! (τ α)) ≤T '! (∀T: α, (τ α)). 
+  Proof.
+    iIntros "!# %". rewrite /sem_ty_bang.
+    iIntros "#Hτ /= %". iApply "Hτ".
+  Qed.
+
+
   Lemma ty_le_aarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :
     ρ ≤R ρ' -∗
     τ₂ ≤T τ₁ -∗
