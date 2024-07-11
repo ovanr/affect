@@ -250,7 +250,7 @@ Qed.
 
 (* Relation on mode *)
 Definition mode_le {Σ} (m m' : modeO) : iProp Σ := 
-  (m ≡ m' ∨ m ≡ MS)%I.
+  (m ≡ m' ∨ m' ≡ MS)%I.
 
 Definition ty_le {Σ} (A B : sem_ty Σ) := tc_opaque (□ (∀ v, A v -∗ B v))%I.
 Global Instance ty_le_persistent {Σ} τ τ' :

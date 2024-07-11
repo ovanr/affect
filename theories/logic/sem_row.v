@@ -172,12 +172,16 @@ Definition row_type_sub {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : iProp Σ :=
 
 Notation "ρ ≼ₜ τ" := (row_type_sub ρ%R τ%T)%I (at level 80) : bi_scope.
 
-Lemma row_type_sub_fbang {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ (¡ ρ) ≼ₜ τ.
+Lemma row_type_sub_once {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) `{Once ρ} : ⊢ ρ ≼ₜ τ.
 Proof.
   iIntros (w v Φ) "!# Hρ Hτ".
-  pose proof (@row_fbang_once Σ ρ) as H. inv H. 
   iApply (monotonic_prot v Φ (λ w', Φ w' ∗ τ w)%I with "[Hτ] Hρ").
   iIntros "% $ //".
+Qed.
+
+Lemma row_type_sub_fbang {Σ} (ρ : sem_row Σ) (τ : sem_ty Σ) : ⊢ (¡ ρ) ≼ₜ τ.
+Proof.
+  iApply row_type_sub_once.
 Qed.
 
 Definition row_env_sub {Σ} (ρ : sem_row Σ) (Γ : env Σ) : iProp Σ := 
@@ -185,12 +189,15 @@ Definition row_env_sub {Σ} (ρ : sem_row Σ) (Γ : env Σ) : iProp Σ :=
 
 Notation "ρ ≼ₑ Γ" := (row_env_sub ρ%R Γ%T) (at level 80) : bi_scope.
 
-Lemma row_env_sub_fbang {Σ} (ρ : sem_row Σ) (Γ : env Σ) : ⊢ (¡ ρ) ≼ₑ Γ.
+Lemma row_env_sub_once {Σ} (ρ : sem_row Σ) (Γ : env Σ) `{Once ρ} : ⊢ ρ ≼ₑ Γ.
 Proof.
-  iIntros (vs v Φ) "!# Hρ HΓ".
-  pose proof (@row_fbang_once Σ ρ) as H. inv H. 
-  by iApply (monotonic_prot _ Φ with "[HΓ]"); first iIntros "% $ //".
+  iIntros (γ v Φ) "!# Hρ HΓ".
+  iApply (monotonic_prot v Φ (λ w', Φ w' ∗ ⟦ Γ ⟧ γ)%I with "[HΓ] Hρ").
+  iIntros "% $ //".
 Qed.
+
+Lemma row_env_sub_fbang {Σ} (ρ : sem_row Σ) (Γ : env Σ) : ⊢ (¡ ρ) ≼ₑ Γ.
+Proof. iApply row_env_sub_once. Qed.
 
 (* Subsumption relation on rows *)
 
@@ -236,6 +243,22 @@ Proof.
   destruct (decide (op = op')); first iNext; iExists Φ'; iFrame. 
 Qed.
 
+Corollary row_le_mfbang_cons_os {Σ} op m (σ : sem_sig Σ) (ρ : sem_row Σ) `{Once σ}:
+  ⊢ ¡_[ m ] ((op, σ) · ρ) ≤R (op, σ)%S · (¡_[ m ] ρ).
+Proof. 
+  iApply row_le_trans; first iApply row_le_mfbang_cons.
+  iApply row_le_cons_comp; last iApply row_le_refl.
+  iApply sig_le_mfbang_elim.
+Qed.
+
+Corollary row_le_mfbang_cons_eff {Σ} op m {TT : tele} (ι κ : tele_arg TT → sem_ty Σ) (ρ : sem_row Σ) :
+  ⊢ ¡_[ m ] ((op, ∀S..: α , ι α =[ m ]=> κ α) · ρ) ≤R (op, (∀S..: α , ι α =[ m ]=> κ α)%S) · (¡_[ m ] ρ).
+Proof. 
+  iApply row_le_trans; first iApply row_le_mfbang_cons.
+  iApply row_le_cons_comp; last iApply row_le_refl.
+  iApply sig_le_mfbang_elim_eff.
+Qed.
+
 Lemma row_le_mfbang_comp {Σ} (m : mode) (ρ ρ' : sem_row Σ) :
   ρ ≤R ρ' -∗
   ¡_[ m ] ρ ≤R ¡_[ m ] ρ'. 
@@ -254,20 +277,42 @@ Proof.
   iExists Φ. iFrame. iIntros (?) "$ //".
 Qed.
 
-Lemma row_le_fbang_elim {Σ} (ρ : sem_row Σ) `{! Once ρ}:
-  ⊢ ¡ ρ ≤R ρ. 
+Lemma row_le_mfbang_elim {Σ} m (ρ : sem_row Σ) `{! Once ρ}:
+  ⊢ ¡_[m] ρ ≤R ρ. 
 Proof. 
+  destruct m; simpl; last iApply row_le_refl.
   rewrite /sem_row_flip_bang. iIntros (??) "!# (%Φ' & Hρ & Hpost)". simpl.
   inv H. by iApply (monotonic_prot with "Hpost").
 Qed.
 
-Corollary row_le_fbang_nil {Σ} :
-   ⊢ ¡ ⟨⟩%R ≤R (⟨⟩%R : sem_row Σ).
-Proof. apply row_le_fbang_elim. apply _. Qed.
+Lemma row_le_mfbang_comm {Σ} m m' (ρ : sem_row Σ) :
+  ⊢ ¡_[m] (¡_[m'] ρ) ≤R ¡_[m'] (¡_[m] ρ).
+Proof. 
+  destruct m, m'; iApply row_le_refl.
+Qed.
 
-Corollary row_le_fbang_idemp {Σ} (ρ : sem_row Σ) :
-   ⊢ ¡ (¡ ρ) ≤R ¡ ρ.
-Proof. apply row_le_fbang_elim. apply _. Qed.
+Lemma row_le_mfbang_mode_le {Σ} m m' (ρ : sem_row Σ) :
+  ⊢ m' ≤M m -∗ (¡_[m] ρ) ≤R (¡_[m'] ρ).
+Proof. 
+  iIntros "H". destruct m.
+  - iDestruct (mode_le_OS_inv with "H") as "->".
+    iApply sig_le_refl.
+  - iApply row_le_mfbang_intro.
+Qed.
+
+Corollary row_le_fbang_nil {Σ} m :
+   ⊢ ¡_[m] ⟨⟩%R ≤R (⟨⟩%R : sem_row Σ).
+Proof. 
+  destruct m; simpl; last iApply row_le_refl.
+  apply (row_le_mfbang_elim OS). apply _. 
+Qed.
+
+Corollary row_le_fbang_idemp {Σ} m (ρ : sem_row Σ) :
+   ⊢ ¡_[m] (¡ ρ) ≤R ¡ ρ.
+Proof. 
+  destruct m; simpl; last iApply row_le_refl.
+  apply (row_le_mfbang_elim OS). apply _. 
+Qed.
 
 Corollary row_le_mfbang_rec {Σ} (m : mode) (R : sem_row Σ → sem_row Σ) `{ Contractive R }: 
   (∀ θ, ¡_[ m ] (R θ) ≤R (R θ)) -∗ ¡_[ m ] (μR: θ, R θ) ≤R (μR: θ, R θ).

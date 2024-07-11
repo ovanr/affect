@@ -19,7 +19,6 @@ From affect.logic Require Import sem_sig.
 From affect.logic Require Import sem_row.
 From affect.logic Require Import sem_types.
 From affect.logic Require Import sem_judgement.
-From affect.logic Require Import copyable.
 From affect.logic Require Import sem_operators.
 From affect.logic Require Import compatibility.
 From affect.logic Require Import tactics.
@@ -54,10 +53,15 @@ Section typing.
     iApply sem_typed_swap_second.
     iApply (sem_typed_seq () (¡_[ ν ] θ)%R _ _ [("x", ('!_[ν] α)%T)]).
     - iApply (sem_typed_app_gen () (¡ ⟨⟩)%R (¡_[ν] θ)%R (¡_[ν] θ)%R).
-      + iApply row_le_trans; [iApply row_le_fbang_elim|iApply row_le_nil].
+      + iApply row_le_trans; [iApply (row_le_mfbang_elim OS)|iApply row_le_nil].
       + iApply row_type_sub_fbang.
-      + iApply row_env_sub_cons. iApply row_type_sub_mfbang_mbang.
-    iApply sem_typed_app_nil; iApply sem_typed_var'.
+      + iApply row_env_sub_cons; first iApply row_env_sub_copy; solve_copy.  
+        iApply row_type_sub_mfbang_mbang.
+      + iApply row_le_refl. 
+      + iApply sem_typed_var'.
+      + iApply sem_typed_unit'.
+    - iApply sem_typed_sub_ty; first iApply (ty_le_mbang_elim ν).
+      iApply sem_typed_var'.
   Qed.
 
 End typing.

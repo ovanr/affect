@@ -1,5 +1,6 @@
 
 From iris.proofmode Require Import base tactics classes.
+From iris.program_logic Require Import weakestpre.
 
 Lemma non_dep_fun_equiv A B x (f f' : A -d> B) : 
   f ≡ f' → f x ≡ f' x.
@@ -51,3 +52,9 @@ Lemma prod_equivI_2 {PROP : bi} `{!BiInternalEq PROP} {A B : ofe} (x y : A * B) 
   (x ≡ y : PROP) ⊢ x.2 ≡ y.2.
 Proof. rewrite prod_equivI. iIntros "[_ $]". Qed.
 
+Lemma intuitionistically_if_mono_iprop {Σ} m (P Q : iProp Σ) : 
+  □ (P -∗ Q) -∗ □?m P -∗ □?m Q.
+Proof.
+  iIntros "#H". destruct m; simpl; last done.
+  iIntros "#HP !#". by iApply "H".
+Qed.

@@ -167,7 +167,7 @@ Proof.
 Qed.
 
 Lemma sig_le_eff {Σ} {TT : tele} m₁ m₂ (ι₁ ι₂ κ₁ κ₂ : tele_arg TT → sem_ty Σ) :
-  m₁ ≤M m₂ -∗
+  m₂ ≤M m₁ -∗
   □ (∀.. α, (ι₁ α) ≤T (ι₂ α)) -∗
   □ (∀.. α, (κ₂ α) ≤T (κ₁ α)) -∗
   (∀S..: α , ι₁ α =[ m₁ ]=> κ₁ α) ≤S (∀S..: α , ι₂ α =[ m₂ ]=> κ₂ α).
@@ -194,7 +194,13 @@ Lemma sig_le_eff_mode {Σ} {TT : tele} (ι κ : tele_arg TT → sem_ty Σ) :
   ⊢ (∀S..: α , ι α =[ MS ]=> κ α) ≤S (∀S..: α , ι α =[ OS ]=> κ α).
 Proof. iApply sig_le_eff; first iApply mode_le_MS; iIntros "!# % % !# $". Qed.
 
-Lemma sig_le_fbang_intro {Σ} m (σ : sem_sig Σ) :
+Lemma sig_le_mfbang_comm {Σ} m m' (σ : sem_sig Σ) :
+  ⊢ (¡_[ m ] (¡_[ m' ] σ)) ≤S (¡_[ m' ] (¡_[ m ] σ)).
+Proof.
+  destruct m, m'; iApply sig_le_refl.
+Qed.
+
+Lemma sig_le_mfbang_intro {Σ} m (σ : sem_sig Σ) :
   ⊢ σ ≤S (¡_[ m ] σ).
 Proof.
   rewrite /sem_sig_flip_bang. 
@@ -202,12 +208,20 @@ Proof.
   iExists Φ. iFrame. simpl. iIntros "% $".
 Qed.
 
-Lemma sig_le_fbang_elim {Σ} (σ : sem_sig Σ) `{! Once σ} :
-  ⊢ ¡ σ ≤S σ.
+Lemma sig_le_mfbang_elim {Σ} m (σ : sem_sig Σ) `{! Once σ} :
+  ⊢ ¡_[m] σ ≤S σ.
 Proof.
+  destruct m; simpl; last iApply sig_le_refl.
   rewrite /sem_sig_flip_bang. 
   iIntros (v Φ) "!# (%Φ' & Hσ & Himp)". simpl.
   inv H. iApply (monotonic_prot with "Himp Hσ").
+Qed.
+
+Lemma sig_le_mfbang_elim_eff {Σ} m {TT : tele} (ι κ : tele_arg TT → sem_ty Σ) :
+  ⊢ ¡_[m] (∀S..: α , ι α =[ m ]=> κ α) ≤S (∀S..: α , ι α =[ m ]=> κ α).
+Proof.
+  destruct m; simpl; last iApply sig_le_refl.
+  iApply (sig_le_mfbang_elim OS).
 Qed.
   
 Lemma sig_le_fbang_comp {Σ} (m : mode) (σ σ' : sem_sig Σ) :
@@ -217,4 +231,13 @@ Proof.
   destruct m; last done.
   rewrite /sig_le /sem_sig_flip_bang /tc_opaque.
   by iApply iEff_le_upcl.
+Qed.
+
+Lemma sig_le_mfbang_mode_le {Σ} m m' (σ : sem_sig Σ) :
+  m' ≤M m -∗  (¡_[ m ] σ) ≤S (¡_[ m' ] σ).
+Proof.
+  iIntros "H". destruct m.
+  - iDestruct (mode_le_OS_inv with "H") as "->".
+    iApply sig_le_refl.
+  - iApply sig_le_mfbang_intro.
 Qed.

@@ -17,9 +17,9 @@ From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.
 From affect.logic Require Import sem_env.
 From affect.logic Require Import sem_sig.
+From affect.logic Require Import mode.
 From affect.logic Require Import sem_row.
 From affect.logic Require Import sem_types.
-From affect.logic Require Import copyable.
 From affect.logic Require Import sem_judgement.
 From affect.logic Require Import sem_operators.
 From affect.logic Require Import compatibility.
@@ -238,7 +238,7 @@ Section typing.
       + iApply sem_typed_sub_nil.
         rewrite - {1} (app_nil_r []).
         iApply sem_typed_afun; solve_sidecond. simpl.
-        iApply sem_typed_sub_ty; [iApply ty_le_bang_intro; solve_copy|].
+        iApply sem_typed_sub_ty; [iApply (ty_le_mbang_intro MS); solve_copy|].
         iApply sem_typed_unit'.
   Qed.
 
@@ -318,7 +318,10 @@ Section typing.
     iIntros. rewrite /resume_task_ty.
     iApply sem_typed_closure; solve_sidecond. simpl.
     set add := ("add", add_ty)%T. rewrite -(app_nil_r [add]).
-    iApply sem_typed_TLam; solve_sidecond. iIntros (α).
+    iApply sem_typed_TLam; solve_sidecond. 
+    { iApply mode_env_sub_cons; first iApply mode_env_sub_ms; first solve_copy.
+      iApply mode_type_sub_ms; solve_copy. }
+    iIntros (α).
     rewrite -(app_nil_r [add]).
     iApply sem_typed_ufun; solve_sidecond. simpl.
     rewrite -(app_nil_r [("v", '! α); add]).
@@ -478,7 +481,7 @@ Section typing.
             [iApply (row_le_mfbang_intro OS)|iApply ty_le_refl|iApply ty_le_refl|].
            iApply sem_typed_sub_ty; first iApply ty_le_uarr; 
             [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_aarr|];
-            [iApply row_le_fbang_elim|iApply ty_le_refl|iApply ty_le_refl|].
+            [iApply (row_le_mfbang_elim OS)|iApply ty_le_refl|iApply ty_le_refl|].
            set C := (λ (θ : sem_row Σ), (('! β ⊸ ()) -{ ¡ θ }-> ()) → List ('! β ⊸ ()) -{ ¡ θ }-∘ ())%T.
            rewrite -/(C ⊥).
            iApply sem_typed_RApp; first solve_copy. 

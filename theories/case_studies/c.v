@@ -20,7 +20,6 @@ From affect.logic Require Import sem_sig.
 From affect.logic Require Import sem_row.
 From affect.logic Require Import sem_types.
 From affect.logic Require Import sem_judgement.
-From affect.logic Require Import copyable.
 From affect.logic Require Import sem_operators.
 From affect.logic Require Import compatibility.
 From affect.logic Require Import tactics.
@@ -123,7 +122,7 @@ Section typing.
     - iApply row_env_sub_copy; solve_copy.
     - iApply row_le_refl.
     - iApply (sem_typed_app_gen β (¡ ⟨⟩)%R (¡_[ ν ] θ)%R (¡_[ ν ] θ)%R).
-      + iApply row_le_trans; [iApply row_le_fbang_elim|iApply row_le_nil].
+      + iApply row_le_trans; [iApply (row_le_mfbang_elim OS)|iApply row_le_nil].
       + iApply row_type_sub_fbang.
       + iApply row_env_sub_copy; solve_copy.
       + iApply row_le_refl.

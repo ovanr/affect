@@ -18,7 +18,6 @@ theories/logic/sem_env.v
 theories/logic/ewpw.v
 theories/logic/sem_judgement.v
 theories/logic/sem_types.v
-theories/logic/copyable.v
 theories/logic/sem_operators.v
 theories/logic/tactics.v
 theories/logic/compatibility.v
@@ -27,9 +26,11 @@ theories/logic/adequacy.v
 theories/case_studies/app.v
 theories/case_studies/tossCoin.v
 theories/case_studies/c.v
+theories/case_studies/hid.v
 theories/case_studies/verboseClose.v
 theories/case_studies/state.v
 theories/case_studies/state_veri.v
+theories/case_studies/promotion.v
 theories/case_studies/generator_iterator.v
 theories/case_studies/cooperative_concurrency.v
 theories/case_studies/cooperative_concurrency_gen.v

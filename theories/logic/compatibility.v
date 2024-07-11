@@ -23,10 +23,10 @@ From affect.logic Require Import sem_def.
 From affect.logic Require Import sem_types.
 From affect.logic Require Import sem_judgement.
 From affect.logic Require Import tactics.
+From affect.logic Require Import mode.
 From affect.logic Require Import sem_sig.
 From affect.logic Require Import sem_row.
 From affect.logic Require Import sem_env.
-From affect.logic Require Import copyable.
 From affect.logic Require Import sem_judgement.
 From affect.logic Require Import sem_operators.
 From affect.logic Require Import ewpw.
@@ -126,11 +126,13 @@ Section compatibility.
         intros ?; simplify_eq.
   Qed.
 
-  Lemma sem_typed_Tclosure τ e :
+  Lemma sem_typed_Tclosure m τ e :
     (∀ α, ⊨ e : ⟨⟩ : τ α) -∗ 
-    ⊨ᵥ (Λ: e) : (∀T: α, τ α).
+    ⊨ᵥ (Λ: e) : (∀T:[m] α, τ α).
   Proof.
-    iIntros "#He !# %u !#". ewpw_pure_steps.
+    iIntros "#He !# %u". 
+    iApply bi.intuitionistically_intuitionistically_if. iIntros "!#".
+    ewpw_pure_steps.
     rewrite - {2} [e]subst_map_empty.
     iSpecialize ("He" $! u).
     iApply (ewpw_mono with "[He]"); [iApply "He"|]; first done. 
@@ -138,32 +140,34 @@ Section compatibility.
   Qed.
 
   (* row abstraction and application *)
-  Lemma sem_typed_Rclosure C e : 
+  Lemma sem_typed_Rclosure m C e : 
     (∀ θ, ⊨ e : ⟨⟩ : C θ) -∗
-    ⊨ᵥ (Λ: e) : (∀R: θ , C θ)%T.
+    ⊨ᵥ (Λ: e) : (∀R:[m] θ , C θ)%T.
   Proof.
-    iIntros "#He !# %ρ !# /=".
+    iIntros "#He !# %ρ".
+    iApply bi.intuitionistically_intuitionistically_if. iIntros "!#".
     ewpw_pure_steps. rewrite - {2} [e]subst_map_empty. 
     iApply (ewpw_mono with "[He]"); [by iApply "He"|].
     iIntros "!# % [$ _] //=". 
   Qed.
 
   (* mode abstraction and application *)
-  Lemma sem_typed_Mclosure C e : 
+  Lemma sem_typed_Mclosure C e m : 
     (∀ ν, ⊨ e : ⟨⟩ : C ν) -∗
-    ⊨ᵥ (Λ: e) : (∀M: ν , C ν)%T.
+    ⊨ᵥ (Λ: e) : (∀M:[m] ν , C ν)%T.
   Proof.
-    iIntros "#He !# %ρ !# /=".
+    iIntros "#He !# %ρ".
+    iApply bi.intuitionistically_intuitionistically_if. iIntros "!#".
     ewpw_pure_steps. rewrite - {2} [e]subst_map_empty. 
     iApply (ewpw_mono with "[He]"); [by iApply "He"|].
     iIntros "!# % [$ _] //=". 
   Qed.
 
   (* mode abstraction and application *)
-  Lemma sem_typed_Mclosure_alt C e : 
+  Lemma sem_typed_Mclosure_alt C e m : 
     (⊨ e : ⟨⟩ : C OS) -∗
     (⊨ e : ⟨⟩ : C MS) -∗
-    ⊨ᵥ (Λ: e) : (∀M: ν , C ν)%T.
+    ⊨ᵥ (Λ: e) : (∀M:[m] ν , C ν)%T.
   Proof.
     iIntros "#HeOS #HeMS". 
     iApply sem_typed_Mclosure. 
@@ -448,7 +452,7 @@ Section compatibility.
     iDestruct "HΓ₁₂" as "[HΓ₁' $]".
     iDestruct ("HcpyΓ₁" with "HΓ₁'") as "#HΓ₁".
     iLöb as "IH".
-    iIntros (α) "!#". ewpw_pure_steps. 
+    iIntros (α) "/= !#". ewpw_pure_steps. 
     rewrite /sem_ty_uarr /sem_ty_arr /=.
     destruct f; destruct x; simpl; 
     ewpw_pure_steps; iIntros (v) "!# Hτ"; ewpw_pure_steps.
@@ -470,6 +474,23 @@ Section compatibility.
       + by iApply "IH". 
       + by do 2 (rewrite -env_sem_typed_insert; last done).
       + iIntros "!# % [$ _] //=".
+  Qed.
+
+  Lemma sem_typed_fun τ ρ Γ₁ Γ₂ x e κ m: 
+    x ∉ (env_dom Γ₁) → x ∉ (env_dom Γ₂) → 
+    m ₘ≼ₑ Γ₁ -∗
+    (x,τ) ::? Γ₁ ⊨ e : ρ : κ ⊨ [] -∗
+    Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-[m]-> κ) ⊨ Γ₂.
+  Proof.
+    iIntros (??) "#HmΓ₁ #He !# %vs HΓ₁₂ //=".
+    iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
+    ewpw_pure_steps. iFrame. rewrite /sem_ty_arr /=.
+    iDestruct ("HmΓ₁" with "HΓ₁") as "HΓ₁".
+    iApply (intuitionistically_if_mono_iprop with "[] HΓ₁").
+    iIntros "!# HΓ₁ % Hτ". 
+    ewpw_pure_steps. rewrite subst'_subst_map_insert.
+    iApply (ewpw_mono with "[Hτ HΓ₁]"); [iApply "He"|iIntros "!# % [$ _] //="].
+    destruct x; solve_env. 
   Qed.
 
   Lemma sem_typed_let τ ρ κ Γ₁ Γ₂ Γ₃ x e₁ e₂: 
@@ -532,7 +553,7 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂".
     iApply (sem_typed_app _ ⟨⟩%R).
-    { iApply row_le_trans; [iApply row_le_fbang_elim|iApply row_le_nil]. }
+    { iApply row_le_trans; [iApply (row_le_mfbang_elim OS)|iApply row_le_nil]. }
     { iApply sem_typed_sub_nil. iApply "He₁". }
     iApply "He₂".
   Qed.
@@ -543,7 +564,7 @@ Section compatibility.
     Γ₁ ⊨ (e₁ e₂) : ρ : κ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂". 
-    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
+    iApply sem_typed_sub_row; first iApply (row_le_mfbang_elim OS).
     iApply (sem_typed_app_gen τ (¡ ρ)%R (¡ ρ)%R (¡ ρ)%R). 
     - iApply row_le_refl. 
     - iApply row_type_sub_fbang.
@@ -610,7 +631,7 @@ Section compatibility.
     Γ₁ ⊨ (e₁,e₂) : ρ : (τ × κ) ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂". 
-    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
+    iApply sem_typed_sub_row; first iApply (row_le_mfbang_elim OS).
     iApply (sem_typed_pair_gen τ (¡ ρ)%R).
     - iApply row_type_sub_fbang.
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
@@ -790,100 +811,105 @@ Section compatibility.
   Qed.
   
   (* Type abstraction and application *)
-  Lemma sem_typed_TLam C Γ₁ Γ₂ e : 
-    copy_env Γ₁ -∗
+  Lemma sem_typed_TLam C Γ₁ Γ₂ e m : 
+    m ₘ≼ₑ Γ₁ -∗
     (∀ α, Γ₁ ⊨ e : ⟨⟩ : C α ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀T: α , C α)%T ⊨ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀T:[m] α , C α)%T ⊨ Γ₂.
   Proof.
-    iIntros "#Hcpy #He !# %vs HΓ₁₂ //=".
+    iIntros "#HmΓ #He !# %vs HΓ₁₂ //=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
-    iDestruct ("Hcpy" with "HΓ₁") as "#HΓ₁'".
-    ewpw_pure_steps. iIntros "{$HΓ₂} %α //= !#". ewpw_pure_steps.
-    iApply ewpw_mono; [iApply "He"; solve_env|].
-    iIntros "!# %w [$ _] //=".
+    ewpw_pure_steps. iIntros "{$HΓ₂} %α //=". 
+    iDestruct ("HmΓ" with "HΓ₁") as "HΓ₁".
+    iApply (intuitionistically_if_mono_iprop with "[] HΓ₁").
+    iIntros "!# HΓ₁". 
+    ewpw_pure_steps. 
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|]. iIntros "!# %w [$ _] //=". 
   Qed.
 
-  Lemma sem_typed_TApp C τ ρ Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : ρ : (∀T: α , C α) ⊨ Γ₂ -∗
+  Lemma sem_typed_TApp C τ ρ Γ₁ Γ₂ e m :
+    Γ₁ ⊨ e : ρ : (∀T:[m] α , C α) ⊨ Γ₂ -∗
     Γ₁ ⊨ e <_> : ρ : C τ ⊨ Γ₂. 
   Proof.
     iIntros "#He !# %vs HΓ₁ /=".
     iApply (ewpw_bind [AppLCtx _]); first done.
     iApply (ewpw_mono with "[HΓ₁]"); [iApply "He"; solve_env|].
     iIntros "!# %w [Hw HΓ₂] //= !>".
-    iApply ewpw_sub; first iApply row_le_nil.
+    iApply ewpw_sub; first iApply row_le_nil. 
+    iSpecialize ("Hw" $! τ). rewrite /sem_ty_forall /= bi.intuitionistically_if_elim.
     iApply (ewpw_mono_os with "[Hw]"); [iApply "Hw"|].
     iIntros "% HC !>". iFrame "#∗".
   Qed.
 
   (* row abstraction and application *)
-  Lemma sem_typed_RLam C Γ₁ Γ₂ e : 
-    copy_env Γ₁ -∗
+  Lemma sem_typed_RLam C Γ₁ Γ₂ e m : 
+    m ₘ≼ₑ Γ₁ -∗
     (∀ θ, Γ₁ ⊨ e : ⟨⟩ : C θ ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀R: θ , C θ)%T ⊨ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀R:[m] θ , C θ)%T ⊨ Γ₂.
   Proof.
-    iIntros "#Hcpy #He !# %vs HΓ₁₂ /=".
+    iIntros "#HmΓ #He !# %vs HΓ₁₂ /=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
-    ewpw_pure_steps. iFrame.
-    iDestruct ("Hcpy" with "HΓ₁") as "#HΓ₁'".
-    iIntros (ρ). ewpw_pure_steps. iIntros "!#".
+    ewpw_pure_steps. iIntros "{$HΓ₂} %α //=". 
+    iDestruct ("HmΓ" with "HΓ₁") as "HΓ₁".
+    iApply (intuitionistically_if_mono_iprop with "[] HΓ₁").
+    iIntros "!# HΓ₁". 
     ewpw_pure_steps.
-    iApply ewpw_mono; [by iApply "He"|].
-    iIntros "!# % [$ _] //=".
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|]. iIntros "!# %w [$ _] //=". 
   Qed.
 
-  Lemma sem_typed_RApp C ρ ρ' Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : ρ : (∀R: θ , C θ) ⊨ Γ₂ -∗
+  Lemma sem_typed_RApp C ρ ρ' Γ₁ Γ₂ e m :
+    Γ₁ ⊨ e : ρ : (∀R:[m] θ , C θ) ⊨ Γ₂ -∗
     Γ₁ ⊨ e <_> : ρ : C ρ' ⊨ Γ₂. 
   Proof.
     iIntros "#He !# %vs HΓ₁ /=".
     iApply (ewpw_bind [AppLCtx _]); first done.
-    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
-    iIntros "!# %v [HC HΓ₂] /= !>".
-    iApply ewpw_sub; first iApply row_le_nil.
-    iApply (ewpw_mono_os with "[HC]"); [iApply ("HC" $! ρ')|].
-    iIntros "%w HCρ !>". iFrame "∗#".
+    iApply (ewpw_mono with "[HΓ₁]"); [iApply "He"; solve_env|].
+    iIntros "!# %w [Hw HΓ₂] //= !>".
+    iApply ewpw_sub; first iApply row_le_nil. 
+    iSpecialize ("Hw" $! ρ'). rewrite /sem_ty_forall /= bi.intuitionistically_if_elim.
+    iApply (ewpw_mono_os with "[Hw]"); [iApply "Hw"|].
+    iIntros "% HC !>". iFrame "#∗".
   Qed.
 
   (* mode abstraction and application *)
-  Lemma sem_typed_MLam C Γ₁ Γ₂ e : 
-    copy_env Γ₁ -∗
+  Lemma sem_typed_MLam C Γ₁ Γ₂ e m : 
+    m ₘ≼ₑ Γ₁ -∗
     (∀ ν, Γ₁ ⊨ e : ⟨⟩ : C ν ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀M: ν , C ν)%T ⊨ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀M:[m] ν , C ν)%T ⊨ Γ₂.
   Proof.
-    iIntros "#Hcpy #He !# %vs HΓ₁₂ /=".
+    iIntros "#HmΓ #He !# %vs HΓ₁₂ /=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ HΓ₂]".
-    ewpw_pure_steps. iFrame.
-    iDestruct ("Hcpy" with "HΓ₁") as "#HΓ₁'".
-    iIntros (m). ewpw_pure_steps. iIntros "!#".
+    ewpw_pure_steps. iIntros "{$HΓ₂} %α //=". 
+    iDestruct ("HmΓ" with "HΓ₁") as "HΓ₁".
+    iApply (intuitionistically_if_mono_iprop with "[] HΓ₁").
+    iIntros "!# HΓ₁". 
     ewpw_pure_steps.
-    iApply ewpw_mono; [by iApply "He"|].
-    iIntros "!# % [$ _] //=".
+    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|]. iIntros "!# %w [$ _] //=". 
   Qed.
 
   (* mode abstraction and application *)
-  Lemma sem_typed_MLam_alt C Γ₁ Γ₂ e : 
-    copy_env Γ₁ -∗
+  Lemma sem_typed_MLam_alt C Γ₁ Γ₂ e m : 
+    m ₘ≼ₑ Γ₁ -∗
     (Γ₁ ⊨ e : ⟨⟩ : C OS ⊨ []) -∗
     (Γ₁ ⊨ e : ⟨⟩ : C MS ⊨ []) -∗
-    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀M: ν , C ν)%T ⊨ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ (Λ: e) : ⟨⟩ : (∀M:[m] ν , C ν)%T ⊨ Γ₂.
   Proof.
-    iIntros "#Hcpy #HeOS #HeMS".
-    iApply (sem_typed_MLam with "Hcpy").
+    iIntros "#HmΓ #HeOS #HeMS".
+    iApply (sem_typed_MLam with "HmΓ").
     iIntros ([]); [iApply "HeOS"|iApply "HeMS"].
   Qed.
 
-  Lemma sem_typed_MApp C ρ m Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : ρ : (∀M: ν , C ν) ⊨ Γ₂ -∗
+  Lemma sem_typed_MApp C ρ m Γ₁ Γ₂ e m':
+    Γ₁ ⊨ e : ρ : (∀M:[m'] ν , C ν) ⊨ Γ₂ -∗
     Γ₁ ⊨ e <_> : ρ : C m ⊨ Γ₂. 
   Proof.
     iIntros "#He !# %vs HΓ₁ /=".
     iApply (ewpw_bind [AppLCtx _]); first done.
-    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
-    iIntros "!# %v [HC HΓ₂] /= !>".
-    iApply ewpw_sub; first iApply row_le_nil.
-    iApply (ewpw_mono_os with "[HC]"); [iApply ("HC" $! m)|].
-    iIntros "%w HCρ !>". iFrame "∗#".
+    iApply (ewpw_mono with "[HΓ₁]"); [iApply "He"; solve_env|].
+    iIntros "!# %w [Hw HΓ₂] //= !>".
+    iApply ewpw_sub; first iApply row_le_nil. 
+    iSpecialize ("Hw" $! m). rewrite /sem_ty_forall /= bi.intuitionistically_if_elim.
+    iApply (ewpw_mono_os with "[Hw]"); [iApply "Hw"|].
+    iIntros "% HC !>". iFrame "#∗".
   Qed.
 
   (* Existential type packing and unpacking *)
@@ -978,7 +1004,7 @@ Section compatibility.
     Γ₁ ⊨ CONS e₁ e₂ : ρ : List τ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂".
-    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
+    iApply sem_typed_sub_row; first iApply (row_le_mfbang_elim OS).
     iApply (sem_typed_cons_gen τ (¡ ρ)%R).
     - iApply row_type_sub_fbang.
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
@@ -1146,7 +1172,7 @@ Section compatibility.
     Γ₁ ⊨ (e₁ <- e₂) : ρ : () ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂".
-    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
+    iApply sem_typed_sub_row; first iApply (row_le_mfbang_elim OS).
     iApply (sem_typed_store_cpy_gen τ (¡ ρ)%R).
     - iApply row_type_sub_fbang.
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
@@ -1193,7 +1219,7 @@ Section compatibility.
     Γ₁ ⊨ (e₁ <!- e₂) : ρ : τ ⊨ Γ₃.
   Proof.
     iIntros "#He₁ #He₂".
-    iApply sem_typed_sub_row; first iApply row_le_fbang_elim.
+    iApply sem_typed_sub_row; first iApply (row_le_mfbang_elim OS).
     iApply (sem_typed_replace_cpy_gen τ (¡ ρ)%R).
     - iApply row_type_sub_fbang.
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
@@ -1213,13 +1239,14 @@ Section compatibility.
 
   (* Effect handling rules *)
   
-  Lemma sem_typed_perform_os {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
-    let σ := (∀S..: αs, A αs =[ OS ]=> B αs)%S in
+  Lemma sem_typed_perform {TT : tele} m τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
+    let σ := (∀S..: αs, A αs =[ m ]=> B αs)%S in
     let ρ := ((op, σ) · ρ')%R in
+    m ₘ≼ₑ Γ₂ -∗
     Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
     Γ₁ ⊨ (perform: op e) : ρ : B τs ⊨ Γ₂.
   Proof.
-    iIntros (σ ρ) "#He !# %vs HΓ₁ //=". 
+    iIntros (σ ρ) "#HmΓ₂ #He !# %vs HΓ₁ //=". 
     iApply (ewpw_bind [AppRCtx _; DoCtx MS; PairRCtx _]); simpl; first done.
     iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [Hι HΓ₂] //= !>". rewrite /rec_perform.
@@ -1229,7 +1256,21 @@ Section compatibility.
     rewrite decide_True //. iNext.
     rewrite sem_sig_eff_eq /=. iFrame "#∗".
     iExists τs, v. iFrame. iSplitR; first done.
+    iDestruct ("HmΓ₂" with "HΓ₂") as "HΓ₂".
+    iApply (intuitionistically_if_mono_iprop with "[] HΓ₂").
+    iIntros "!# HΓ₂". 
     iIntros "%b Hκ". ewpw_pure_steps. iFrame "∗#".
+  Qed.
+
+  Lemma sem_typed_perform_os {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
+    let σ := (∀S..: αs, A αs =[ OS ]=> B αs)%S in
+    let ρ := ((op, σ) · ρ')%R in
+    Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
+    Γ₁ ⊨ (perform: op e) : ρ : B τs ⊨ Γ₂.
+  Proof.
+    iIntros (σ ρ) "#He".
+    iApply sem_typed_perform; last iApply "He".
+    iApply mode_env_sub_os.
   Qed.
 
   Lemma sem_typed_perform_ms {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
@@ -1239,18 +1280,9 @@ Section compatibility.
     Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
     Γ₁ ⊨ (perform: op e) : ρ : B τs ⊨ Γ₂.
   Proof.
-    iIntros (σ ρ) "#HΓcpy #He !# %vs HΓ₁ //=". 
-    iApply (ewpw_bind [AppRCtx _; DoCtx MS; PairRCtx _]); simpl; first done.
-    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
-    iIntros "!# %v [Hι HΓ₂] //= !>". rewrite /rec_perform.
-    iApply (ewpw_bind [AppRCtx _]); first done.
-    ewpw_pure_steps. iApply ewpw_do_ms. simpl.
-    iExists op, v. iSplit; first done.
-    rewrite decide_True //. iNext.
-    rewrite sem_sig_eff_eq /=.
-    iExists τs, v. iFrame. iSplitR; first done.
-    iDestruct ("HΓcpy" with "HΓ₂") as "#HΓ₂'".
-    iIntros "!#"; iIntros "%b Hκ"; ewpw_pure_steps; iFrame "∗#".
+    iIntros (σ ρ) "#Hcpy #He".
+    iApply sem_typed_perform; last iApply "He".
+    by iApply mode_env_sub_ms.
   Qed.
 
   Lemma sem_typed_shandler {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :

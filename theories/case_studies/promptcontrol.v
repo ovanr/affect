@@ -20,7 +20,6 @@ From affect.logic Require Import sem_row.
 From affect.logic Require Import sem_types.
 From affect.logic Require Import ewpw.
 From affect.logic Require Import sem_judgement.
-From affect.logic Require Import copyable.
 From affect.logic Require Import sem_operators.
 From affect.logic Require Import compatibility.
 From affect.logic Require Import tactics.

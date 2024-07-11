@@ -16,7 +16,6 @@ From affect.lib Require Import base.
 From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.
 From affect.logic Require Import sem_row.
-From affect.logic Require Import copyable.
 From affect.logic Require Import sem_operators.
 From affect.logic Require Import ewpw.
 From affect.logic Require Import tactics.

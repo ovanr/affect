@@ -13,7 +13,6 @@ From affect.lib Require Import base.
 From affect.lib Require Import logic.
 From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.
-From affect.logic Require Import copyable.
 From affect.logic Require Import sem_types.
 From affect.logic Require Import sem_sig.
 From affect.logic Require Import sem_row.
@@ -58,12 +57,13 @@ Ltac solve_copy :=
     iApply copy_ty_bool ||
     iApply copy_ty_nat  ||
     iApply copy_ty_top ||
-    iApply copy_ty_cpy  ||
+    iApply copy_ty_bang  ||
     iApply copy_ty_uarr ||
     iApply copy_ty_prod ||
     iApply copy_ty_sum ||
     iApply copy_ty_forallT || 
     iApply copy_ty_forallR || 
+    iApply copy_ty_forallM || 
     iApply copy_ty_ref  || 
     iApply copy_ty_exists || 
     iApply copy_ty_rec || 
