@@ -141,11 +141,11 @@ Section handler_alt.
         + iApply "Hh". solve_env. 
           iSplitL; last (do 2 (rewrite - env_sem_typed_insert; solve_env)).
           destruct m; simpl.
-          * rewrite /sem_ty_aarr /sem_ty_arr /=. iIntros (?) "HB". 
+          * rewrite /sem_ty_bang /sem_ty_arr /=. iIntros (?) "HB". 
             iApply (ewpw_mono with "[Hκb HPost HB]").
             { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
             iIntros "!# % [$ _] //".
-          * rewrite /sem_ty_uarr /sem_ty_arr /=. 
+          * rewrite /sem_ty_bang /sem_ty_arr /=. 
             iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost". 
             iIntros "!# % HB". 
             iApply (ewpw_mono with "[Hκb HPost HB]").
@@ -160,7 +160,7 @@ Section typing.
 
   (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
   Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-  Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+  Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
   Opaque sem_sig_eff sem_sig_flip_bang.
   Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
 
@@ -232,7 +232,7 @@ Section typing.
       iApply sem_typed_app_os; last iApply sem_typed_var'.
       iApply sem_typed_sub_nil.
       iApply sem_typed_sub_ty.
-      + iApply ty_le_aarr; [|iApply ty_le_aarr|]; try iApply ty_le_refl;
+      + iApply ty_le_arr; [|iApply ty_le_arr|]; try iApply ty_le_refl;
         first iApply (row_le_rec_unfold (λ θ, ctrl_pre β θ)).
         iApply (row_le_rec_fold (λ θ, ctrl_pre β θ)).
       + iApply sem_typed_var'.

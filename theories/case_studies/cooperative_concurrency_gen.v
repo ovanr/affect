@@ -29,7 +29,7 @@ From affect.case_studies Require Import state.
 
 (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_aarr sem_ty_uarr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
 Opaque sem_sig_eff sem_sig_flip_bang.
 Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
 
@@ -424,7 +424,7 @@ Section typing.
      + iApply (sem_typed_app_ms () _ ('! β)); try solve_copy; [iApply sem_typed_var'|].
        rewrite -/(async_sig θ' (coop θ')) -/(await_sig θ') -/(coop_pre θ' (coop θ')).
        iApply sem_typed_sub_env_final.
-       { iApply env_le_cons; first iApply env_le_refl. iApply ty_le_aarr; try iApply ty_le_refl.
+       { iApply env_le_cons; first iApply env_le_refl. iApply ty_le_arr; try iApply ty_le_refl.
          rewrite /coop. iApply (row_le_rec_unfold (coop_pre θ')). }
        iApply sem_typed_unit'.
      + iIntros (β').
@@ -524,7 +524,7 @@ Section typing.
             [iApply row_le_refl|iApply ty_le_uarr|iApply ty_le_refl|];
             [iApply (row_le_mfbang_intro OS)|iApply ty_le_refl|iApply ty_le_refl|].
            iApply sem_typed_sub_ty; first iApply ty_le_uarr; 
-            [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_aarr|];
+            [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_arr|];
             [iApply (row_le_mfbang_elim OS)|iApply ty_le_refl|iApply ty_le_refl|].
             set C := (λ (θ : sem_row Σ), (('! β -{ θ' }-∘ ()) -{ ¡ θ }-> ()) → List ('! β -{θ'}-∘ ()) -{ ¡ θ }-∘ ())%T.
            rewrite -/(C ⊥).
@@ -564,7 +564,7 @@ Section typing.
     - iApply sem_typed_sub_ty; first iApply ty_le_u2aarr.
       iApply sem_typed_sub_ty.
       { iApply ty_le_uarr; [iApply row_le_refl| |iApply (ty_le_mbang_elim MS)].
-        iApply ty_le_aarr; [iApply row_le_refl|iApply ty_le_refl|iApply (ty_le_mbang_intro MS); solve_copy]. }
+        iApply ty_le_arr; [iApply row_le_refl|iApply ty_le_refl|iApply (ty_le_mbang_intro MS); solve_copy]. }
       set R := (λ α θ', (() -{ coop θ' }-∘ '! α) -{ θ' }-> '! α)%T.
       rewrite /coopstate -/(R () st).
       iApply (sem_typed_RApp (R ())).
