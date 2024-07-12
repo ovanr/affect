@@ -1244,6 +1244,23 @@ Section compatibility.
     iIntros "%b Hκ". ewpw_pure_steps. iFrame "∗#".
   Qed.
 
+  Lemma sem_typed_perform_alt {TT : tele} m τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
+    let σ := (¡_[m] (∀S..: αs, A αs =[ MS ]=> B αs))%S in
+    let ρ := ((op, σ) · ρ')%R in
+    m ₘ≼ₑ Γ₂ -∗
+    Γ₁ ⊨ e : ρ : A τs ⊨ Γ₂ -∗
+    Γ₁ ⊨ (perform: op e) : ρ : B τs ⊨ Γ₂.
+  Proof.
+    iIntros (σ ρ) "#HmΓ₂ #He".
+    iApply sem_typed_sub_row.
+    { iApply row_le_cons_comp; last iApply row_le_refl.
+       rewrite /σ. iApply sig_le_mfbang_elim_eff_ms_inv. }
+    iApply (sem_typed_perform with "HmΓ₂ [He]").
+    iApply sem_typed_sub_row; last iApply "He".
+    iApply row_le_cons_comp; last iApply row_le_refl.
+    rewrite /σ. iApply sig_le_mfbang_elim_eff_ms.
+  Qed.
+
   Lemma sem_typed_perform_os {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
     let σ := (∀S..: αs, A αs =[ OS ]=> B αs)%S in
     let ρ := ((op, σ) · ρ')%R in
@@ -1379,6 +1396,26 @@ Section compatibility.
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
   Qed.
 
+  Lemma sem_typed_handler_alt {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
+    let σ := (¡_[m] (∀S..: αs, A αs =[ MS ]=> B αs))%S in
+    let ρ := ((op, σ) · ρ')%R in
+    copy_env Γ' -∗
+    ρ' ≤R ρ'' -∗
+    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
+    (∀.. αs, (x, A αs) :: (k, '!_[ m] (B αs -{ ρ'' }-∘ τ')) :: Γ' ⊨ h : ρ'' : τ' ⊨ Γ₃) -∗
+    (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
+    Γ₁ ++ Γ' ⊨ (handle[m]: e by
+                    op => (λ: x k, h)
+                 | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
+  Proof.
+    iIntros (????????) "#Hcpy #Hle #He #Hh #Hr".
+    iApply (sem_typed_handler with "Hcpy Hle [He] Hh Hr"); try done.
+    iApply sem_typed_sub_row; last iApply "He".
+    iApply row_le_cons_comp; last iApply row_le_refl.
+    rewrite /σ. iApply sig_le_mfbang_elim_eff_ms.
+  Qed.
+
   Lemma sem_typed_handler2 {TT: tele} m op1 op2 (A1 B1 A2 B2 : TT → sem_ty Σ)τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k → op1 ≠ op2 →
     let σ1 := (∀S..: αs, A1 αs =[m]=> B1 αs)%S in
@@ -1441,6 +1478,30 @@ Section compatibility.
           { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
           iIntros "!# % [$ _] //".
       + iIntros "!# % [$ HΓ₃] !>". do 2 rewrite - env_sem_typed_insert //. 
+  Qed.
+
+  Lemma sem_typed_handler2_alt {TT: tele} m op1 op2 (A1 B1 A2 B2 : TT → sem_ty Σ)τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r :
+    x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k → op1 ≠ op2 →
+    let σ1 := (¡_[m] (∀S..: αs, A1 αs =[MS]=> B1 αs))%S in
+    let σ2 := (¡_[m] (∀S..: αs, A2 αs =[MS]=> B2 αs))%S in
+    let ρ := ((op1, σ1) · (op2, σ2) · ρ')%R in
+    copy_env Γ' -∗
+    ρ' ≤R ρ'' -∗
+    Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
+    (∀.. αs, (x, A1 αs) :: (k, '!_[m] (B1 αs -{ ρ'' }-∘ τ')) :: Γ' ⊨ h1 : ρ'' : τ' ⊨ Γ₃) -∗
+    (∀.. αs, (x, A2 αs) :: (k, '!_[m] (B2 αs -{ ρ'' }-∘ τ')) :: Γ' ⊨ h2 : ρ'' : τ' ⊨ Γ₃) -∗
+    (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
+    Γ₁ ++ Γ' ⊨ (handle2[m]: e by
+                  op1 => (λ: x k, h1)
+                | op2 => (λ: x k, h2)
+                | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
+  Proof.
+    iIntros (??????????) "#Hcpy #Hle #He #Hh1 #Hh2 #Hr".
+    iApply (sem_typed_handler2 with "Hcpy Hle [He] Hh1 Hh2 Hr"); try done.
+    iApply sem_typed_sub_row; last iApply "He".
+    iApply row_le_cons_comp; first iApply sig_le_mfbang_elim_eff_ms.
+    iApply row_le_cons_comp; first iApply sig_le_mfbang_elim_eff_ms.
+    iApply row_le_refl.
   Qed.
 
 End compatibility.
