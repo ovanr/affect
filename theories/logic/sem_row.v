@@ -308,7 +308,7 @@ Proof.
 Qed.
 
 Corollary row_le_fbang_idemp {Σ} m (ρ : sem_row Σ) :
-   ⊢ ¡_[m] (¡ ρ) ≤R ¡ ρ.
+   ⊢ ¡_[m] (¡_[m] ρ) ≤R ¡_[m] ρ.
 Proof. 
   destruct m; simpl; last iApply row_le_refl.
   apply (row_le_mfbang_elim OS). apply _. 

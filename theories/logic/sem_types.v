@@ -534,11 +534,18 @@ Section sub_typing.
     τ ≤T τ' -∗ ('!_[m] τ) ≤T ('!_[m] τ').
   Proof. iIntros "#Hττ'". destruct m; [done|by iApply ty_le_bang_comp]. Qed.
 
-  Lemma ty_le_mbang_idemp_intro m (τ : sem_ty Σ) :
+  Lemma ty_le_mbang_idemp m (τ : sem_ty Σ) :
     ⊢ '!_[m] τ ≤T '!_[m] ('!_[m] τ).
   Proof. 
     destruct m; simpl; first iApply ty_le_refl.
     iApply (ty_le_mbang_intro MS). iApply copy_ty_bang.
+  Qed.
+
+  Lemma ty_le_mbang_idemp_inv m (τ : sem_ty Σ) :
+    ⊢ '!_[m] ('!_[m] τ) ≤T '!_[m] τ.
+  Proof. 
+    destruct m; simpl; first iApply ty_le_refl.
+    iApply (ty_le_mbang_elim MS).
   Qed.
 
   Lemma ty_le_mbang_comm m m' (τ : sem_ty Σ) :
@@ -752,6 +759,6 @@ Section sub_typing.
     iApply ty_le_mbang_sum_intro.
     { iApply ty_le_mbang_intro. iApply copy_ty_unit. }
     iApply (ty_le_mbang_prod_intro with "[] Hle").
-    iApply ty_le_mbang_idemp_intro.
+    iApply ty_le_mbang_idemp.
   Qed.
 End sub_typing.
