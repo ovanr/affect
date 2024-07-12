@@ -11,23 +11,23 @@ in OCaml 5 and `theories` which gives the affine type and effect system.
 The project depends on `coq-hazel` a language with effects and effect handlers,
 together with its embedding in `iris` that allows us to reason about programs written in Hazel.
 
--------------------------------------------------------------------------------------------------------------------------|
-| theories/case_studies/*.v         |  various typings of examples                                                       |
-| theories/logic/adequacy.v         |  proves adeaquacy of semantic judgment                                             |
-| theories/logic/compatibility.v    |  semantic typing rules                                                             |
-| theories/logic/ewpw.v             |  wrapper around extended weakest precondition of Hazel                             |
-| theories/logic/mode.v             |  lemmas related to modes                                                           |
-| theories/logic/sem_def.v          |  main semantic definition of types, signatures, rows, environments and relations   |
-| theories/logic/sem_env.v          |  lemmas and definitions related to environments                                    |
-| theories/logic/sem_judgement.v    |  definition of semantic judgment                                                   |
-| theories/logic/sem_operators.v    |  unary and binary operators                                                        |
-| theories/logic/sem_row.v          |  lemmas and definitions related to rows                                            |
-| theories/logic/sem_sig.v          |  lemmas and definitions related to signatures                                      |
-| theories/logic/sem_types.v        |  lemmas and definitions related to types                                           |
-| theories/logic/tactics.v          |  tactics                                                                           |
-| theories/lang/handler.v           |  Affect's hander encodings to Hazel                                                |
-| theories/lang/affect.v            |  Affect's encodings to Hazel                                                       |
---------------------------------------------------------------------------------------------------------------------------
+| File                              | Description
+| --------------------------------- | -------------------------------------------------------------------------------------
+| theories/case_studies/*.v         |  various typings of examples                                                       
+| theories/logic/adequacy.v         |  proves adeaquacy of semantic judgment                                             
+| theories/logic/compatibility.v    |  semantic typing rules                                                             
+| theories/logic/ewpw.v             |  wrapper around extended weakest precondition of Hazel                             
+| theories/logic/mode.v             |  lemmas related to modes                                                           
+| theories/logic/sem_def.v          |  main semantic definition of types, signatures, rows, environments and relations   
+| theories/logic/sem_env.v          |  lemmas and definitions related to environments                                    
+| theories/logic/sem_judgement.v    |  definition of semantic judgment                                                   
+| theories/logic/sem_operators.v    |  unary and binary operators                                                        
+| theories/logic/sem_row.v          |  lemmas and definitions related to rows                                            
+| theories/logic/sem_sig.v          |  lemmas and definitions related to signatures                                      
+| theories/logic/sem_types.v        |  lemmas and definitions related to types                                           
+| theories/logic/tactics.v          |  tactics                                                                           
+| theories/lang/handler.v           |  Affect's hander encodings to Hazel                                                
+| theories/lang/affect.v            |  Affect's encodings to Hazel                                                       
 
 # Installation
 
