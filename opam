@@ -1,9 +1,9 @@
 name: "coq-affect"
 synopsis: "A Substructural Type And Effect System"
 opam-version: "2.0"
-maintainer: "Orpheas van Rooij(orpheas.vanrooij@ru.nl)"
+maintainer: "Anonymous"
 bug-reports: "Anonymous"
-authors: [ "Orpheas van Rooij" ]
+authors: [ "Anonymous" ]
 homepage: "none"
 version: "5.0.0"
 license: "GPL"
