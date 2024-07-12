@@ -14,7 +14,7 @@ together with its embedding in `iris` that allows us to reason about programs wr
 | File                              | Description
 | --------------------------------- | -------------------------------------------------------------------------------------
 | theories/case_studies/*.v         |  various typings of examples                                                       
-| theories/logic/adequacy.v         |  proves adeaquacy of semantic judgment                                             
+| theories/logic/adequacy.v         |  proves adequacy of semantic judgment                                             
 | theories/logic/compatibility.v    |  semantic typing rules                                                             
 | theories/logic/ewpw.v             |  wrapper around extended weakest precondition of Hazel                             
 | theories/logic/mode.v             |  lemmas related to modes                                                           
