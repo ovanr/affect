@@ -21,6 +21,7 @@ From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.
 From affect.logic Require Import sem_sig.
 From affect.logic Require Import sem_row.
+From affect.logic Require Import sem_types.
 From affect.logic Require Import ewpw.
 
 (* Semantic typing judgment. *)
@@ -60,21 +61,18 @@ Proof.
   unfold sem_oval_typed, tc_opaque. apply _.
 Qed.
 
-Notation "Γ₁ ⊨ e : ρ : α ⊨ Γ₂" := (sem_typed Γ₁ e%E ρ%R α%T Γ₂)
-  (at level 74, e, ρ, α at next level) : bi_scope.
+Notation "Γ₁ ⊨ e : ρ : τ ⫤ Γ₂" := (sem_typed Γ₁%EN e%E ρ%R τ%T Γ₂%EN)
+  (at level 74, e, ρ, τ at next level) : bi_scope.
 
-Notation "⊨ e : ρ : α" := (sem_typed [] e%E ρ%R α%T [])
-  (at level 74, e, ρ, α at next level) : bi_scope.
+Notation "⊨ e : ρ : τ" := (sem_typed [] e%E ρ%R τ%T [])
+  (at level 74, e, ρ, τ at next level) : bi_scope.
 
-Notation "Γ₁ ⊨ₒᵥ e : α ⊨ Γ₂" := (sem_oval_typed Γ₁ e%E α%T Γ₂)
+Notation "Γ₁ ⊨ₚ e : α ⫤ Γ₂" := (sem_oval_typed Γ₁%EN e%E α%T Γ₂%EN)
   (at level 74, e, α at next level) : bi_scope.
 
-Notation "⊨ₒᵥ e : α" := (sem_oval_typed [] e%E α%T [])
+Notation "⊨ₚ e : α" := (sem_oval_typed [] e%E α%T [])
   (at level 74, e, α at next level) : bi_scope.
 
-(* The value semantic typing judgement is also defined
- * to be persistent, so only persistent values hold for it.
- *) 
 Definition sem_val_typed `{!irisGS eff_lang Σ} 
   (v : val) 
   (A : sem_ty Σ) : iProp Σ := tc_opaque (□ (A v))%I.
@@ -82,6 +80,8 @@ Definition sem_val_typed `{!irisGS eff_lang Σ}
 Notation "⊨ᵥ v : τ" := (sem_val_typed v%V τ%T)
   (at level 20, v, τ at next level) : bi_scope.
 
+(* The value semantic typing judgement is also defined
+ * to be persistent, so only persistent values hold for it. *) 
 Global Instance sem_typed_val_persistent `{!irisGS eff_lang Σ} v τ :
   Persistent (sem_val_typed v τ).
 Proof.

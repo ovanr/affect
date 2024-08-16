@@ -47,45 +47,37 @@ Ltac solve_disjoint :=
       done
     ).
 
-Ltac solve_copy :=
+Ltac solve_multi :=
   repeat (
     rewrite !env_sem_typed_empty ||
     rewrite !env_sem_typed_cons ||
     iIntros "#?" ||
-    iApply copy_ty_void ||
-    iApply copy_ty_unit ||
-    iApply copy_ty_bool ||
-    iApply copy_ty_nat  ||
-    iApply copy_ty_top ||
-    iApply copy_ty_bang  ||
-    iApply copy_ty_uarr ||
-    iApply copy_ty_prod ||
-    iApply copy_ty_sum ||
-    iApply copy_ty_forallT || 
-    iApply copy_ty_forallR || 
-    iApply copy_ty_forallM || 
-    iApply copy_ty_ref  || 
-    iApply copy_ty_exists || 
-    iApply copy_ty_rec || 
-    iApply copy_ty_option || 
-    iApply copy_ty_list || 
-    iApply copy_env_nil || 
-    iApply copy_env_cons).
-
-Ltac solve_row_type_sub :=
-  try (iApply row_type_sub_copy || iApply row_type_sub_bang || iApply row_type_sub_fbang || iApply row_type_sub_mfbang_mbang).
-
-Ltac solve_row_env_sub :=
-  try (iApply row_env_sub_copy || iApply row_env_sub_fbang).
+    iApply multi_ty_void ||
+    iApply multi_ty_unit ||
+    iApply multi_ty_bool ||
+    iApply multi_ty_int  ||
+    iApply multi_ty_top ||
+    iApply multi_ty_mbang  ||
+    iApply multi_ty_uarr ||
+    iApply multi_ty_prod ||
+    iApply multi_ty_sum ||
+    iApply multi_ty_type_forall || 
+    iApply multi_ty_row_forall || 
+    iApply multi_ty_mode_forall || 
+    iApply multi_ty_ref_cpy  || 
+    iApply multi_ty_exists || 
+    iApply multi_ty_rec || 
+    iApply multi_ty_option || 
+    iApply multi_ty_list || 
+    iApply multi_env_nil || 
+    iApply multi_env_cons).
 
 Ltac solve_sidecond := 
     try rewrite !env_dom_nil;
     try rewrite !env_dom_cons;
     solve_dom; 
     solve_disjoint;
-    solve_copy;
-    solve_row_type_sub;
-    solve_row_env_sub.
+    solve_multi.
 
 Ltac solve_dec := 
     ((rewrite decide_True; last (done || split; eauto; intros ?; by simplify_eq)) ||

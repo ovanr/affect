@@ -24,7 +24,6 @@ Global Instance mode_inhabited : Inhabited mode := populate MS.
 Canonical Structure modeO := leibnizO mode.
 Canonical Structure stringO := leibnizO string.
 
-
 (** * Semantic Types. *)
 
 (* We equip sem_ty with the OFE structure val -d> iPropO
@@ -32,7 +31,6 @@ Canonical Structure stringO := leibnizO string.
 Definition sem_ty Σ := (val -d> iPropO Σ)%type.
 
 Declare Scope sem_ty_scope.
-(* Bind Scope sem_ty_scope with sem_ty. *)
 Delimit Scope sem_ty_scope with T.
 
 (** * Persistently Monotonic Protocols. *)
@@ -172,13 +170,13 @@ Due to the requirement that a type environment Γ is env_sem_typed,
 we can utilize the seperation logic's disjointness to argue about
 variables occuring twice in the environment.
 
-Thus if we have a `env_sem_typed Γ vs` assumption and
+Thus if we have a `env_sem_typed Γ γ` assumption and
 the same variable occurs twice in Γ we get that:
 
 ∙ They cannot be of the same non-persistent type (e.g. ref nat):
-  So if we have `env_typed (l : ref nat; l : ref nat) vs`,  
+  So if we have `env_typed (l : ref nat; l : ref nat) γ`,  
   since the variables l are the same, we would have
-  that l, v ∈ vs, and that ⟦ ref nat ⟧ v ∗ ⟦ ref nat ⟧ v
+  that l, v ∈ γ, and that  ref nat ⊨ v ∗  ref nat ⊨ v
   But that means we would need to provide that l ↦ w ∗ l ↦ w
   which would be impossible.
 
@@ -186,7 +184,7 @@ the same variable occurs twice in Γ we get that:
   Then it is fine, in fact it must be allowed to allow for Copy types
 
 ∙ If they don't have the same type:
-  Then `vs` would still have only 1 value for the variable `l` so
+  Then `γ` would still have only 1 value for the variable `l` so
   it would be impossible to provide env_typed proof.
 
 *)
@@ -194,57 +192,36 @@ the same variable occurs twice in Γ we get that:
 Definition env Σ := (list (string * sem_ty Σ)).
 
 Declare Scope sem_env_scope.
-
 Delimit Scope sem_env_scope with EN.
-
-(* Copyable types *)
-Definition copy_ty {Σ} (τ : sem_ty Σ) := 
-  tc_opaque (□ (∀ v, τ%T v -∗ □ τ%T v))%I.
-
-Global Instance copy_ty_persistent {Σ} (τ : sem_ty Σ) :
-  Persistent (copy_ty τ).
-Proof.
-  unfold copy_ty, tc_opaque. apply _.
-Qed.
 
 (** The domain of the environment. *)
 Definition env_dom {Σ} (Γ : env Σ) : list string := (map fst Γ).
 Global Opaque env_dom.
 
-Fixpoint env_sem_typed {Σ} (Γ : env Σ) (vs : gmap string val) : iProp Σ :=
+Fixpoint env_sem_typed {Σ} (Γ : env Σ) (γ : gmap string val) : iProp Σ :=
   match Γ with
     | [] => emp
-    | (x,A) :: Γ' => (∃ v, ⌜ vs !! x = Some v ⌝ ∗ A v) ∗ 
-                     env_sem_typed Γ' vs
+    | (x,A) :: Γ' => (∃ v, ⌜ γ !! x = Some v ⌝ ∗ A v) ∗ 
+                     env_sem_typed Γ' γ
   end.
 
-Notation "⟦ Γ ⟧" := (env_sem_typed Γ)%T.
+Notation "Γ ⊨ₑ γ" := (env_sem_typed Γ γ) (at level 70).
 
-Global Instance env_sem_typed_into_exist {Σ} x τ (Γ : env Σ) vs : 
-  IntoExist (⟦ (x, τ) :: Γ ⟧ vs) (λ v, ⌜ vs !! x = Some v ⌝ ∗ τ v ∗ ⟦ Γ ⟧ vs)%I (to_ident_name v).
+Global Instance env_sem_typed_into_exist {Σ} x τ (Γ : env Σ) γ : 
+  IntoExist ((x, τ) :: Γ ⊨ₑ γ) (λ v, ⌜ γ !! x = Some v ⌝ ∗ τ v ∗ Γ ⊨ₑ γ)%I (to_ident_name v).
 Proof.
   rewrite /IntoExist /=. iIntros "[(%v & Hrw & Hτ) HΓ]". 
   iExists v. iFrame.
 Qed.
 
-Global Instance env_sem_typed_from_exist {Σ} x τ (Γ : env Σ) vs: 
-  FromExist (⟦ (x, τ) :: Γ ⟧ vs) (λ v, ⌜ vs !! x = Some v ⌝ ∗ τ v ∗ ⟦ Γ ⟧ vs)%I .
+Global Instance env_sem_typed_from_exist {Σ} x τ (Γ : env Σ) γ: 
+  FromExist ((x, τ) :: Γ ⊨ₑ γ) (λ v, ⌜ γ !! x = Some v ⌝ ∗ τ v ∗ Γ ⊨ₑ γ)%I .
 Proof.
   rewrite /FromExist /=. iIntros "[%v (Hrw & Hτ & HΓ)]". 
   iFrame. iExists v. iFrame.
 Qed.
 
 Global Opaque env_sem_typed.
-
-(* Copyable environment *)
-Definition copy_env {Σ} (Γ : env Σ) :=
-  tc_opaque (□ (∀ vs, ⟦ Γ ⟧ vs -∗ □ ⟦ Γ ⟧ vs))%I.
-
-Global Instance copy_env_persistent {Σ} (Γ : env Σ) :
-  Persistent (copy_env Γ).
-Proof.
-  unfold copy_env, tc_opaque. apply _.
-Qed.
 
 (* Sub-typing and relations *)
 
@@ -275,19 +252,23 @@ Proof.
 Qed.
 
 Definition env_le {Σ} (Γ₁ Γ₂ : env Σ) :=
-  tc_opaque (□ (∀ vs, ⟦ Γ₁ ⟧ vs -∗ ⟦ Γ₂ ⟧ vs))%I.
+  tc_opaque (□ (∀ γ,  Γ₁ ⊨ₑ γ -∗  Γ₂ ⊨ₑ γ))%I.
 Global Instance env_le_persistent {Σ} (Γ Γ' : env Σ) :
   Persistent (env_le Γ Γ').
 Proof.
   unfold env_le, tc_opaque. apply _.
 Qed.
 
-Notation "m '≤M' m'" := (mode_le m m') (at level 98).
-Notation "m '≤M@{' Σ } m'" := (@mode_le Σ m m') (at level 98, only parsing).
-Notation "τ '≤T' κ" := (ty_le τ%T κ%T) (at level 98).
-Notation "σ '≤S' σ'" := (sig_le σ%S σ'%S) (at level 98).
-Notation "ρ '≤R' ρ'" := (row_le ρ%R ρ'%R) (at level 98).
-Notation "Γ₁ '≤E' Γ₂" := (env_le Γ₁ Γ₂) (at level 98).
+Notation "m '≤ₘ' m'" := (mode_le m m') (at level 98).
+Notation "m '≤ₘ@{' Σ '}' m'" := (@mode_le Σ m m') (at level 98).
+Notation "τ '≤ₜ' κ" := (ty_le τ%T κ%T) (at level 98).
+Notation "τ '≤ₜ@{' Σ '}' κ" := (@ty_le Σ τ%T κ%T) (at level 98).
+Notation "σ '≤ₛ' σ'" := (sig_le σ%S σ'%S) (at level 98).
+Notation "σ '≤ₛ@{' Σ '}' σ'" := (@sig_le Σ σ%S σ'%S) (at level 98).
+Notation "ρ '≤ᵣ' ρ'" := (row_le ρ%R ρ'%R) (at level 98).
+Notation "ρ '≤ᵣ@{' Σ '}' ρ'" := (@row_le Σ ρ%R ρ'%R) (at level 98).
+Notation "Γ₁ '≤ₑ' Γ₂" := (env_le Γ₁%EN Γ₂%EN) (at level 98).
+Notation "Γ₁ '≤ₑ@{' Σ '}' Γ₂" := (@env_le Σ Γ₁%EN Γ₂%EN) (at level 98).
 
 Global Instance mode_le_ne {Σ} :
   NonExpansive2 (@mode_le Σ).

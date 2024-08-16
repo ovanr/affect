@@ -25,115 +25,98 @@ Definition mode_lub m m' : mode :=
   | OS => m'
   end.
 
-Lemma mode_glb_idemp m :
-  mode_glb m m = m.
+Global Instance mode_meet : Meet mode := mode_glb.
+Global Instance mode_join : Join mode := mode_lub.
+
+Lemma mode_glb_idemp (m : mode) :
+  m ⊓ m = m.
 Proof. by destruct m. Qed.
 
-Lemma mode_glb_assoc m₁ m₂ m₃ :
-  mode_glb m₁ (mode_glb m₂ m₃) = (mode_glb (mode_glb m₁ m₂) m₃).
+Lemma mode_glb_assoc (m₁ m₂ m₃ : mode) :
+  m₁ ⊓ (m₂ ⊓ m₃) = ((m₁ ⊓ m₂) ⊓ m₃).
 Proof. by destruct m₁. Qed.
 
-Lemma mode_glb_comm m₁ m₂ :
-  mode_glb m₁ m₂ = mode_glb m₂ m₁.
+Lemma mode_glb_comm (m₁ m₂ : mode) :
+  m₁ ⊓ m₂ = m₂ ⊓ m₁.
 Proof. by destruct m₁, m₂. Qed.
 
 Lemma mode_glb_os m :
-  mode_glb OS m = OS.
+  OS ⊓ m = OS.
 Proof. destruct m; eauto. Qed.
 
-Lemma mode_lub_idemp m :
-  mode_lub m m = m.
+Lemma mode_lub_idemp (m : mode) :
+  m ⊔ m = m.
 Proof. by destruct m. Qed.
 
-Lemma mode_lub_assoc m₁ m₂ m₃ :
-  mode_lub m₁ (mode_lub m₂ m₃) = (mode_lub (mode_lub m₁ m₂) m₃).
+Lemma mode_lub_assoc (m₁ m₂ m₃ : mode) :
+  m₁ ⊔ (m₂ ⊔ m₃) = ((m₁ ⊔ m₂) ⊔ m₃).
 Proof. by destruct m₁. Qed.
 
-Lemma mode_lub_comm m₁ m₂ :
-  mode_lub m₁ m₂ = mode_lub m₂ m₁.
+Lemma mode_lub_comm (m₁ m₂ : mode) :
+  m₁ ⊔ m₂ = m₂ ⊔ m₁.
 Proof. by destruct m₁, m₂. Qed.
 
 Lemma mode_lub_ms m :
-  mode_lub MS m = MS.
+  MS ⊔ m = MS.
 Proof. destruct m; eauto. Qed.
 
+Section mode_sub_typing.
 
-(* Sub-Typing on Mode *)
+  (* Sub-Typing on Mode *)
+  
+  Lemma mode_le_refl {Σ} (m : mode) : ⊢ (m ≤ₘ m : iProp Σ).
+  Proof. by iLeft. Qed.
+  
+  Lemma mode_le_trans {Σ} (m1 m2 m3 : mode) : 
+    m1 ≤ₘ m2 -∗
+    m2 ≤ₘ m3 -∗
+    (m1 ≤ₘ m3 : iProp Σ).
+  Proof. iIntros "#H12 H23". destruct m1,m2,m3; eauto. Qed.
+  
+  Lemma mode_le_MS {Σ} (m : mode) : 
+    ⊢ (m ≤ₘ MS : iProp Σ).
+  Proof. by iRight. Qed.
+  
+  Lemma mode_lub_le {Σ} (m₁ m₁' m₂ m₂' : mode) :
+    m₁ ≤ₘ m₁' -∗ m₂ ≤ₘ m₂' -∗
+    m₁ ⊔ m₂ ≤ₘ@{ Σ } m₁' ⊔ m₂'.
+  Proof. iIntros "Hm₁₁' Hm₂₂'". destruct m₁,m₂,m₁',m₂'; eauto. Qed.
+  
+  Lemma mode_le_OS {Σ} (m : mode) : 
+    ⊢ (OS ≤ₘ m : iProp Σ).
+  Proof. destruct m; eauto. Qed.
+  
+  Lemma mode_le_OS_inv {Σ} (m : mode) : 
+    (m ≤ₘ@{ Σ } OS ) -∗ m ≡ OS.
+  Proof.
+    iIntros "H". destruct m; first done.
+    iDestruct "H" as "%H". inv H.
+  Qed.
 
-Lemma mode_le_refl {Σ} (m : mode) : ⊢ (m ≤M m : iProp Σ).
-Proof. by iLeft. Qed.
+End mode_sub_typing.
 
-Lemma mode_le_trans {Σ} (m1 m2 m3 : mode) : 
-  m1 ≤M m2 -∗
-  m2 ≤M m3 -∗
-  (m1 ≤M m3 : iProp Σ).
-Proof. iIntros "#H12 H23". destruct m1,m2,m3; eauto. Qed.
+Section mode_type_sub.
 
-Lemma mode_le_MS {Σ} (m : mode) : 
-  ⊢ (m ≤M MS : iProp Σ).
-Proof. by iRight. Qed.
+  Class ModeTypeSub {Σ} (m : mode) (τ : sem_ty Σ) := {
+    mode_type_sub : ⊢ (∀ v, τ v -∗ □? m (τ v))
+  }.
+  
+  Global Instance mode_type_sub_os {Σ} (τ : sem_ty Σ) : ModeTypeSub OS τ.
+  Proof. constructor. iIntros "% /= $ //". Qed.
 
-Lemma mode_lub_le {Σ} (m₁ m₁' m₂ m₂' : mode) :
-  m₁ ≤M m₁' -∗ m₂ ≤M m₂' -∗
-  mode_lub m₁ m₂ ≤M@{ Σ } mode_lub m₁' m₂'.
-Proof. iIntros "Hm₁₁' Hm₂₂'". destruct m₁,m₂,m₁',m₂'; eauto. Qed.
+End mode_type_sub.
+  
+Section mode_env_sub.
 
-Lemma mode_le_OS {Σ} (m : mode) : 
-  ⊢ (OS ≤M m : iProp Σ).
-Proof. destruct m; eauto. Qed.
+  Class ModeEnvSub {Σ} (m : mode) (Γ : env Σ) := {
+    mode_env_sub : ⊢ (∀ γ, Γ ⊨ₑ γ -∗ □? m (Γ ⊨ₑ γ))
+  }.
 
-Lemma mode_le_OS_inv {Σ} (m : mode) : 
-  (m ≤M OS : iProp Σ) -∗ m ≡ OS.
-Proof.
-  iIntros "H". destruct m; first done.
-  iDestruct "H" as "%H". inv H.
-Qed.
+  Global Instance mode_env_sub_os {Σ} (Γ : env Σ) : ModeEnvSub OS Γ.
+  Proof. constructor. iIntros "% /= $ //". Qed.
+  
+End mode_env_sub.
 
-Notation "m ⊓ₘ m'" := (mode_glb m m') (at level 80) : bi_scope.
-Notation "m ⊔ₘ m'" := (mode_lub m m') (at level 80) : bi_scope.
-
-Definition mode_type_sub {Σ} (m : mode) (τ : sem_ty Σ) : iProp Σ :=
-  □ (∀ v, τ v -∗ □? m (τ v)).
-
-Notation "m ₘ≼ₜ τ" := (mode_type_sub m τ%T) (at level 80) : bi_scope.
-
-Lemma mode_type_sub_os {Σ} (τ : sem_ty Σ) : ⊢ OS ₘ≼ₜ τ.
-Proof. rewrite /mode_type_sub /=. iIntros "!# % $ //". Qed.
-
-Lemma mode_type_sub_ms {Σ} m (τ : sem_ty Σ) : copy_ty τ ⊢ m ₘ≼ₜ τ.
-Proof. 
-  rewrite /mode_type_sub /=. iIntros "#Hcpy !# % Hτ". 
-  iApply bi.intuitionistically_intuitionistically_if.
-  iApply ("Hcpy" with "Hτ"). 
-Qed.
-
-Definition mode_env_sub {Σ} (m : mode) (Γ : env Σ) : iProp Σ :=
-  □ (∀ γ, ⟦ Γ ⟧ γ -∗ □? m (⟦ Γ ⟧ γ)).
-
-Notation "m ₘ≼ₑ Γ" := (mode_env_sub m Γ%T) (at level 80) : bi_scope.
-
-Lemma mode_env_sub_os {Σ} (Γ : env Σ) : ⊢ OS ₘ≼ₑ Γ.
-Proof. rewrite /mode_env_sub /=. iIntros "!# % $ //". Qed.
-
-Lemma mode_env_sub_ms {Σ} m (Γ : env Σ) : copy_env Γ -∗ m ₘ≼ₑ Γ.
-Proof. 
-  rewrite /mode_env_sub /=. iIntros "#Hcpy !# % HΓ ". 
-  iApply bi.intuitionistically_intuitionistically_if.
-  iApply ("Hcpy" with "HΓ"). 
-Qed.
-
-Lemma mode_env_sub_nil {Σ} m : ⊢ m ₘ≼ₑ ([] : env Σ).
-Proof. iApply mode_env_sub_ms. iIntros "!# % _ //". Qed.
-
-Lemma mode_env_sub_cons {Σ} m x τ (Γ : env Σ) : 
-  m ₘ≼ₑ Γ -∗ m ₘ≼ₜ τ -∗ m ₘ≼ₑ ((x, τ) :: Γ).
-Proof.
-  iIntros "#HmΓ #Hmτ %γ !# (%w & %Heq & Hτ & HΓ)".
-  iSpecialize ("HmΓ" $! γ with "HΓ").
-  iSpecialize ("Hmτ" $! w with "Hτ").
-  iDestruct (bi.intuitionistically_if_sep_2 m (⟦ Γ ⟧ γ) (τ w) with "[HmΓ Hmτ]") as "HmΓτ".
-  { iFrame. }
-  iApply (intuitionistically_if_mono_iprop with "[] HmΓτ").
-  iIntros "!# [HΓ Hτ]". 
-  iExists w. by iFrame.
-Qed.
+(* Notations *)
+Notation "m ₘ⪯ₜ τ" := (ModeTypeSub m τ%T) (at level 80).
+Notation "m ₘ⪯ₑ Γ" := (ModeEnvSub m Γ%T) (at level 80).

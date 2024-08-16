@@ -148,7 +148,7 @@ Lemma ewpw_bot_inv e E Φ :
 Proof. iIntros "$". Qed.
 
 Lemma ewpw_sub E e ρ ρ' Φ :
-  ρ ≤R ρ' -∗ 
+  ρ ≤ᵣ ρ' -∗ 
   EWPW e @E <| ρ |> {{ Φ }} -∗ EWPW e @E <| ρ' |> {{ Φ }}. 
 Proof.
   iIntros "#Hρρ' Hewp". rewrite /ewpw.
@@ -195,7 +195,7 @@ Proof.
     do 2 iModIntro. iNext. iApply "IH".
 Qed.
 
-Lemma ewpw_mono_os E (ρ : sem_row Σ) e Φ Φ' `{! Once ρ } :
+Lemma ewpw_mono_os E (ρ : sem_row Σ) e Φ Φ' `{! OnceR ρ } :
   EWPW e @ E <| ρ |> {{ Φ }} -∗
   (∀ v : val, Φ v ={E}=∗ Φ' v) -∗ 
   EWPW e @E <| ρ |> {{ Φ' }}. 
@@ -252,44 +252,40 @@ Proof.
     do 2 iModIntro. iNext. iApply "IH".
 Qed.
 
-Corollary ewp_row_type_sub E (ρ ρ' : sem_row Σ) τ e Φ w : 
-  ρ' ≼ₜ τ -∗
+Corollary ewp_row_type_sub E (ρ ρ' : sem_row Σ) τ e Φ w `{ ρ' ᵣ⪯ₜ τ } :
   EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v }} -∗ τ w -∗
   EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v ∗ τ w }}.
 Proof.
-  iIntros "#Hρ'τ Hewp Hτ". 
+  iIntros "Hewp Hτ". 
   iApply (ewp_mono_on_prop with "[] Hτ Hewp").
-  iApply "Hρ'τ".
+  inv H. iApply row_type_sub.
 Qed.
 
-Corollary ewp_row_env_sub E (ρ ρ' : sem_row Σ) Γ e Φ vs : 
-  ρ' ≼ₑ Γ -∗
-  EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v }} -∗ ⟦ Γ ⟧ vs -∗
-  EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v ∗ ⟦ Γ ⟧ vs }}.
+Corollary ewp_row_env_sub E (ρ ρ' : sem_row Σ) Γ e Φ γ `{ ρ' ᵣ⪯ₑ Γ } :
+  EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v }} -∗ Γ ⊨ₑ γ -∗
+  EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v ∗ Γ ⊨ₑ γ }}.
 Proof.
-  iIntros "#Hρ'Γ Hewp HΓ". 
+  iIntros "Hewp HΓ". 
   iApply (ewp_mono_on_prop with "[] HΓ Hewp").
-  iApply "Hρ'Γ".
+  inv H. iApply row_env_sub.
 Qed.
 
-Lemma ewpw_row_type_sub E ρ τ e Φ w :
-  ρ ≼ₜ τ -∗
+Lemma ewpw_row_type_sub E ρ τ e Φ w `{ ρ ᵣ⪯ₜ τ } :
   EWPW e @ E <| ρ |> {{ Φ }} -∗ τ w -∗
   EWPW e @E <| ρ |> {{ v, Φ v ∗ τ w }}. 
 Proof.
-  iIntros "#Hρτ Hewp Hτ". rewrite /ewpw.
-  iPoseProof (@ewp_row_type_sub E ⊥ ρ τ e Φ w with "Hρτ [Hewp] Hτ") as "H".
+  iIntros "Hewp Hτ". rewrite /ewpw.
+  iPoseProof (@ewp_row_type_sub E ⊥ ρ τ e Φ w with "[Hewp] Hτ") as "H".
   { iApply ewp_os_prot_mono; first iApply iEff_le_bottom. iApply "Hewp". }
   iApply "H".
 Qed.
 
-Lemma ewpw_row_env_sub E ρ Γ e Φ vs : 
-  ρ ≼ₑ Γ -∗
-  EWPW e @ E <| ρ |> {{ Φ }} -∗ ⟦ Γ ⟧ vs -∗
-  EWPW e @E <| ρ |> {{ v, Φ v ∗ ⟦ Γ ⟧ vs }}. 
+Lemma ewpw_row_env_sub E ρ Γ e Φ γ `{ ρ ᵣ⪯ₑ Γ } :
+  EWPW e @ E <| ρ |> {{ Φ }} -∗ Γ ⊨ₑ γ -∗
+  EWPW e @E <| ρ |> {{ v, Φ v ∗ Γ ⊨ₑ γ }}. 
 Proof.
-  iIntros "HρΓ Hewp HΓ". rewrite /ewpw.
-  iPoseProof (@ewp_row_env_sub E ⊥ ρ Γ e Φ vs with "HρΓ [Hewp] HΓ") as "H".
+  iIntros "Hewp HΓ". rewrite /ewpw.
+  iPoseProof (@ewp_row_env_sub E ⊥ ρ Γ e Φ γ with "[Hewp] HΓ") as "H".
   { iApply ewp_os_prot_mono; first iApply iEff_le_bottom. iApply "Hewp". }
   iApply "H".
 Qed.
@@ -399,10 +395,10 @@ Definition shandler_spec
   (ρ'  : sem_row Σ)
   (Φ' : val -d> iPropO Σ) : iProp Σ := (
   (* Subsumption on row *)
-  (ρ ≤R ρ') ∗
+  (ρ ≤ᵣ ρ') ∗
 
   (* One-Shot Row *)
-  (⌜ mρ = OS → Once ρ ⌝) ∗
+  (⌜ mρ = OS → OnceR ρ ⌝) ∗
 
   □?mρ (
   (* Correctness of the return branch. *)
@@ -458,7 +454,7 @@ Proof.
          iExists (λ v, Φ'' v ∗ shandler_spec E op σ ρ mh OS Φ h r ρ' Φ')%I.
          iSplitL; [|iIntros "!# %w [HΦ'' H]"; do 5 ewp_value_or_step; 
                     iSpecialize ("HPost" with "HΦ''"); iApply ("IH" with "HPost H")].
-         inv HOS. iApply (monotonic_prot with "[Hspec] H").
+         iApply (monotonic_prot with "[Hspec] H").
          iIntros (w) "$ //".
        ++ simpl. iDestruct "Hbr" as "#Hbr".
           iExists Φ''. iSplitL "H"; first done. 
@@ -475,7 +471,7 @@ Notation handler_spec_type Σ :=
 Definition handler_spec `{irisGS eff_lang Σ} : handler_spec_type Σ := (
   λ E σ ρ mh Φ h r ρ' Φ',
   (* Subsumption on row *)
-  (ρ ≤R ρ') ∗
+  (ρ ≤ᵣ ρ') ∗
 
   □ (
   (* Correctness of the return branch. *)
@@ -542,7 +538,7 @@ Definition handler2_spec `{irisGS eff_lang Σ} : handler2_spec_type Σ := (
   λ E op1 σ1 op2 σ2 ρ mh Φ h1 h2 r ρ' Φ',
 
   (* Subsumption on row *)
-  (ρ ≤R ρ') ∗
+  (ρ ≤ᵣ ρ') ∗
 
   ⌜ op1 ≠ op2 ⌝ ∗
 

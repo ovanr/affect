@@ -15,10 +15,10 @@ theories/logic/sem_def.v
 theories/logic/mode.v
 theories/logic/sem_sig.v
 theories/logic/sem_row.v
-theories/logic/sem_env.v
 theories/logic/ewpw.v
 theories/logic/sem_judgement.v
 theories/logic/sem_types.v
+theories/logic/sem_env.v
 theories/logic/sem_operators.v
 theories/logic/tactics.v
 theories/logic/compatibility.v

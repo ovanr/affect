@@ -52,9 +52,21 @@ Lemma prod_equivI_2 {PROP : bi} `{!BiInternalEq PROP} {A B : ofe} (x y : A * B) 
   (x ≡ y : PROP) ⊢ x.2 ≡ y.2.
 Proof. rewrite prod_equivI. iIntros "[_ $]". Qed.
 
-Lemma intuitionistically_if_mono_iprop {Σ} m (P Q : iProp Σ) : 
+Lemma intuitionistically_if_mono_alt {PROP : bi} m (P Q : PROP) : 
   □ (P -∗ Q) -∗ □?m P -∗ □?m Q.
 Proof.
   iIntros "#H". destruct m; simpl; last done.
   iIntros "#HP !#". by iApply "H".
 Qed.
+
+Lemma intuitionistically_if_forall {PROP : bi} {A : Type} (Φ : A → PROP) m : 
+  □?m (∀ x : A, Φ x) ⊢ ∀ x : A, □?m Φ x.
+Proof. destruct m; simpl; last done. iApply bi.intuitionistically_forall. Qed.
+
+Lemma forall_intuitionistically {Σ} {A : Type} (Φ : A → iProp Σ) : 
+  (∀ x : A, □ Φ x) ⊢ □ (∀ x : A, Φ x).
+Proof. iIntros "#H !# %". iApply "H". Qed.
+
+Lemma forall_intuitionistically_if {Σ} {A : Type} (Φ : A → iProp Σ) m : 
+  (∀ x : A, □? m (Φ x)) ⊢ □? m (∀ x : A, Φ x).
+Proof. destruct m; simpl; last done. iApply forall_intuitionistically. Qed.
