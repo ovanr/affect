@@ -389,7 +389,6 @@ Definition shandler_spec
   (σ : sem_sig Σ)
   (ρ : sem_row Σ)
   (mh : mode)
-  (mρ : mode)
   (Φ : val -d> iPropO Σ)
   (h r : expr)
   (ρ'  : sem_row Σ)
@@ -397,39 +396,33 @@ Definition shandler_spec
   (* Subsumption on row *)
   (ρ ≤ᵣ ρ') ∗
 
-  (* One-Shot Row *)
-  (⌜ mρ = OS → OnceR ρ ⌝) ∗
-
-  □?mρ (
+  ∃ P, mono_prot_on_prop ρ P ∗ P ∗
+  □  (P -∗
   (* Correctness of the return branch. *)
   (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}) ∧
-
   (* Correctness of the effect branch. *)
   (∀ (v k : val),
      iEff_car (upcl mh σ) v (λ w, EWPW k w @ E <| (op, σ) · ρ |> {{ Φ }}) -∗
-       EWPW h v k @ E <| ρ' |> {{ Φ' }}))
-  )%I.
+       EWPW h v k @ E <| ρ' |> {{ Φ' }})
+  ))%I.
 
-Lemma ewpw_shandler E (op : operation) mh mρ σ ρ ρ' e (h r : val) Φ Φ' :
+Lemma ewpw_shandler E (op : operation) mh σ ρ ρ' e (h r : val) Φ Φ' :
   EWPW e @ E <| (op, σ) · ρ |> {{ Φ }} -∗
-  shandler_spec E op σ ρ mh mρ Φ h r ρ' Φ' -∗
+  shandler_spec E op σ ρ mh Φ h r ρ' Φ' -∗
   EWPW (SHandlerV mh e op h r) @E <| ρ' |> {{ Φ' }}.
 Proof.
-  iIntros "He H". rewrite /SHandlerV /ewpw. 
+  iIntros "He [#Hle (%P & #Hmono & HP & #Hbr)]". rewrite /SHandlerV /ewpw. 
   iLöb as "IH" forall (e). rewrite {2} /shandler. ewp_pure_steps.
   iApply (ewp_try_with with "[He]").
   { ewp_pure_steps. iApply "He". }
-  rewrite /shandler_spec.
-  iDestruct "H" as "(#Hle & %HOS & Hbr)". 
   iSplit; last iSplit.
-  - rewrite {2} bi.intuitionistically_if_elim. iDestruct "Hbr" as "[$ _]".
+  - iDestruct ("Hbr" with "HP") as "[$ _]".
   - iIntros (??) "_ (% & [] & _)".
   - iIntros (v k) "(% & ->) Hρ".
     ewp_pure_steps. 
     iDestruct "Hρ" as "(%Φ'' & (%op' & %v' & -> & H) & #HPost)".
     destruct (decide (op = op')) as [<-|].
-    + ewp_pure_steps'. 
-      rewrite {2} bi.intuitionistically_if_elim.
+    + ewp_pure_steps'. iSpecialize ("Hbr" with "HP").
       destruct mh; simpl.
       ++ iApply (ewp_bind [AppRCtx _; AppRCtx _]); first done. 
          iApply ewp_alloc. iIntros "!> %l Hl !> /=". ewp_pure_steps.
@@ -447,20 +440,11 @@ Proof.
          iIntros "!# %w Φ''". rewrite /ewpw. by iApply "HPost".
     + do 11 ewp_value_or_step; first done. rewrite bool_decide_false; last (intros ?; simplify_eq).
       ewp_pure_steps. iApply (ewpw_sub with "Hle"). 
-       iApply ewp_do_ms. destruct mρ. simpl.
-       ++ specialize (HOS eq_refl).
-         iAssert (shandler_spec E op σ _ mh OS Φ h r ρ' Φ') with "[Hbr]" as "Hspec".
-         { rewrite /shandler_spec. simpl. by iFrame "#∗". }
-         iExists (λ v, Φ'' v ∗ shandler_spec E op σ ρ mh OS Φ h r ρ' Φ')%I.
-         iSplitL; [|iIntros "!# %w [HΦ'' H]"; do 5 ewp_value_or_step; 
-                    iSpecialize ("HPost" with "HΦ''"); iApply ("IH" with "HPost H")].
-         iApply (monotonic_prot with "[Hspec] H").
-         iIntros (w) "$ //".
-       ++ simpl. iDestruct "Hbr" as "#Hbr".
-          iExists Φ''. iSplitL "H"; first done. 
-          iIntros "!# %w HΦ''". do 5 ewp_value_or_step.
-          iApply ("IH" with "[HΦ'' HPost] [Hbr]"); first by iApply "HPost".
-          by iFrame "#∗".
+      iApply ewp_do_ms. 
+      iExists (λ v, Φ'' v ∗ P)%I. 
+      iSplitL; first (iApply ("Hmono" with "H HP")).
+      simpl. iIntros "!# %w [HΦ'' H]"; do 5 ewp_value_or_step. 
+      iSpecialize ("HPost" with "HΦ''"); iApply ("IH" with "HPost H").
 Qed.
 
 Notation handler_spec_type Σ :=
