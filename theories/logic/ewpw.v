@@ -4,14 +4,7 @@ From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe gmap.
 From iris.base_logic Require Export iprop upred invariants.
 
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
-                                        basic_reasoning_rules
-                                        state_reasoning
-                                        shallow_handler_reasoning
-                                        deep_handler_reasoning
-                                        tactics
-                                        protocols.
+From hazel.program_logic Require Import protocols.
 
 (* Local imports *)
 From affect.lib Require Import pure_weakestpre.

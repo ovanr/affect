@@ -1,9 +1,8 @@
-
 From iris.proofmode  Require Import tactics.
 From iris.base_logic Require Export lib.iprop.
 
-From hazel.language Require Export eff_lang.
-From hazel.program_logic Require Export protocols.
+From hazel.language Require Import eff_lang.
+From hazel.program_logic Require Import protocols.
 
 Lemma iEff_tele_eq' {Σ} (TT1 TT2 : tele) v m
   (v' : TT1 -t>         val) (P : TT1 -t>         iProp Σ)

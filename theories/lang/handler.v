@@ -1,6 +1,3 @@
-
-(* handler.v *)
-
 (* This file defines the Haffel handlers. *)
 
 From iris.algebra Require Import ofe.
@@ -10,7 +7,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.heap_lang Require Export locations.
 
 (* Hazel language *)
-From hazel.language Require Export eff_lang.
+From hazel.language Require Import eff_lang.
 From hazel.program_logic Require Import weakest_precondition 
                                         basic_reasoning_rules
                                         deep_handler_reasoning

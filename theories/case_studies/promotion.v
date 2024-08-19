@@ -26,19 +26,19 @@ From affect.logic Require Import tactics.
 
 (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
-Opaque sem_sig_eff sem_sig_flip_bang.
-Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
+Opaque sem_ty_bot sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_mbang env_mbang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_type_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_sig_eff sem_sig_flip_mbang.
+Opaque sem_row_nil sem_row_flip_mbang sem_row_cons sem_row_rec.
 
 Definition mk_one_shot : val := (λ: <>, 
-    shandle[OS]: (perform: "op" #()) by 
+    shandle: (perform: "op" #()) by 
       "op" => (λ: "x" "k", "k")
     | ret  => (λ: "x", (λ: "y", "y")) 
     end)%V.
 
   Definition mk_one_shot_dp : val := (λ: <>, 
       let: "r" := ref (λ: <>, #()) in
-        handle[OS]: (perform: "op" #()) by
+        handle: (perform: "op" #()) by
         "op" => (λ: "x" "k", "r" <!- "k";; #())
         | ret  => (λ: "x", "x")
         end ;; "r" <!- (λ: <>, #())
@@ -48,26 +48,25 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition op_eff : operation * sem_sig Σ := ("op", ∀S: (_ : sem_ty Σ), () =[OS]=> ())%S.
+  Definition op_eff : operation * sem_sig Σ := ("op", ∀ₛ (_ : sem_ty Σ), 𝟙 =[OS]=> 𝟙)%S.
   Definition op_row : sem_row Σ := (op_eff · ⟨⟩)%R.
-  Definition mk_os_ty : sem_ty Σ := (() → (() -{ op_row }-∘ ()))%T.
-  Definition mk_os_dp_ty : sem_ty Σ := (() → (() ⊸ ()))%T.
+  Definition mk_os_ty : sem_ty Σ := (𝟙 → (𝟙 -{ op_row }-∘ 𝟙))%T.
+  Definition mk_os_dp_ty : sem_ty Σ := (𝟙 → (𝟙 ⊸ 𝟙))%T.
 
   Lemma mk_one_shot_typed : 
     ⊢ (⊨ᵥ mk_one_shot : mk_os_ty).
   Proof.
     iIntros. rewrite /mk_one_shot /mk_os_ty.
-    iApply sem_typed_closure; solve_sidecond. simpl.
-    iApply (sem_typed_shandler (TT:=[tele _]) OS "op" (tele_app (λ (_ : sem_ty Σ), ())) (tele_app (λ _, ())) () (() -{ op_row }-∘ ()) ⟨⟩%R ⟨⟩%R [] [] [] [] "x" "k" with "[] []"); solve_sidecond.
-    { iRight. solve_copy. }
+    iApply sem_typed_closure; first done. simpl.
+    smart_apply (sem_typed_shandler (TT:=[tele _]) OS "op" (tele_app (λ (_ : sem_ty Σ), 𝟙)) (tele_app (λ _, 𝟙)) 𝟙 (𝟙 -{ op_row }-∘ 𝟙) ⟨⟩%R ⟨⟩%R [] [] [] [] "x" "k" with "[] []").
     { iApply row_le_refl. }
-    - iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg ()] with "[]"). 
+    - iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg 𝟙] with "[]"). 
       iApply sem_typed_unit'.
     - simpl. iIntros (?). iApply sem_typed_weaken.
       rewrite -/op_eff -/op_row. iApply sem_typed_var. 
     - simpl. iApply sem_typed_weaken. 
       rewrite - {1} (app_nil_r []).
-      iApply sem_typed_afun; solve_sidecond. simpl.
+      smart_apply sem_typed_afun. simpl.
       iApply sem_typed_var'.
   Qed.
 
@@ -75,26 +74,26 @@ Section typing.
     ⊢ (⊨ᵥ mk_one_shot_dp : mk_os_dp_ty).
   Proof.
     iIntros. rewrite /mk_one_shot_dp /mk_os_ty.
-    iApply sem_typed_closure; solve_sidecond. simpl.
-    iApply (sem_typed_let (Refᶜ (() ⊸ ())) _ _ _ []); solve_sidecond.
+    iApply sem_typed_closure; first done. simpl.
+    smart_apply (sem_typed_let (Refᶜ (𝟙 ⊸ 𝟙)) _ _ _ []).
     { iApply sem_typed_alloc_cpy. 
-      rewrite - {1} (app_nil_r []). iApply sem_typed_afun; solve_sidecond. iApply sem_typed_unit. }
-    iApply sem_typed_contraction; solve_copy.
-    set r := ("r", Refᶜ (() ⊸ ())).
-    iApply (sem_typed_seq () _ _ _ [r]). iApply sem_typed_frame.
+      rewrite - {1} (app_nil_r []). smart_apply sem_typed_afun. iApply sem_typed_unit. }
+    iApply sem_typed_contraction.
+    set r := ("r", Refᶜ (𝟙 ⊸ 𝟙)).
+    iApply (sem_typed_seq 𝟙 _ _ _ [r]). iApply sem_typed_frame.
     - replace [r] with ([] ++ [r]) by done.
-      iApply (sem_typed_handler (TT:=[tele _]) OS "op" (tele_app (λ (_ : sem_ty Σ), ())) (tele_app (λ _, ())) () () ⟨⟩%R ⟨⟩%R [] [] [] [r] "x" "k" with "[] []"); solve_sidecond.
+      smart_apply (sem_typed_handler (TT:=[tele _]) OS "op" (tele_app (λ (_ : sem_ty Σ), 𝟙)) (tele_app (λ _, 𝟙)) 𝟙 𝟙 ⟨⟩%R ⟨⟩%R [] [] [] [r] "x" "k" with "[] []").
       + iApply row_le_refl.
-      + iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg ()] with "[]"). 
+      + iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg 𝟙] with "[]"). 
         iApply sem_typed_unit'.
       + simpl. iIntros (?). iApply sem_typed_weaken.
-        iApply (sem_typed_seq (() ⊸ ()) ⟨⟩%R () _ []); last iApply sem_typed_unit.
+        iApply (sem_typed_seq (𝟙 ⊸ 𝟙) ⟨⟩%R 𝟙 _ []); last iApply sem_typed_unit.
         iApply sem_typed_replace_cpy_os; iApply sem_typed_var.
       + simpl. iApply sem_typed_swap_second. iApply sem_typed_weaken.
         iApply sem_typed_var.
     - iApply sem_typed_replace_cpy_os; first iApply sem_typed_var.
       replace [r] with ([] ++ [r]) by done.
-      iApply sem_typed_afun; solve_sidecond. simpl. iApply sem_typed_unit.
+      smart_apply sem_typed_afun. simpl. iApply sem_typed_unit.
   Qed.
 
 End typing.

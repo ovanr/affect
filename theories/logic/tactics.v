@@ -1,13 +1,6 @@
 
 From iris.proofmode Require Import base tactics.
 
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
-                                        tactics 
-                                        shallow_handler_reasoning 
-                                        deep_handler_reasoning 
-                                        state_reasoning.
-
 (* Local imports *)
 From affect.lib Require Import base.
 From affect.lib Require Import logic.
@@ -120,3 +113,5 @@ Ltac ewpw_value_or_step :=
 
 Ltac ewpw_pure_steps :=
   repeat ewpw_value_or_step.
+
+Tactic Notation "smart_apply" open_constr(lem) := iApply lem; solve_sidecond.

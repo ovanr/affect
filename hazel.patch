@@ -8,7 +8,7 @@ index df00fd7..cc2f56c 100644
  _build
 +.Makefile.coq.d
 diff --git a/_CoqProject b/_CoqProject
-index 45b4b8f..58d3292 100644
+index 45b4b8f..236d1ab 100644
 --- a/_CoqProject
 +++ b/_CoqProject
 @@ -1,8 +1,7 @@
@@ -33,14 +33,7 @@ index 45b4b8f..58d3292 100644
  theories/case_studies/list_lib.v
  theories/case_studies/queue_lib.v
  theories/case_studies/map_lib.v
-@@ -35,10 +32,9 @@ theories/case_studies/iteration.v
- theories/case_studies/callcc.v
- theories/case_studies/control_inversion.v
- theories/case_studies/sat.v
--theories/case_studies/shallow_as_deep.v
-+# theories/case_studies/shallow_as_deep.v
- theories/case_studies/exceptions.v
- theories/case_studies/state.v
+@@ -41,4 +38,3 @@ theories/case_studies/state.v
  theories/case_studies/shift_reset.v
  theories/case_studies/asynchronous_computation.v
  theories/case_studies/automatic_differentiation.v
@@ -425,7 +418,7 @@ index bab218c..5d5f78f 100644
            case (M !! j). }
          { rewrite lookup_insert_ne; [|done].
 diff --git a/theories/case_studies/shallow_as_deep.v b/theories/case_studies/shallow_as_deep.v
-index 633478a..7139bdf 100644
+index 633478a..919a072 100644
 --- a/theories/case_studies/shallow_as_deep.v
 +++ b/theories/case_studies/shallow_as_deep.v
 @@ -11,7 +11,7 @@
@@ -437,6 +430,41 @@ index 633478a..7139bdf 100644
  
  
  (* ========================================================================== *)
+@@ -100,9 +100,33 @@ Section correctness.
+   (* ------------------------------------------------------------------------ *)
+   (** Correctness of [shallow_try_with]. *)
+ 
++  (* The shallow handler spec has been adapted for Haffel which allows different
++     treatment of one- versus multi-shot effect branches.
++     But the lemma ewp_shallow_try_with needs the original spec in order to be proven *)
++  Definition shallow_handler_orig `{!heapGS Σ}
++    (E : coPset)
++    (Ψ1 Ψ2 : iEffO (Σ:=Σ))
++    (Φ : val -d> iPropO Σ)
++    (h r : expr)
++    (Ψ1' Ψ2' : iEffO (Σ:=Σ))
++    (Φ' : val -d> iPropO Σ) : iProp Σ :=
++  
++    (* Correctness of the return branch. *)
++    (∀ (y : val), Φ y -∗ EWP r y @ E <| Ψ1' |> {| Ψ2' |} {{ Φ' }}) ∧
++  
++    (* Correctness of the effect branch -- one-shot case. *)
++    (∀ (v k : val),
++       iEff_car (upcl OS Ψ1) v (λ w, EWP k w @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }}) -∗
++         EWP h v k @ E <| Ψ1' |> {| Ψ2' |} {{ Φ' }}) ∧
++  
++    (* Correctness of the effect branch -- multi-shot case. *)
++    (∀ (v k : val),
++       iEff_car (upcl MS Ψ2) v (λ w, EWP k w @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }}) -∗
++         EWP h v k @ E <| Ψ1' |> {| Ψ2' |} {{ Φ' }}).
++
+   Lemma ewp_shallow_try_with E Ψ Ψ' Φ Φ' (e : expr) (h r : val) :
+     EWP e @ E <| Ψ |> {{ Φ }} -∗
+-      shallow_handler E Ψ ⊥ Φ h r Ψ' ⊥ Φ' -∗
++      shallow_handler_orig E Ψ ⊥ Φ h r Ψ' ⊥ Φ' -∗
+         EWP (shallow_try_with (λ: <>, e)%V h r) @ E <| Ψ' |> {{ Φ' }}.
+    Proof.
+      unfold shallow_try_with.
 diff --git a/theories/case_studies/shift_reset.v b/theories/case_studies/shift_reset.v
 index 5a50ddc..e5530c4 100644
 --- a/theories/case_studies/shift_reset.v
@@ -1177,7 +1205,7 @@ index 42a5963..8f1fdfa 100644
        (λ σ κs, gen_heap_interp σ.(heap)),
        (λ _, True%I).
 diff --git a/theories/program_logic/basic_reasoning_rules.v b/theories/program_logic/basic_reasoning_rules.v
-index 8ec106b..d10a74b 100644
+index 8ec106b..2fa3b11 100644
 --- a/theories/program_logic/basic_reasoning_rules.v
 +++ b/theories/program_logic/basic_reasoning_rules.v
 @@ -9,7 +9,7 @@
@@ -1185,7 +1213,7 @@ index 8ec106b..d10a74b 100644
  From iris.proofmode Require Import base tactics classes.
  From iris.program_logic Require Import weakestpre.
 -From program_logic Require Import weakest_precondition.
-+From hazel.program_logic Require Import weakest_precondition.
++From hazel.program_logic Require Import weakest_precondition protocols.
  
  
  (* ========================================================================== *)
@@ -1488,7 +1516,7 @@ index 226541d..9513828 100644
        iMod "He" as "[$ He]". iModIntro.
        by iApply ("IH" with "He Hhandler").
 diff --git a/theories/program_logic/state_reasoning.v b/theories/program_logic/state_reasoning.v
-index ddefd96..a729a37 100644
+index ddefd96..0f41445 100644
 --- a/theories/program_logic/state_reasoning.v
 +++ b/theories/program_logic/state_reasoning.v
 @@ -10,8 +10,8 @@ From iris.bi.lib Require Import fractional.
@@ -1497,7 +1525,7 @@ index ddefd96..a729a37 100644
  From iris.program_logic Require Import ectx_lifting total_ectx_lifting.
 -From program_logic Require Import weakest_precondition basic_reasoning_rules.
 -From language Require Export eff_lang.
-+From hazel.program_logic Require Import weakest_precondition basic_reasoning_rules.
++From hazel.program_logic Require Import weakest_precondition basic_reasoning_rules protocols.
 +From hazel.language Require Export eff_lang.
  
  Set Default Proof Using "Type".
@@ -1715,7 +1743,7 @@ index 0058172..09df916 100644
      | Val _                 => tac k e
      | Eff _ _ _             => tac k e
 diff --git a/theories/program_logic/weakest_precondition.v b/theories/program_logic/weakest_precondition.v
-index 61ddf52..62b83a0 100644
+index 61ddf52..14377b6 100644
 --- a/theories/program_logic/weakest_precondition.v
 +++ b/theories/program_logic/weakest_precondition.v
 @@ -8,8 +8,8 @@
@@ -1724,8 +1752,8 @@ index 61ddf52..62b83a0 100644
  From iris.program_logic Require Import weakestpre.
 -From language Require Export eff_lang.
 -From program_logic Require Export protocols.
++From hazel.program_logic Require Import protocols.
 +From hazel.language Require Export eff_lang.
-+From hazel.program_logic Require Export protocols.
  
  
  (* ========================================================================== *)

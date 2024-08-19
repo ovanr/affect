@@ -8,9 +8,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.algebra Require Import list ofe gmap.
 From iris.program_logic Require Import weakestpre.
 
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition
-                                        state_reasoning.
+From hazel.program_logic Require Import protocols.
 
 (* Local imports *)
 From affect.lib Require Import base.

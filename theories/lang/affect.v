@@ -1,23 +1,24 @@
-(* hazel.v *)
-
 (* This file imports the Hazel language from coq-hazel
    and additionally defines some extensions to it such as
-   the let-pair construct and its eliminator.
-*)
+   the let-pair construct and its eliminator. *)
 
 From iris.algebra Require Import ofe.
-From iris.base_logic Require Export lib.iprop .
-From iris.program_logic Require Export language.
 From iris.proofmode Require Import base tactics classes.
+From iris.base_logic Require Export lib.iprop.
+From iris.program_logic Require Export language.
 From iris.heap_lang Require Export locations.
 
 (* Hazel language *)
 From hazel.language Require Export eff_lang.
-From hazel.program_logic Require Import weakest_precondition 
-                                        basic_reasoning_rules
-                                        deep_handler_reasoning
-                                        tactics
-                                        state_reasoning.
+From hazel.program_logic Require Export weakest_precondition 
+                                 basic_reasoning_rules
+                                 deep_handler_reasoning
+                                 tactics
+                                 shallow_handler_reasoning
+                                 state_reasoning.
+From hazel.program_logic Require Export protocols(iEff(..), iEffO, iEff_car, MonoProt, PersMonoProt, upcl, iEff_bottom, iEff_le_bottom). 
+
+From hazel.program_logic Require Import protocols.
 
 From affect.lib Require Export base logic.
 From affect.lang Require Export subst_map.

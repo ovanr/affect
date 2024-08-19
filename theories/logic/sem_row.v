@@ -7,10 +7,7 @@ From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe gmap.
 From iris.base_logic Require Export iprop upred invariants.
 
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
-                                        state_reasoning
-                                        protocols.
+From hazel.program_logic Require Import protocols.
 
 (* Local imports *)
 From affect.lib Require Import logic.
@@ -81,7 +78,8 @@ Qed.
 Notation "⟨⟩" := (sem_row_nil) : sem_row_scope.
 Notation "opσ · ρ" := (sem_row_cons opσ.1%S opσ.2%S ρ%R) (at level 80, right associativity) : sem_row_scope.
 Notation "¡[ m ] ρ" := (sem_row_flip_mbang m ρ) (at level 10) : sem_row_scope.
-Notation "'μR:' θ , ρ " := (sem_row_rec (λ θ, ρ%R)) (at level 50) : sem_row_scope.
+Notation "¡ ρ" := (sem_row_flip_mbang OS ρ) (at level 10) : sem_row_scope.
+Notation "'μᵣ' θ , ρ " := (sem_row_rec (λ θ, ρ%R)) (at level 50) : sem_row_scope.
 
 Section row_properties.
 
@@ -119,7 +117,7 @@ Section once_row.
   (* Once Constraint *)
   
   Class OnceR {Σ} (ρ : sem_row Σ) := {
-    row_le_mfbang_elim : (⊢ (¡[ OS ] ρ%R) ≤ᵣ ρ%R)
+    row_le_mfbang_elim : (⊢ (¡ ρ%R) ≤ᵣ ρ%R)
   }.
   
   Global Instance monoprot_once {Σ} (ρ : sem_row Σ) `{! OnceR ρ } : MonoProt ρ.
@@ -201,11 +199,11 @@ Section row_sub_typing.
   Qed.
   
   Lemma row_le_rec_unfold {Σ} (R : sem_row Σ → sem_row Σ) `{Contractive R} :
-    ⊢ (μR: θ, R θ) ≤ᵣ R (μR: θ, R θ).
+    ⊢ (μᵣ θ, R θ) ≤ᵣ R (μᵣ θ, R θ).
   Proof. rewrite {1} sem_row_rec_unfold //. iApply row_le_refl. Qed.
   
   Lemma row_le_rec_fold {Σ} (R : sem_row Σ → sem_row Σ) `{ Contractive R }:
-    ⊢ R (μR: θ, R θ) ≤ᵣ (μR: θ, R θ).
+    ⊢ R (μᵣ θ, R θ) ≤ᵣ (μᵣ θ, R θ).
   Proof. rewrite - {1} sem_row_rec_unfold. iApply row_le_refl. Qed.
   
   Lemma row_le_mfbang_intro {Σ} (m : mode) (ρ : sem_row Σ) :
@@ -267,7 +265,7 @@ Section row_sub_typing.
     by iApply "H1".
   Qed.
 
-  Global Instance row_fbang_once {Σ} (ρ : sem_row Σ) : OnceR (¡[OS] ρ)%R.
+  Global Instance row_fbang_once {Σ} (ρ : sem_row Σ) : OnceR (¡ ρ)%R.
   Proof. constructor. iApply row_le_mfbang_idemp. Qed.
   
   Lemma row_le_mfbang_comm {Σ} m m' (ρ : sem_row Σ) :
@@ -295,7 +293,7 @@ Section row_sub_typing.
   Proof. constructor. iApply row_le_mfbang_elim_nil. Qed.
   
   Lemma row_le_mfbang_elim_rec {Σ} (m : mode) (R : sem_row Σ → sem_row Σ) `{ Contractive R }: 
-    (∀ θ, ¡[ m ] (R θ) ≤ᵣ (R θ)) -∗ ¡[ m ] (μR: θ, R θ) ≤ᵣ (μR: θ, R θ).
+    (∀ θ, ¡[ m ] (R θ) ≤ᵣ (R θ)) -∗ ¡[ m ] (μᵣ θ, R θ) ≤ᵣ (μᵣ θ, R θ).
   Proof. 
     iIntros "#Hle". destruct m; last iApply row_le_mfbang_elim_ms.
     iIntros (??) "!# (%Φ' & H & HP)". simpl.
@@ -304,7 +302,7 @@ Section row_sub_typing.
   Qed.
   
   Global Instance row_rec_once {Σ} (R : sem_row Σ → sem_row Σ) `{Contractive R} :
-    (∀ θ, OnceR (R θ)) → OnceR (μR: θ, R θ)%R.
+    (∀ θ, OnceR (R θ)) → OnceR (μᵣ θ, R θ)%R.
   Proof.
     intros H. constructor. 
     iApply row_le_mfbang_elim_rec. iIntros (θ). 

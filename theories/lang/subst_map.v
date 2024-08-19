@@ -1,11 +1,7 @@
-(* subst_map.v *)
-
 (* This file contains the definition of `subst_map`,
    which substituted multiple values to an expression all at once.
-   Proofs related to `subst_map` and `subst` are also provided.
-*)
+   Proofs related to `subst_map` and `subst` are also provided. *)
 
-(* Local imports *)
 From affect.lib Require Import base.
 
 Fixpoint subst_map (vs : gmap string val) (e : expr) : expr :=

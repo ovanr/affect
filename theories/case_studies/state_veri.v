@@ -11,6 +11,8 @@ From hazel.program_logic Require Import weakest_precondition
                                         deep_handler_reasoning 
                                         state_reasoning.
 
+From hazel.program_logic Require Import protocols.
+
 (* Local imports *)
 From affect.lib Require Import base.
 From affect.lang Require Import affect.

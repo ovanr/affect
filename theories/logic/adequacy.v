@@ -3,11 +3,6 @@ From iris.proofmode     Require Import base tactics classes.
 From iris.program_logic Require Import weakestpre adequacy.
 From stdpp Require Export gmap. (* Representation of the heap. *)
 
-
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
-                                        state_reasoning
-                                        tactics.
 (* Local imports *)
 From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.

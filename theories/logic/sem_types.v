@@ -9,11 +9,6 @@ From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe list.
 From iris.base_logic Require Export iprop upred invariants.
 
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
-                                        state_reasoning
-                                        protocols.
-
 (* Local imports *)
 From affect.lib Require Import logic.
 From affect.lang Require Import affect.
@@ -112,6 +107,7 @@ Notation "'𝔹'" := (sem_ty_bool) : sem_ty_scope.
 Notation "'ℤ'" := (sem_ty_int) : sem_ty_scope.
 Notation "'Str'" := (sem_ty_string) : sem_ty_scope.
 Notation "![ m ] τ" := (sem_ty_mbang m τ) (at level 10) : sem_ty_scope.
+Notation "! τ" := (sem_ty_mbang MS τ) (at level 9, τ at level 9) : sem_ty_scope.
 
 Notation "τ '×' κ" := (sem_ty_prod τ%T κ%T) (at level 120) : sem_ty_scope.
 Infix "+" := (sem_ty_sum) : sem_ty_scope.
@@ -122,19 +118,19 @@ Notation "'Ref' τ" := (sem_ty_ref τ%T)
 Notation "'Refᶜ' τ" := (sem_ty_ref_cpy τ%T) 
   (at level 50) : sem_ty_scope.
 
-Notation "'∀T:' α , C " := (sem_ty_type_forall (λ α, C%T)) 
+Notation "'∀ₜ' α , C " := (sem_ty_type_forall (λ α, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'∀R:' θ , C " := (sem_ty_row_forall (λ θ, C%T)) 
+Notation "'∀ᵣ' θ , C " := (sem_ty_row_forall (λ θ, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'∀M:' ν , C " := (sem_ty_mode_forall (λ ν, C%T)) 
+Notation "'∀ₘ' ν , C " := (sem_ty_mode_forall (λ ν, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'∃:' α , C " := (sem_ty_exists (λ α, C%T)) 
+Notation "'∃ₜ' α , C " := (sem_ty_exists (λ α, C%T)) 
   (at level 180) : sem_ty_scope.
 
-Notation "'μT:' α , C " := (sem_ty_rec (λ α, C%T))
+Notation "'μₜ' α , C " := (sem_ty_rec (λ α, C%T))
   (at level 180) : sem_ty_scope.
 
 Notation "τ ⊸ κ" := (sem_ty_arr ⟨⟩%R τ%T κ%T)
@@ -334,7 +330,7 @@ Section multi_types.
   Implicit Types τ κ : sem_ty Σ.
   
   Class MultiT {Σ} (τ : sem_ty Σ) := {
-    multi_ty : ⊢ (τ%T ≤ₜ ![ MS ] τ%T)
+    multi_ty : ⊢ (τ%T ≤ₜ ! τ%T)
   }.
 
   Global Arguments MultiT _ _%T.
@@ -424,22 +420,22 @@ Section sub_typing.
 
   Lemma ty_le_type_forall (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
     (∀ α, τ₁ α ≤ₜ τ₂ α) -∗
-    (∀T: α, τ₁ α)%T ≤ₜ (∀T: α, τ₂ α).
+    (∀ₜ α, τ₁ α)%T ≤ₜ (∀ₜ α, τ₂ α).
   Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
   Lemma ty_le_row_forall (τ₁ τ₂ : sem_row Σ → sem_ty Σ) :
     (∀ θ, τ₁ θ ≤ₜ τ₂ θ) -∗
-    (∀R: θ, τ₁ θ) ≤ₜ (∀R: θ, τ₂ θ).
+    (∀ᵣ θ, τ₁ θ) ≤ₜ (∀ᵣ θ, τ₂ θ).
   Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
   Lemma ty_le_mode_forall (τ₁ τ₂ : mode → sem_ty Σ) :
     (∀ ν, τ₁ ν ≤ₜ τ₂ ν) -∗
-    (∀M: ν, τ₁ ν) ≤ₜ (∀M: ν, τ₂ ν).
+    (∀ₘ ν, τ₁ ν) ≤ₜ (∀ₘ ν, τ₂ ν).
   Proof. iIntros "#Hτ₁₂ !# %v Hτ₁ %τ /=". by iApply "Hτ₁₂". Qed.
 
   Lemma ty_le_exists (τ₁ τ₂ : sem_ty Σ → sem_ty Σ) :
     (∀ α, τ₁ α ≤ₜ τ₂ α) -∗
-    (∃: α, τ₁ α) ≤ₜ (∃: α, τ₂ α).
+    (∃ₜ α, τ₁ α) ≤ₜ (∃ₜ α, τ₂ α).
   Proof.
     iIntros "#Hτ₁₂ !# %v (%α & Hα) //=".
     iExists α. by iApply "Hτ₁₂".
@@ -447,7 +443,7 @@ Section sub_typing.
 
   Lemma ty_le_rec (τ₁ τ₂ : sem_ty Σ -> sem_ty Σ) `{NonExpansive τ₁, NonExpansive τ₂} :
     □ (∀ α α', (α ≤ₜ α') -∗ τ₁ α ≤ₜ τ₂ α') -∗
-    (μT: α, τ₁ α) ≤ₜ (μT: α, τ₂ α).
+    (μₜ α, τ₁ α) ≤ₜ (μₜ α, τ₂ α).
   Proof.
     iIntros "#Hτ₁₂ !#". iLöb as "IH". iIntros "%v Hτ₁".
     iApply sem_ty_rec_unfold.
@@ -521,10 +517,10 @@ Section sub_typing.
     iApply "H".
   Qed.
 
-  Global Instance multi_ty_mbang τ : MultiT (![MS] τ).
+  Global Instance multi_ty_mbang τ : MultiT (! τ).
   Proof. constructor. iApply ty_le_mbang_idemp. Qed.
 
-  Corollary ty_le_mbang_intro_uarr τ ρ κ : ⊢ (τ -{ ρ }-> κ) ≤ₜ (![MS] (τ -{ ρ }-> κ)).
+  Corollary ty_le_mbang_intro_uarr τ ρ κ : ⊢ (τ -{ ρ }-> κ) ≤ₜ (! (τ -{ ρ }-> κ)).
   Proof. iApply ty_le_mbang_idemp. Qed.
 
   Corollary multi_ty_uarr τ ρ κ : MultiT (τ -{ ρ }-> κ).
@@ -558,7 +554,7 @@ Section sub_typing.
   Proof. constructor. inv MultiT0. inv MultiT1. by iApply ty_le_mbang_intro_sum. Qed.
 
   Lemma ty_le_mbang_intro_type_forall (C : sem_ty Σ → sem_ty Σ) m :
-    (∀ α, (C α) ≤ₜ ![m] (C α)) -∗ (∀T: α, C α) ≤ₜ ![m] (∀T: α, C α).
+    (∀ α, (C α) ≤ₜ ![m] (C α)) -∗ (∀ₜ α, C α) ≤ₜ ![m] (∀ₜ α, C α).
   Proof. 
     iIntros "#Hle % !# H". rewrite /sem_ty_mbang /sem_ty_type_forall.
     iApply forall_intuitionistically_if. iIntros (τ).
@@ -566,14 +562,14 @@ Section sub_typing.
   Qed.
 
   Global Instance multi_ty_type_forall (C : sem_ty Σ → sem_ty Σ) `{! ∀ α, MultiT (C α) } : 
-    MultiT (∀T: α, C α).
+    MultiT (∀ₜ α, C α).
   Proof. 
     constructor. iApply ty_le_mbang_intro_type_forall. 
     iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
   Qed.
 
   Lemma ty_le_mbang_intro_row_forall (C : sem_row Σ → sem_ty Σ) m :
-    (∀ θ, (C θ) ≤ₜ ![m] (C θ)) -∗ (∀R: θ, C θ) ≤ₜ ![m] (∀R: θ, C θ).
+    (∀ θ, (C θ) ≤ₜ ![m] (C θ)) -∗ (∀ᵣ θ, C θ) ≤ₜ ![m] (∀ᵣ θ, C θ).
   Proof. 
     iIntros "#Hle % !# H". rewrite /sem_ty_mbang /sem_ty_row_forall.
     iApply forall_intuitionistically_if. iIntros (ρ).
@@ -581,14 +577,14 @@ Section sub_typing.
   Qed.
   
   Global Instance multi_ty_row_forall (C : sem_row Σ → sem_ty Σ) `{! ∀ θ, MultiT (C θ) } : 
-    MultiT (∀R: θ, C θ).
+    MultiT (∀ᵣ θ, C θ).
   Proof. 
     constructor. iApply ty_le_mbang_intro_row_forall. 
     iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
   Qed.
 
   Lemma ty_le_mbang_intro_mode_forall (C : mode → sem_ty Σ) m :
-    (∀ ν, (C ν) ≤ₜ ![m] (C ν)) -∗ (∀M: ν, C ν) ≤ₜ ![m] (∀M: ν, C ν).
+    (∀ ν, (C ν) ≤ₜ ![m] (C ν)) -∗ (∀ₘ ν, C ν) ≤ₜ ![m] (∀ₘ ν, C ν).
   Proof. 
     iIntros "#Hle % !# H". rewrite /sem_ty_mbang /sem_ty_mode_forall.
     iApply forall_intuitionistically_if. iIntros (m').
@@ -596,7 +592,7 @@ Section sub_typing.
   Qed.
 
   Global Instance multi_ty_mode_forall (C : mode → sem_ty Σ) `{ ∀ ν, MultiT (C ν) } : 
-    MultiT (∀M: ν, C ν).
+    MultiT (∀ₘ ν, C ν).
   Proof. 
     constructor. iApply ty_le_mbang_intro_mode_forall. 
     iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
@@ -612,7 +608,7 @@ Section sub_typing.
   Global Instance multi_ty_ref_cpy τ : MultiT (Refᶜ τ).
   Proof. constructor. iApply ty_le_mbang_intro_ref_cpy. Qed.
 
-  Lemma ty_le_mbang_intro_exists A m : (∀ α, (A α) ≤ₜ ![m] (A α)) -∗ (∃: α, A α) ≤ₜ ![m] (∃: α, A α).
+  Lemma ty_le_mbang_intro_exists A m : (∀ α, (A α) ≤ₜ ![m] (A α)) -∗ (∃ₜ α, A α) ≤ₜ ![m] (∃ₜ α, A α).
   Proof. 
     iIntros "#H !# % [%α Hτ']". 
     iDestruct ("H" with "Hτ'") as "Hτ".
@@ -620,7 +616,7 @@ Section sub_typing.
     iIntros "HA". by iExists α.
   Qed.
 
-  Global Instance multi_ty_exists A `{ ∀ α, MultiT (A α) } : MultiT (∃: α, A α).
+  Global Instance multi_ty_exists A `{ ∀ α, MultiT (A α) } : MultiT (∃ₜ α, A α).
   Proof. 
     constructor. iApply ty_le_mbang_intro_exists.
     iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
@@ -637,7 +633,7 @@ Section sub_typing.
 
   Lemma ty_le_mbang_intro_rec m (C : sem_ty Σ → sem_ty Σ) `{NonExpansive C} :
     □ (∀ α, (α ≤ₜ ![m] α) -∗ C α ≤ₜ ![m] (C α)) -∗
-    (μT: α, C α) ≤ₜ ![m] (μT: α, C α).
+    (μₜ α, C α) ≤ₜ ![m] (μₜ α, C α).
   Proof. 
     iIntros "#H". destruct m; simpl; first iApply ty_le_refl.
     iIntros "!# %v Hτα".
@@ -647,7 +643,7 @@ Section sub_typing.
     { apply non_dep_fun_equiv. apply fixpoint_unfold. }
     rewrite {4} /sem_ty_rec /sem_ty_mbang H {1} /sem_ty_rec_pre. simpl.
     iApply bi.later_intuitionistically. iNext. iExists (fixpoint (sem_ty_rec_pre C)).
-    iSpecialize ("H" $! (μT: α, C α)%T with "[IH]").
+    iSpecialize ("H" $! (μₜ α, C α)%T with "[IH]").
     { iIntros "% !# //". }
     iDestruct ("H" $! v with "Hτα") as "#Hτα'". iIntros "!#".
     iSplit; first done. iApply "Hτα'".
@@ -657,8 +653,8 @@ Section sub_typing.
      As a result, to prove MultiT for rec types we have to manually prove the instance 
      using the ty_le_mbang_intro_* instances *)
   Global Instance multi_ty_rec (C : sem_ty Σ → sem_ty Σ) `{NonExpansive C} : 
-    (∀ α, (α ≤ₜ ![MS] α) -∗ C α ≤ₜ ![MS] (C α)) →
-    MultiT (μT: α, C α).
+    (∀ α, (α ≤ₜ ! α) -∗ C α ≤ₜ ! (C α)) →
+    MultiT (μₜ α, C α).
   Proof. 
     constructor. iApply ty_le_mbang_intro_rec. 
     iIntros "!# % H". specialize (H α).
@@ -710,7 +706,7 @@ Section sub_typing.
   Qed.
 
   Lemma ty_le_mbang_type_forall (C : sem_ty Σ → sem_ty Σ) m :
-    ⊢ (∀T: α, ![m] (C α))%T ≤ₜ ![m] (∀T: α, C α).
+    ⊢ (∀ₜ α, ![m] (C α))%T ≤ₜ ![m] (∀ₜ α, C α).
   Proof. 
     iIntros "!# %v Hτ". 
     iApply forall_intuitionistically_if. iIntros (τ).
@@ -718,7 +714,7 @@ Section sub_typing.
   Qed.
 
   Lemma ty_le_type_forall_mbang (C : sem_ty Σ → sem_ty Σ) m :
-    ⊢ ![m] (∀T: α, C α) ≤ₜ (∀T: α, ![m] (C α))%T.
+    ⊢ ![m] (∀ₜ α, C α) ≤ₜ (∀ₜ α, ![m] (C α))%T.
   Proof. 
     iIntros "!# %v Hτ".  
     iDestruct (intuitionistically_if_forall with "Hτ") as "Hτ". 
@@ -726,7 +722,7 @@ Section sub_typing.
   Qed.
 
   Lemma ty_le_mbang_row_forall (C : sem_row Σ → sem_ty Σ) m :
-    ⊢ (∀R: θ, ![m] (C θ))%T ≤ₜ ![m] (∀R: θ, C θ).
+    ⊢ (∀ᵣ θ, ![m] (C θ))%T ≤ₜ ![m] (∀ᵣ θ, C θ).
   Proof. 
     iIntros "!# %v Hτ". 
     iApply forall_intuitionistically_if. iIntros (τ).
@@ -734,7 +730,7 @@ Section sub_typing.
   Qed.
 
   Lemma ty_le_row_forall_mbang (C : sem_row Σ → sem_ty Σ) m :
-    ⊢ ![m] (∀R: θ, C θ) ≤ₜ (∀R: θ, ![m] (C θ))%T.
+    ⊢ ![m] (∀ᵣ θ, C θ) ≤ₜ (∀ᵣ θ, ![m] (C θ))%T.
   Proof. 
     iIntros "!# %v Hτ".  
     iDestruct (intuitionistically_if_forall with "Hτ") as "Hτ". 
@@ -742,7 +738,7 @@ Section sub_typing.
   Qed.
 
   Lemma ty_le_mbang_mode_forall (C : mode → sem_ty Σ) m :
-    ⊢ (∀M: ν, ![m] (C ν))%T ≤ₜ ![m] (∀M: ν, C ν).
+    ⊢ (∀ₘ ν, ![m] (C ν))%T ≤ₜ ![m] (∀ₘ ν, C ν).
   Proof. 
     iIntros "!# %v Hτ". 
     iApply forall_intuitionistically_if. iIntros (τ).
@@ -750,7 +746,7 @@ Section sub_typing.
   Qed.
 
   Lemma ty_le_mode_forall_mbang (C : mode → sem_ty Σ) m :
-    ⊢ ![m] (∀M: ν, C ν) ≤ₜ (∀M: ν, ![m] (C ν))%T.
+    ⊢ ![m] (∀ₘ ν, C ν) ≤ₜ (∀ₘ ν, ![m] (C ν))%T.
   Proof. 
     iIntros "!# %v Hτ".  
     iDestruct (intuitionistically_if_forall with "Hτ") as "Hτ". 

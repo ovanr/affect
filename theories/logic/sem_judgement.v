@@ -10,10 +10,6 @@ From iris.program_logic Require Import weakestpre.
 
 From stdpp Require Import base gmap.
 
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition
-                                        state_reasoning.
-
 (* Local imports *)
 From affect.lib Require Import base.
 From affect.lib Require Import pure_weakestpre.

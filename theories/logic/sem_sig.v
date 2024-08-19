@@ -6,10 +6,7 @@ From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe list.
 From iris.base_logic Require Export iprop upred invariants.
 
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
-                                        state_reasoning
-                                        protocols.
+From hazel.program_logic Require Import protocols.
 
 (* Local imports *)
 From affect.lib Require Import logic.
@@ -53,32 +50,32 @@ Next Obligation.
 Qed.
 
 (* Notations. *)
-Notation "'∀S..:' tt , κ '=>' ι" := 
+Notation "'∀ₛ..' tt , κ '=>' ι" := 
   (sem_sig_eff (λ tt, κ%T) (λ tt, ι%T))
   (at level 200, tt binder, right associativity,
-   format "'[ ' '∀S..:' tt ,  κ  =>  ι  ']'") : sem_sig_scope.
+   format "'[ ' '∀ₛ..' tt ,  κ  =>  ι  ']'") : sem_sig_scope.
 
-Notation "'∀S:' x .. y , κ '=>' ι" := 
+Notation "'∀ₛ' x .. y , κ '=>' ι" := 
   (sem_sig_eff 
   (@tele_app ((TeleS (λ x, .. (TeleS (λ y, TeleO)) ..))) (sem_ty _) (λ x, .. (λ y, κ%T) ..)) 
   (@tele_app ((TeleS (λ x, .. (TeleS (λ y, TeleO)) ..))) (sem_ty _) (λ x, .. (λ y, ι%T) ..))) 
   (at level 200, x binder, y binder, right associativity,
-   format "'[ ' '∀S:' x .. y ,  κ  =>  ι  ']'") : sem_sig_scope.
+   format "'[ ' '∀ₛ' x .. y ,  κ  =>  ι  ']'") : sem_sig_scope.
 
 Notation "¡[ m ] σ" := (sem_sig_flip_mbang m σ) (at level 10) : sem_sig_scope.
 
-Notation "'∀S..:' tt , κ '=[' m ']=>' ι" := 
+Notation "'∀ₛ..' tt , κ '=[' m ']=>' ι" := 
   (sem_sig_flip_mbang m (sem_sig_eff (λ tt, κ%T) (λ tt, ι%T)))
   (at level 200, tt binder, right associativity,
-   format "'[ ' '∀S..:' tt ,  κ  =[ m ]=>  ι  ']'") : sem_sig_scope.
+   format "'[ ' '∀ₛ..' tt ,  κ  =[ m ]=>  ι  ']'") : sem_sig_scope.
 
-Notation "'∀S:' x .. y , κ '=[' m ']=>' ι" := 
+Notation "'∀ₛ' x .. y , κ '=[' m ']=>' ι" := 
   (sem_sig_flip_mbang m (
     (sem_sig_eff 
     (@tele_app ((TeleS (λ x, .. (TeleS (λ y, TeleO)) ..))) (sem_ty _) (λ x, .. (λ y, κ%T) ..)) 
     (@tele_app ((TeleS (λ x, .. (TeleS (λ y, TeleO)) ..))) (sem_ty _) (λ x, .. (λ y, ι%T) ..))))) 
   (at level 200, x binder, y binder, right associativity,
-   format "'[ ' '∀S:' x .. y ,  κ  =[ m ]=>  ι  ']'") : sem_sig_scope.
+   format "'[ ' '∀ₛ' x .. y ,  κ  =[ m ]=>  ι  ']'") : sem_sig_scope.
 
 Lemma sem_sig_eff_mbang_eq {Σ} {TT : tele} A B m v Φ :
   iEff_car (@sem_sig_flip_mbang Σ m (@sem_sig_eff Σ TT A B)) v Φ ⊣⊢
@@ -186,7 +183,7 @@ Section sig_sub_typing.
   Lemma sig_le_eff {Σ} {TT : tele} (ι₁ ι₂ κ₁ κ₂ : tele_arg TT → sem_ty Σ) :
     □ (∀.. α, (ι₁ α) ≤ₜ (ι₂ α)) -∗
     □ (∀.. α, (κ₂ α) ≤ₜ (κ₁ α)) -∗
-    (∀S..: α , ι₁ α => κ₁ α) ≤ₛ (∀S..: α , ι₂ α => κ₂ α).
+    (∀ₛ.. α , ι₁ α => κ₁ α) ≤ₛ (∀ₛ.. α , ι₂ α => κ₂ α).
   Proof.
     iIntros "#Hι₁₂ #Hκ₂₁". 
     iIntros (v Φ) "!#".
@@ -248,7 +245,7 @@ Section sig_sub_typing.
   Proof. constructor. iIntros. iApply sig_le_mfbang_idemp. Qed.
 
   Global Instance sig_eff_os_once {TT : tele} {Σ} (A B : tele_arg TT → sem_ty Σ) :
-    OnceS (∀S..: αs , (A αs) =[ OS ]=> (B αs))%S.
+    OnceS (∀ₛ.. αs , (A αs) =[ OS ]=> (B αs))%S.
   Proof. apply _. Qed.
   
   Lemma sig_le_mfbang_comm {Σ} m m' (σ : sem_sig Σ) :
@@ -267,7 +264,7 @@ Section sig_sub_typing.
   Qed.
   
   Corollary sig_le_eff_mode {Σ} {TT : tele} (ι κ : tele_arg TT → sem_ty Σ) :
-    ⊢ (∀S..: α , ι α =[ MS ]=> κ α) ≤ₛ (∀S..: α , ι α =[ OS ]=> κ α).
+    ⊢ (∀ₛ.. α , ι α =[ MS ]=> κ α) ≤ₛ (∀ₛ.. α , ι α =[ OS ]=> κ α).
   Proof. 
     iApply sig_le_mfbang_comp; first iApply mode_le_MS. 
     iApply sig_le_refl. 

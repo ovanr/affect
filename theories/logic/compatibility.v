@@ -9,13 +9,6 @@
 From iris.proofmode Require Import base tactics.
 From iris.base_logic.lib Require Import iprop invariants.
 
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
-                                        tactics 
-                                        shallow_handler_reasoning 
-                                        deep_handler_reasoning 
-                                        state_reasoning.
-
 (* Local imports *)
 From affect.lib Require Import base.
 From affect.lib Require Import pure_weakestpre.
@@ -145,7 +138,7 @@ Section compatibility.
 
   Lemma sem_typed_Tclosure τ v :
     (∀ α, ⊨ᵥ v : τ α) -∗ 
-    ⊨ᵥ v : (∀T: α, τ α).
+    ⊨ᵥ v : (∀ₜ α, τ α).
   Proof.
     iIntros "#He !# %u". rewrite /sem_val_typed /=. iApply "He".
   Qed.
@@ -153,7 +146,7 @@ Section compatibility.
   (* row abstraction and application *)
   Lemma sem_typed_Rclosure C v : 
     (∀ θ, ⊨ᵥ v : C θ) -∗
-    ⊨ᵥ v : (∀R: θ , C θ)%T.
+    ⊨ᵥ v : (∀ᵣ θ , C θ)%T.
   Proof.
     iIntros "#He !# %u". rewrite /sem_val_typed /=. iApply "He".
   Qed.
@@ -161,7 +154,7 @@ Section compatibility.
   (* mode abstraction and application *)
   Lemma sem_typed_Mclosure C v : 
     (∀ ν, ⊨ᵥ v : C ν) -∗
-    ⊨ᵥ v : (∀M: ν , C ν)%T.
+    ⊨ᵥ v : (∀ₘ ν , C ν)%T.
   Proof.
     iIntros "#He !# %u". rewrite /sem_val_typed /=. iApply "He". 
   Qed.
@@ -169,7 +162,7 @@ Section compatibility.
   (* mode abstraction and application *)
   Lemma sem_val_typed_bang v τ :
     ⊨ᵥ v : τ -∗
-    ⊨ᵥ v : ![MS] τ.
+    ⊨ᵥ v : ! τ.
   Proof. iIntros "#He !# //". Qed.
 
   (* Subsumption rule *)
@@ -388,7 +381,7 @@ Section compatibility.
 
   Corollary sem_typed_bang Γ₁ Γ₂ e τ `{! MultiE Γ₁ } :
     (Γ₁ ⊨ₚ e : τ ⫤ []) -∗
-    Γ₁ ++ Γ₂ ⊨ₚ e : ![MS] τ ⫤ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ₚ e : ! τ ⫤ Γ₂.
   Proof. iIntros "He". iApply (sem_typed_mbang with "He"). Qed.
 
   (* λ-calculus rules *)
@@ -458,8 +451,8 @@ Section compatibility.
   Lemma sem_typed_ufun_poly_rec τ ρ κ Γ₁ Γ₂ f x e `{! MultiE Γ₁ }:
     x ∉ (env_dom Γ₁) → f ∉ (env_dom Γ₁) → 
     match x with BNamed x => BNamed x ≠ f | BAnon => True end →
-    (∀ ι, (x, τ ι) ::? (f, ∀T: α, τ α -{ ρ α }-> κ α) ::? Γ₁ ⊨ e : ρ ι : κ ι ⫤ []) -∗
-    Γ₁ ++ Γ₂ ⊨ₚ (rec: f x := e) : (∀T: α, τ α -{ ρ α }-> κ α) ⫤ Γ₂.
+    (∀ ι, (x, τ ι) ::? (f, ∀ₜ α, τ α -{ ρ α }-> κ α) ::? Γ₁ ⊨ e : ρ ι : κ ι ⫤ []) -∗
+    Γ₁ ++ Γ₂ ⊨ₚ (rec: f x := e) : (∀ₜ α, τ α -{ ρ α }-> κ α) ⫤ Γ₂.
   Proof.
     iIntros (???) "#He !# %γ HΓ₁₂ //=".
     iApply pwp_pure_step'; [by auto using pure_prim_step_Rec|]. iApply pwp_value'.
@@ -537,8 +530,8 @@ Section compatibility.
 
   (* Derived App Rules *)
   Corollary sem_typed_app τ ρ' ρ κ Γ₁ Γ₂ e₁ e₂ :
-    ¡[OS] ρ' ≤ᵣ ρ -∗
-    Γ₂ ⊨ e₁ : ¡[OS] ρ' : (τ -{ ρ }-∘ κ) ⫤ [] -∗
+    ¡ ρ' ≤ᵣ ρ -∗
+    Γ₂ ⊨ e₁ : ¡ ρ' : (τ -{ ρ }-∘ κ) ⫤ [] -∗
     Γ₁ ⊨ e₂ : ρ : τ ⫤ Γ₂ -∗
     Γ₁ ⊨ (e₁ e₂) : ρ : κ ⫤ [].
   Proof.
@@ -566,7 +559,7 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂". inv OnceR0.
     iApply sem_typed_sub_row; first iApply row_le_mfbang_elim.
-    iApply (sem_typed_app_gen τ (¡[OS] ρ)%R (¡[OS] ρ)%R (¡[OS] ρ)%R). 
+    iApply (sem_typed_app_gen τ (¡ ρ)%R (¡ ρ)%R (¡ ρ)%R). 
     - iApply row_le_refl. 
     - iApply row_le_refl. 
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS).
@@ -627,7 +620,7 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂". inv OnceR0.
     iApply sem_typed_sub_row; first iApply row_le_mfbang_elim.
-    iApply (sem_typed_pair_gen τ (¡[OS] ρ)%R).
+    iApply (sem_typed_pair_gen τ (¡ ρ)%R).
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₂".
   Qed.
@@ -804,7 +797,7 @@ Section compatibility.
   (* Type abstraction and application *)
   Lemma sem_typed_TLam C Γ₁ Γ₂ e : 
     (∀ α, Γ₁ ⊨ₚ e : C α ⫤ []) -∗
-    Γ₁ ++ Γ₂ ⊨ₚ e : (∀T: α , C α)%T ⫤ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ₚ e : (∀ₜ α , C α)%T ⫤ Γ₂.
   Proof.
     iIntros "#He !# %γ HΓ₁₂ //=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ $]". 
@@ -814,7 +807,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_TApp C τ ρ Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : ρ : (∀T: α , C α) ⫤ Γ₂ -∗
+    Γ₁ ⊨ e : ρ : (∀ₜ α , C α) ⫤ Γ₂ -∗
     Γ₁ ⊨ e : ρ : C τ ⫤ Γ₂. 
   Proof.
     iIntros "#He !# %γ HΓ₁ /=".
@@ -825,7 +818,7 @@ Section compatibility.
   (* row abstraction and application *)
   Lemma sem_typed_RLam C Γ₁ Γ₂ e : 
     (∀ θ, Γ₁ ⊨ₚ e : C θ ⫤ []) -∗
-    Γ₁ ++ Γ₂ ⊨ₚ e : (∀R: θ , C θ)%T ⫤ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ₚ e : (∀ᵣ θ , C θ)%T ⫤ Γ₂.
   Proof.
     iIntros "#He !# %γ HΓ₁₂ /=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ $]".
@@ -835,7 +828,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_RApp C ρ ρ' Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : ρ : (∀R: θ , C θ) ⫤ Γ₂ -∗
+    Γ₁ ⊨ e : ρ : (∀ᵣ θ , C θ) ⫤ Γ₂ -∗
     Γ₁ ⊨ e : ρ : C ρ' ⫤ Γ₂. 
   Proof.
     iIntros "#He !# %γ HΓ₁ /=".
@@ -846,7 +839,7 @@ Section compatibility.
   (* mode abstraction and application *)
   Lemma sem_typed_MLam C Γ₁ Γ₂ e : 
     (∀ ν, Γ₁ ⊨ₚ e : C ν ⫤ []) -∗
-    Γ₁ ++ Γ₂ ⊨ₚ e : (∀M: ν , C ν)%T ⫤ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ₚ e : (∀ₘ ν , C ν)%T ⫤ Γ₂.
   Proof.
     iIntros "#He !# %γ HΓ₁₂ /=".
     iDestruct (env_sem_typed_app with "HΓ₁₂") as "[HΓ₁ $]".
@@ -856,7 +849,7 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_MApp C ρ m Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : ρ : (∀M: ν , C ν) ⫤ Γ₂ -∗
+    Γ₁ ⊨ e : ρ : (∀ₘ ν , C ν) ⫤ Γ₂ -∗
     Γ₁ ⊨ e : ρ : C m ⫤ Γ₂. 
   Proof.
     iIntros "#He !# %γ HΓ₁ /=".
@@ -867,7 +860,7 @@ Section compatibility.
   (* Existential type packing and unpacking *)
   Lemma sem_typed_pack C τ ρ Γ₁ Γ₂ e :
     Γ₁ ⊨ e : ρ : C τ ⫤ Γ₂ -∗
-    Γ₁ ⊨ (pack: e) : ρ : (∃: α, C α) ⫤ Γ₂. 
+    Γ₁ ⊨ (pack: e) : ρ : (∃ₜ α, C α) ⫤ Γ₂. 
   Proof.
     iIntros "#He %γ !# HΓ₁ //=".
     iApply (ewpw_bind [AppRCtx _]); first done.
@@ -879,7 +872,7 @@ Section compatibility.
 
   Lemma sem_typed_unpack C κ ρ Γ₁ Γ₂ Γ₃ x e₁ e₂ :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ₃ →
-    Γ₁ ⊨ e₁ : ρ : (∃: α, C α) ⫤ Γ₂ -∗
+    Γ₁ ⊨ e₁ : ρ : (∃ₜ α, C α) ⫤ Γ₂ -∗
     (∀ τ, (x, C τ) :: Γ₂ ⊨ e₂ : ρ : κ ⫤ Γ₃) -∗
     Γ₁ ⊨ (unpack: x := e₁ in e₂) : ρ : κ ⫤ Γ₃.
   Proof.
@@ -894,8 +887,8 @@ Section compatibility.
 
   (* Recursive type rules *)
   Lemma sem_typed_fold C ρ Γ₁ Γ₂ e `{NonExpansive C}:
-    Γ₁ ⊨ e : ρ : (C (μT: α, C α)) ⫤ Γ₂ -∗
-    Γ₁ ⊨ (fold: e) : ρ : (μT: α, C α) ⫤ Γ₂.
+    Γ₁ ⊨ e : ρ : (C (μₜ α, C α)) ⫤ Γ₂ -∗
+    Γ₁ ⊨ (fold: e) : ρ : (μₜ α, C α) ⫤ Γ₂.
   Proof.
     iIntros "#He %γ !# HΓ₁ //=".
     iApply (ewpw_bind [AppRCtx _]); first done.
@@ -906,8 +899,8 @@ Section compatibility.
   Qed.
 
   Lemma sem_typed_unfold C ρ Γ₁ Γ₂ e `{NonExpansive C}:
-    Γ₁ ⊨ e : ρ : (μT: α, C α) ⫤ Γ₂ -∗
-    Γ₁ ⊨ (unfold: e) : ρ : (C (μT: α, C α)) ⫤ Γ₂.
+    Γ₁ ⊨ e : ρ : (μₜ α, C α) ⫤ Γ₂ -∗
+    Γ₁ ⊨ (unfold: e) : ρ : (C (μₜ α, C α)) ⫤ Γ₂.
   Proof.
     iIntros "#He %γ !# HΓ₁ //=".
     iApply (ewpw_bind [AppRCtx _]); first done. 
@@ -956,7 +949,7 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂". inv OnceR0.
     iApply sem_typed_sub_row; first iApply row_le_mfbang_elim.
-    iApply (sem_typed_cons_gen τ (¡[OS] ρ)%R).
+    iApply (sem_typed_cons_gen τ (¡ ρ)%R).
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₂".
   Qed.
@@ -1116,7 +1109,7 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂". inv OnceR0.
     iApply sem_typed_sub_row; first iApply row_le_mfbang_elim.
-    iApply (sem_typed_store_cpy_gen τ (¡[OS] ρ)%R).
+    iApply (sem_typed_store_cpy_gen τ (¡ ρ)%R).
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₂".
   Qed.
@@ -1159,7 +1152,7 @@ Section compatibility.
   Proof.
     iIntros "#He₁ #He₂". inv OnceR0.
     iApply sem_typed_sub_row; first iApply row_le_mfbang_elim.
-    iApply (sem_typed_replace_cpy_gen τ (¡[OS] ρ)%R).
+    iApply (sem_typed_replace_cpy_gen τ (¡ ρ)%R).
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₁".
     - iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS). iApply "He₂".
   Qed.
@@ -1176,7 +1169,7 @@ Section compatibility.
   (* Effect handling rules *)
   
   Lemma sem_typed_perform {TT : tele} m τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e `{ m ₘ⪯ₑ Γ₂ } :
-    let σ := (∀S..: αs, A αs =[ m ]=> B αs)%S in
+    let σ := (∀ₛ.. αs, A αs =[ m ]=> B αs)%S in
     let ρ := ((op, σ) · ρ')%R in
     Γ₁ ⊨ e : ρ : A τs ⫤ Γ₂ -∗
     Γ₁ ⊨ (perform: op e) : ρ : B τs ⫤ Γ₂.
@@ -1199,7 +1192,7 @@ Section compatibility.
   Qed.
 
   Corollary sem_typed_perform_os {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e :
-    let σ := (∀S..: αs, A αs =[ OS ]=> B αs)%S in
+    let σ := (∀ₛ.. αs, A αs =[ OS ]=> B αs)%S in
     let ρ := ((op, σ) · ρ')%R in
     Γ₁ ⊨ e : ρ : A τs ⫤ Γ₂ -∗
     Γ₁ ⊨ (perform: op e) : ρ : B τs ⫤ Γ₂.
@@ -1209,7 +1202,7 @@ Section compatibility.
   Qed.
 
   Corollary sem_typed_perform_ms {TT : tele} τs ρ' op (A B : TT → sem_ty Σ) Γ₁ Γ₂ e `{! MultiE Γ₂ } :
-    let σ := (∀S..: αs, A αs =[ MS ]=> B αs)%S in
+    let σ := (∀ₛ.. αs, A αs =[ MS ]=> B αs)%S in
     let ρ := ((op, σ) · ρ')%R in
     Γ₁ ⊨ e : ρ : A τs ⫤ Γ₂ -∗
     Γ₁ ⊨ (perform: op e) : ρ : B τs ⫤ Γ₂.
@@ -1220,7 +1213,7 @@ Section compatibility.
 
   Lemma sem_typed_shandler {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{ ρ' ᵣ⪯ₑ Γ' }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S..: αs, A αs =[m]=> B αs)%S in
+    let σ := (∀ₛ.. αs, A αs =[m]=> B αs)%S in
     let ρ := ((op, σ) · ρ')%R in
     ρ' ≤ᵣ ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⫤ Γ₂ -∗
@@ -1265,7 +1258,7 @@ Section compatibility.
 
   Lemma sem_typed_handler {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{! MultiE Γ' }:
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-    let σ := (∀S..: αs, A αs =[ m ]=> B αs)%S in
+    let σ := (∀ₛ.. αs, A αs =[ m ]=> B αs)%S in
     let ρ := ((op, σ) · ρ')%R in
     ρ' ≤ᵣ ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⫤ Γ₂ -∗
@@ -1306,8 +1299,8 @@ Section compatibility.
 
   Lemma sem_typed_handler2 {TT: tele} m op1 op2 (A1 B1 A2 B2 : TT → sem_ty Σ)τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h1 h2 r `{! MultiE Γ' } :
     x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k → op1 ≠ op2 →
-    let σ1 := (∀S..: αs, A1 αs =[m]=> B1 αs)%S in
-    let σ2 := (∀S..: αs, A2 αs =[m]=> B2 αs)%S in
+    let σ1 := (∀ₛ.. αs, A1 αs =[m]=> B1 αs)%S in
+    let σ2 := (∀ₛ.. αs, A2 αs =[m]=> B2 αs)%S in
     let ρ := ((op1, σ1) · (op2, σ2) · ρ')%R in
     ρ' ≤ᵣ ρ'' -∗
     Γ₁ ⊨ e : ρ : τ ⫤ Γ₂ -∗
