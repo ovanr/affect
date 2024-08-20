@@ -72,7 +72,7 @@ Definition list_iter :=
 Section typing.
   Context `{!heapGS Σ}.
 
-  Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", ∀ₛ (_ : sem_ty Σ), τ =[OS]=> 𝟙)%S.
+  Definition yield_sig (τ : sem_ty Σ) : operation * sem_sig Σ := ("yield", τ =[OS]=> 𝟙)%S.
   Definition yield_ty τ := τ -{ ¡ (yield_sig τ · ⟨⟩) }-> 𝟙.
   Definition iter_ty τ := (∀ᵣ θ, (τ -{ ¡ θ }-> 𝟙) -{ ¡ θ }-∘ 𝟙)%T.
   Definition iter_ty_un τ := (∀ᵣ θ, (τ -{ θ }-> 𝟙) -{ θ }-> 𝟙)%T.
@@ -97,13 +97,13 @@ Section typing.
       + iApply sem_typed_frame. iApply sem_typed_sub_nil.
         iApply sem_typed_val. rewrite /yield /yield_ty. iApply sem_typed_closure; first done.
         simpl. iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS).
-        iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg 𝟙] with "[]"). 
+        iApply (sem_typed_perform_os (TT:=[tele ]) [tele_arg] with "[]"). 
         iApply sem_typed_var'.
     - set Γ₁ :=[("cont", Refᶜ cont_ty)]; rewrite -(app_nil_r Γ₁). 
       smart_apply sem_typed_ufun. simpl.
       iApply sem_typed_contraction.
       rewrite app_singletons.
-      smart_apply (sem_typed_shandler (TT:=[tele _]) OS "yield" (tele_app (λ _, α)) (tele_app (λ _, 𝟙)) 𝟙 (Option α) ⊥ _ [("cont", Refᶜ cont_ty)] [] [] [("cont", Refᶜ cont_ty)]).
+      smart_apply (sem_typed_shandler (TT:=[tele ]) OS "yield" (tele_app α) (tele_app 𝟙) 𝟙 (Option α) ⊥ _ [("cont", Refᶜ cont_ty)] [] [] [("cont", Refᶜ cont_ty)]).
       * iApply row_le_refl. 
       * iApply sem_typed_sub_row; first iApply (@row_le_mfbang_elim _ (yield_sig α · ⟨⟩)%R).
         iApply sem_typed_app_os; [|iApply sem_typed_unit']. 
@@ -113,7 +113,7 @@ Section typing.
         iApply sem_typed_sub_nil.
         smart_apply sem_typed_afun.
         simpl. iApply sem_typed_unit'.
-      * iIntros (?). do 2 iApply sem_typed_swap_third.
+      * do 2 iApply sem_typed_swap_third.
         rewrite -/(yield_sig α) /cont_ty.
         iApply sem_typed_sub_env; first iApply env_le_cons; first iApply env_le_refl.
         { iApply ty_le_trans; first iApply ty_le_mbang_elim.
@@ -143,7 +143,7 @@ Section typing.
         rewrite -(app_nil_r [("cont", _); ("i", _)]).
         smart_apply sem_typed_afun. simpl (_ ::? _).
         iApply sem_typed_swap_second. rewrite app_singletons.
-        smart_apply (sem_typed_handler (TT:=[tele _]) OS "yield" (tele_app (λ _, α)) (tele_app (λ _, 𝟙)) 𝟙 (Option α) ⊥ _ [("i", iter_ty α)] [] [] [("cont", Refᶜ cont_ty)]).
+        smart_apply (sem_typed_handler (TT:=[tele]) OS "yield" (tele_app α) (tele_app 𝟙) 𝟙 (Option α) ⊥ _ [("i", iter_ty α)] [] [] [("cont", Refᶜ cont_ty)]).
         * iApply row_le_refl. 
         * iApply (sem_typed_app_os (yield_ty α) _ _ _ [("i", iter_ty α)]).
           ** iApply sem_typed_sub_nil. iApply sem_typed_sub_ty.
@@ -154,9 +154,9 @@ Section typing.
              iApply sem_typed_frame.
              iApply sem_typed_val. rewrite /yield /yield_ty. iApply sem_typed_closure; first done.
              simpl. iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS).
-             iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg 𝟙] with "[]"). 
+             iApply (sem_typed_perform_os (TT:=[tele]) [tele_arg] with "[]"). 
              iApply sem_typed_var'.
-        * iIntros (?). do 2 iApply sem_typed_swap_third.
+        * do 2 iApply sem_typed_swap_third.
           iApply sem_typed_seq.
           { iApply sem_typed_replace_cpy_os; iApply sem_typed_var'. }
           iApply sem_typed_some. iApply sem_typed_var'.

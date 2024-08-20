@@ -562,7 +562,7 @@ Section typing.
         rewrite -/(coop st) {1} /coop_pre {7} /st.
         iApply sem_typed_sub_row; first iApply row_le_swap_third; try done.
         iApply sem_typed_sub_row; first iApply row_le_swap_second; try done.
-        iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg 𝟙] with "[]").
+        iApply (sem_typed_perform_ms (TT:=[tele]) [tele_arg] with "[]").
         iApply sem_typed_int'.
       + set p1type := (Promise (! 𝟙)%T st).
         smart_apply (sem_typed_let p1type _ _ _  []).
@@ -580,11 +580,11 @@ Section typing.
           iApply sem_typed_sub_row; first iApply row_le_swap_third; try done.
           iApply sem_typed_sub_row; first iApply row_le_swap_second; try done.
           iApply sem_typed_sub_ty; first iApply (ty_le_mbang_intro_unit).
-          iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg 𝟙] with "[]").
+          iApply (sem_typed_perform_ms (TT:=[tele ]) [tele_arg] with "[]").
           iApply sem_typed_sub_row; first iApply row_le_swap_fourth; try done.
           do 2 (iApply sem_typed_sub_row; first iApply row_le_swap_third; try done).
           iApply (sem_typed_bin_op ℤ ℤ ℤ); [constructor| |iApply sem_typed_int'].
-          iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg 𝟙] with "[]").
+          iApply (sem_typed_perform_ms (TT:=[tele ]) [tele_arg ] with "[]").
           iApply sem_typed_unit'.
         * set A := (λ α θ', Promise (! α) θ' -{ coop θ' }-> ! α)%T.
           iApply (sem_typed_app_nil p1type).

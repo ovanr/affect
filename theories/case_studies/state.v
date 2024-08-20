@@ -57,8 +57,8 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition putsig : operation * sem_sig Σ := ("put", ∀ₛ (_ : sem_ty Σ), ℤ =[MS]=> 𝟙)%S.  
-  Definition getsig : operation * sem_sig Σ := ("get", ∀ₛ (_ : sem_ty Σ), 𝟙 =[MS]=> ℤ)%S.
+  Definition putsig : operation * sem_sig Σ := ("put", ℤ =[MS]=> 𝟙)%S.  
+  Definition getsig : operation * sem_sig Σ := ("get", 𝟙 =[MS]=> ℤ)%S.
   Definition st : sem_row Σ := (putsig · getsig · ⟨⟩)%R.
 
   Lemma get_typed :
@@ -67,7 +67,7 @@ Section typing.
     iIntros. iApply sem_typed_closure; first done.
     simpl. rewrite /st. iApply sem_typed_sub_row.
     { by iApply row_le_swap_second. }
-    iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg 𝟙] with "[]").
+    iApply (sem_typed_perform_ms (TT:=[tele ]) [tele_arg] with "[]").
     simpl. iApply sem_typed_unit'.
   Qed.
 
@@ -75,7 +75,7 @@ Section typing.
     ⊢ ⊨ᵥ put : (ℤ -{ st }-> 𝟙).
   Proof.
     iIntros. iApply sem_typed_closure; first done.
-    iApply (sem_typed_perform_ms (TT:=[tele _]) [tele_arg 𝟙] with "[]").
+    iApply (sem_typed_perform_ms (TT:=[tele ]) [tele_arg] with "[]").
     iApply sem_typed_var'.
   Qed.
 
@@ -118,7 +118,7 @@ Section typing.
     simpl. smart_apply (sem_typed_let _ _ _ _ [("n", ℤ)]). 
     { iApply sem_typed_alloc_cpy. iApply sem_typed_int. }
     iApply sem_typed_swap_second. rewrite app_singletons. 
-    smart_apply (sem_typed_handler2 (TT:=[tele _]) OS "get" "put" (tele_app (λ _, 𝟙)) (tele_app (λ _, ℤ)) (tele_app (λ _, ℤ)) (tele_app (λ _, 𝟙)) 𝟙 ℤ ⊥ _ _ [] with "[]").
+    smart_apply (sem_typed_handler2 (TT:=[tele]) OS "get" "put" (tele_app 𝟙) (tele_app ℤ) (tele_app ℤ) (tele_app 𝟙) 𝟙 ℤ ⊥ _ _ [] with "[]").
     { iApply row_le_refl. }
     - iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       iApply (sem_typed_app_ms ℤ); last iApply sem_typed_var'.
@@ -126,14 +126,13 @@ Section typing.
       iApply sem_typed_sub_ty; first iApply ty_le_uarr; try iApply ty_le_refl.
       { do 2 (iApply row_le_cons_comp; first iApply sig_le_eff_mode). iApply row_le_nil. }
       iApply sem_typed_val. simpl. iApply fact_typed.
-    - iIntros (?).  iApply sem_typed_weaken.
+    - iApply sem_typed_weaken.
       iApply sem_typed_swap_second. 
       iApply (sem_typed_app_os ℤ).
       { iApply sem_typed_var'. }
       iApply (sem_typed_load_cpy ℤ).
       iApply sem_typed_var'.
-    - iIntros (?).
-      iApply sem_typed_swap_third. iApply sem_typed_swap_second.
+    - iApply sem_typed_swap_third. iApply sem_typed_swap_second.
       iApply (sem_typed_seq _ _ _ _  [("k", _)]).
       { iApply sem_typed_store_cpy; iApply sem_typed_var'. }
       iApply sem_typed_app_os; [iApply sem_typed_var'|].
@@ -148,7 +147,7 @@ Section typing.
     iIntros. iApply sem_typed_closure; first done.
     simpl. iApply (sem_typed_app_ms ℤ); last iApply sem_typed_int.
     rewrite - {1} (app_nil_r [("n", ℤ)]).
-    smart_apply (sem_typed_handler2 (TT:=[tele _]) OS "get" "put" (tele_app (λ _, 𝟙)) (tele_app (λ _, ℤ)) (tele_app (λ _, ℤ)) (tele_app (λ _, 𝟙)) 𝟙 _ _ _ _ []).
+    smart_apply (sem_typed_handler2 (TT:=[tele]) OS "get" "put" (tele_app 𝟙) (tele_app ℤ) (tele_app ℤ) (tele_app 𝟙) 𝟙 _ _ _ _ []).
     { iApply row_le_refl. }
     - iApply sem_typed_sub_row; first by iApply row_le_swap_second.
       iApply (sem_typed_app_ms ℤ); last iApply sem_typed_var'.
@@ -156,14 +155,13 @@ Section typing.
       iApply sem_typed_sub_ty; first iApply ty_le_uarr; try iApply ty_le_refl.
       { do 2 (iApply row_le_cons_comp; first iApply sig_le_eff_mode). iApply row_le_nil. }
       iApply sem_typed_val. iApply fact_typed.
-    - iIntros (?). iApply sem_typed_weaken.
+    - iApply sem_typed_weaken.
       rewrite - {1} (app_nil_r [("k", _)]).
       smart_apply sem_typed_afun. simpl.
       iApply (sem_typed_contraction _ _ _ _ _ ℤ).
       do 2 (iApply (sem_typed_app_ms ℤ); last iApply sem_typed_var').
       iApply sem_typed_var.
-    - iIntros (?).
-      rewrite - (app_nil_r [("x", _); ("k", _)]).
+    - rewrite - (app_nil_r [("x", _); ("k", _)]).
       smart_apply sem_typed_afun. simpl.
       iApply (sem_typed_app_ms ℤ); last iApply sem_typed_var.
       iApply (sem_typed_app_ms 𝟙); last iApply sem_typed_unit.

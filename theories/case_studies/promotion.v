@@ -48,7 +48,7 @@ Section typing.
 
   Context `{!heapGS Σ}.
 
-  Definition op_eff : operation * sem_sig Σ := ("op", ∀ₛ (_ : sem_ty Σ), 𝟙 =[OS]=> 𝟙)%S.
+  Definition op_eff : operation * sem_sig Σ := ("op", 𝟙 =[OS]=> 𝟙)%S.
   Definition op_row : sem_row Σ := (op_eff · ⟨⟩)%R.
   Definition mk_os_ty : sem_ty Σ := (𝟙 → (𝟙 -{ op_row }-∘ 𝟙))%T.
   Definition mk_os_dp_ty : sem_ty Σ := (𝟙 → (𝟙 ⊸ 𝟙))%T.
@@ -58,11 +58,11 @@ Section typing.
   Proof.
     iIntros. rewrite /mk_one_shot /mk_os_ty.
     iApply sem_typed_closure; first done. simpl.
-    smart_apply (sem_typed_shandler (TT:=[tele _]) OS "op" (tele_app (λ (_ : sem_ty Σ), 𝟙)) (tele_app (λ _, 𝟙)) 𝟙 (𝟙 -{ op_row }-∘ 𝟙) ⟨⟩%R ⟨⟩%R [] [] [] [] "x" "k" with "[] []").
+    smart_apply (sem_typed_shandler (TT:=[tele ]) OS "op" (tele_app 𝟙) (tele_app 𝟙) 𝟙 (𝟙 -{ op_row }-∘ 𝟙) ⟨⟩%R ⟨⟩%R [] [] [] [] "x" "k" with "[] []").
     { iApply row_le_refl. }
-    - iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg 𝟙] with "[]"). 
+    - iApply (sem_typed_perform_os (TT:=[tele]) [tele_arg] with "[]"). 
       iApply sem_typed_unit'.
-    - simpl. iIntros (?). iApply sem_typed_weaken.
+    - simpl. iApply sem_typed_weaken.
       rewrite -/op_eff -/op_row. iApply sem_typed_var. 
     - simpl. iApply sem_typed_weaken. 
       rewrite - {1} (app_nil_r []).

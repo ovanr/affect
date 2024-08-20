@@ -167,7 +167,7 @@ Section typing.
   Context `{!heapGS Σ}.
 
   Definition ctrl_sig (β : sem_ty Σ) (ctrl : sem_row Σ) : sem_sig Σ := 
-      (∀ₛ α , (α -{ ctrl }-∘ β) -{ ctrl }-∘ β =[ OS ]=> α)%S.
+      (∀ₛ α , ((α -{ ctrl }-∘ β) -{ ctrl }-∘ β) =[ OS ]=> α)%S.
 
   Definition ctrl_pre (β : sem_ty Σ) (ctrl : sem_row Σ) : sem_row Σ := 
       (("ctrl", ctrl_sig β ctrl) · ⟨⟩)%R.
