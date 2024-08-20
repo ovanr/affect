@@ -72,7 +72,7 @@ Section handler_alt.
     λ E op σ ρ mh Φ h r ρ' Φ',
     
     (* Subsumption on row *)
-    (ρ ≤R ρ') ∗
+    (ρ ≤ᵣ ρ') ∗
   
     □ (
     (* Correctness of the return branch. *)
@@ -93,10 +93,13 @@ Section handler_alt.
     iLöb as "IH" forall (e). rewrite /handler_alt /ewpw. 
     rewrite /handler_alt_spec.
     do 10 ewp_value_or_step. ewp_pure_steps. 
-    iApply (ewpw_shandler _ op mh MS with "He").
+    iApply (ewpw_shandler _ op mh with "He").
     iDestruct "H" as "(#H1 & #Hbr)".
-    rewrite /shandler. iFrame "#%".
-    iSplit; first done. simpl. iModIntro. iSplit.
+    rewrite /shandler /shandler_spec. iFrame "#%". 
+    iExists True%I.
+    repeat iSplit;[|done|].  
+    { iIntros "%% !# H _". iApply (pmono_prot_prop with "[] H"). iIntros "!# % $ //". }
+    simpl. iIntros "_ !#". iSplit.
     { iDestruct "Hbr" as "[$ _]". }
     iIntros (v k) "(%Φ'' & Hσ & HPost)".
     rewrite /ewpw; do 6 ewp_value_or_step. 
@@ -105,22 +108,20 @@ Section handler_alt.
     iFrame "#%∗".
   Qed.
   
-  Lemma sem_typed_handler_alt {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r :
+  Lemma sem_typed_handler_alt {TT : tele} m op (A B : TT → sem_ty Σ) τ τ' ρ' ρ'' Γ₁ Γ₂ Γ₃ Γ' x k e h r `{ ! MultiE Γ' } :
       x ∉ env_dom Γ₂ → x ∉ env_dom Γ' → x ∉ env_dom Γ₃ → x ∉ env_dom Γ₂ → k ∉ env_dom Γ₂ → k ∉ env_dom Γ₃ → k ∉ env_dom Γ' → x ≠ k →
-      let σ := (∀S..: αs, A αs =[ m ]=> B αs)%S in
+      let σ := (∀ₛ.. αs, A αs =[ m ]=> B αs)%S in
       let ρ := ((op, σ) · ρ')%R in
-      copy_env Γ' -∗
-      ρ' ≤R ρ'' -∗
-      Γ₁ ⊨ e : ρ : τ ⊨ Γ₂ -∗
-      (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-[m]-> τ) :: Γ' ⊨ h : ρ : τ ⊨ Γ₂) -∗
-      (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⊨ Γ₃ -∗
+      ρ' ≤ᵣ ρ'' -∗
+      Γ₁ ⊨ e : ρ : τ ⫤ Γ₂ -∗
+      (∀.. αs, (x, A αs) :: (k, B αs -{ ρ }-[m]-> τ) :: Γ' ⊨ h : ρ : τ ⫤ Γ₂) -∗
+      (x, τ) :: Γ₂ ++ Γ' ⊨ r : ρ'' : τ' ⫤ Γ₃ -∗
       Γ₁ ++ Γ' ⊨ (handle-alt[m]: e by 
                      op => (λ: x k, h)
-                  | ret => (λ: x, r) end)%E : ρ'' : τ' ⊨ Γ₃.
+                  | ret => (λ: x, r) end)%E : ρ'' : τ' ⫤ Γ₃.
     Proof.
-      iIntros (??????????) "#Hcpy #Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
-      iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ HΓ'']". 
-      iDestruct ("Hcpy" with "HΓ''") as "#HΓ'". iClear "HΓ''".
+      iIntros (??????????) "#Hle #He #Hh #Hr !# %vs HΓ₁Γ' /=".
+      iDestruct (env_sem_typed_app with "HΓ₁Γ'") as "[HΓ₁ #HΓ']". 
       do 4 ewpw_value_or_step. iDestruct "He" as "-#He".
       iSpecialize ("He" $! vs with "HΓ₁").
       iRevert "He". iLöb as "IH" forall (e). iIntros "He".
@@ -133,19 +134,18 @@ Section handler_alt.
         { iApply "Hr". solve_env. iApply env_sem_typed_app; solve_env. }
         iIntros "!# %w [$ HΓ₃] !>". solve_env.
       - iIntros (v k') "(%Φ & Hρ & HPost)".
-        rewrite sem_sig_eff_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)".
+        rewrite sem_sig_eff_mbang_eq. iDestruct "Hρ" as "(%αs & %a & <- & Ha & Hκb)".
         ewpw_pure_steps. solve_dec. 
         rewrite delete_commute - subst_map_insert. 
         rewrite - delete_insert_ne // - subst_map_insert.
         iApply (ewpw_mono with "[Hh Ha Hκb HPost]").
-        + iApply "Hh". solve_env. 
-          iSplitL; last (do 2 (rewrite - env_sem_typed_insert; solve_env)).
+        + iApply "Hh". solve_env; last (do 2 (rewrite - env_sem_typed_insert; solve_env)).
           destruct m; simpl.
-          * rewrite /sem_ty_bang /sem_ty_arr /=. iIntros (?) "HB". 
+          * rewrite /sem_ty_mbang /sem_ty_arr /=. iIntros (?) "HB". 
             iApply (ewpw_mono with "[Hκb HPost HB]").
             { iApply ("HPost" with "[Hκb HB]"). by iApply "Hκb". }
             iIntros "!# % [$ _] //".
-          * rewrite /sem_ty_bang /sem_ty_arr /=. 
+          * rewrite /sem_ty_mbang /sem_ty_arr /=. 
             iDestruct "Hκb" as "#Hκb". iDestruct "HPost" as "#HPost". 
             iIntros "!# % HB". 
             iApply (ewpw_mono with "[Hκb HPost HB]").
@@ -160,14 +160,14 @@ Section typing.
 
   (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
   Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-  Opaque sem_ty_void sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_bang sem_env_bang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
-  Opaque sem_sig_eff sem_sig_flip_bang.
-  Opaque sem_row_nil sem_row_flip_bang sem_row_cons sem_row_rec.
+  Opaque sem_ty_bot sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_mbang env_mbang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_type_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option.
+  Opaque sem_sig_eff sem_sig_flip_mbang.
+  Opaque sem_row_nil sem_row_flip_mbang sem_row_cons sem_row_rec.
 
   Context `{!heapGS Σ}.
 
   Definition ctrl_sig (β : sem_ty Σ) (ctrl : sem_row Σ) : sem_sig Σ := 
-      (∀S: α , (α -{ ctrl }-∘ β) -{ ctrl }-∘ β =[ OS ]=> α)%S.
+      (∀ₛ α , (α -{ ctrl }-∘ β) -{ ctrl }-∘ β =[ OS ]=> α)%S.
 
   Definition ctrl_pre (β : sem_ty Σ) (ctrl : sem_row Σ) : sem_row Σ := 
       (("ctrl", ctrl_sig β ctrl) · ⟨⟩)%R.
@@ -175,8 +175,7 @@ Section typing.
   Global Instance ctrl_sig_ne β : NonExpansive (ctrl_sig β).
   Proof.
     rewrite /ctrl_sig. intros ????. f_equiv.
-    rewrite /tele_app. intros ?. destruct x0; simpl. f_equiv; first done. 
-    by f_equiv. 
+    rewrite /tele_app. repeat f_equiv; intros ?; by repeat f_equiv.
   Qed.
 
   Local Instance contractive_ctrl_pre β : Contractive (ctrl_pre β).
@@ -187,28 +186,23 @@ Section typing.
     by f_equiv.
   Qed.
 
-  Definition ctrl β : sem_row Σ := (μR: θ, ctrl_pre β θ)%R.
+  Definition ctrl β : sem_row Σ := (μᵣ θ, ctrl_pre β θ)%R.
 
-  Local Instance ctrl_os_row β : Once (ctrl β).
-  Proof.
-    rewrite /ctrl. apply row_rec_once. iIntros (θ).
-    rewrite /ctrl_pre. apply row_cons_once.
-    { rewrite /ctrl_sig. apply sig_eff_os_once; apply _. }
-    simpl. apply row_nil_once.
-  Qed.
+  Local Instance ctrl_os_row β : OnceR (ctrl β).
+  Proof. apply _. Qed.
 
   Definition ctrl_ty : sem_ty Σ := 
-    (∀T: α, ∀T: β, ((α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β) -{ ctrl β }-> α)%T.
+    (∀ₜ α, ∀ₜ β, ((α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β) -{ ctrl β }-> α)%T.
 
   Definition prompt_ty : sem_ty Σ := 
-    (∀T: α, (() -{ ctrl α }-∘ α) → α)%T.
+    (∀ₜ α, (𝟙 -{ ctrl α }-∘ α) → α)%T.
 
   Lemma ctrl_typed : ⊢ ⊨ᵥ control : ctrl_ty.
   Proof.
     iIntros. rewrite /control /ctrl_ty.
-    iApply sem_typed_Tclosure; solve_sidecond. iIntros (α).
-    iApply sem_typed_Tclosure; solve_sidecond. iIntros (β).
-    iApply sem_typed_closure; solve_sidecond. simpl.
+    iApply sem_typed_Tclosure. iIntros (α).
+    iApply sem_typed_Tclosure. iIntros (β).
+    iApply sem_typed_closure; first done. simpl.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
     rewrite /ctrl_pre -/(ctrl β).
     iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg (α : sem_ty Σ)] _ "ctrl" _ (tele_app (λ α, α))).
@@ -218,11 +212,11 @@ Section typing.
   Lemma prompt_typed : ⊢ ⊨ᵥ prompt : prompt_ty.
   Proof.
     iIntros. rewrite /prompt /prompt_ty.
-    iApply sem_typed_Tclosure; solve_sidecond. iIntros (β).
-    iApply sem_typed_closure; solve_sidecond. simpl.
+    iApply sem_typed_Tclosure. iIntros (β).
+    iApply sem_typed_closure; first done. simpl.
     rewrite - (app_nil_r [("e", _)]).
-    set Γ₁ := [("e", () -{ ctrl β }-∘ β)].
-    iApply (sem_typed_handler_alt (TT:=[tele _]) OS "ctrl" (tele_app (λ α, (α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β)) (tele_app (λ α,  α)) β β ⟨⟩%R ⟨⟩%R Γ₁ [] [] []); solve_sidecond.  
+    set Γ₁ := [("e", 𝟙 -{ ctrl β }-∘ β)].
+    smart_apply (sem_typed_handler_alt (TT:=[tele _]) OS "ctrl" (tele_app (λ α, (α -{ ctrl β }-∘ β) -{ ctrl β }-∘ β)) (tele_app (λ α,  α)) β β ⟨⟩%R ⟨⟩%R Γ₁ [] [] []).
     { iApply row_le_nil. }
     - rewrite /Γ₁. iApply sem_typed_sub_row. 
       { iApply (row_le_rec_unfold (λ θ, ctrl_pre β θ)). }
@@ -230,12 +224,14 @@ Section typing.
       iApply sem_typed_var'.
     - iIntros (α). iApply sem_typed_swap_second. 
       iApply sem_typed_app_os; last iApply sem_typed_var'.
-      iApply sem_typed_sub_nil.
+      iApply sem_typed_sub_nil. rewrite -/ctrl_pre.
       iApply sem_typed_sub_ty.
-      + iApply ty_le_arr; [|iApply ty_le_arr|]; try iApply ty_le_refl;
-        first iApply (row_le_rec_unfold (λ θ, ctrl_pre β θ)).
-        iApply (row_le_rec_fold (λ θ, ctrl_pre β θ)).
-      + iApply sem_typed_var'.
+      + iApply ty_le_arr; [|iApply ty_le_mbang_elim|iApply ty_le_refl]. 
+        { iApply (row_le_rec_unfold (λ θ, ctrl_pre β θ)). }
+      + iApply sem_typed_sub_ty.
+        iApply ty_le_arr; [iApply row_le_refl|iApply ty_le_arr|iApply ty_le_refl]; try iApply ty_le_refl. 
+        { iApply (row_le_rec_fold (λ θ, ctrl_pre β θ)). }
+        iApply sem_typed_var'.
     - iApply sem_typed_var.
   Qed.
 

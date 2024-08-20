@@ -53,7 +53,7 @@ Qed.
 Notation "'∀ₛ..' tt , κ '=>' ι" := 
   (sem_sig_eff (λ tt, κ%T) (λ tt, ι%T))
   (at level 200, tt binder, right associativity,
-   format "'[ ' '∀ₛ..' tt ,  κ  =>  ι  ']'") : sem_sig_scope.
+   format "'[ ' '∀ₛ..'  tt ,  κ  =>  ι  ']'") : sem_sig_scope.
 
 Notation "'∀ₛ' x .. y , κ '=>' ι" := 
   (sem_sig_eff 
@@ -63,11 +63,12 @@ Notation "'∀ₛ' x .. y , κ '=>' ι" :=
    format "'[ ' '∀ₛ' x .. y ,  κ  =>  ι  ']'") : sem_sig_scope.
 
 Notation "¡[ m ] σ" := (sem_sig_flip_mbang m σ) (at level 10) : sem_sig_scope.
+Notation "¡ σ" := (sem_sig_flip_mbang OS σ) (at level 10) : sem_sig_scope.
 
 Notation "'∀ₛ..' tt , κ '=[' m ']=>' ι" := 
   (sem_sig_flip_mbang m (sem_sig_eff (λ tt, κ%T) (λ tt, ι%T)))
   (at level 200, tt binder, right associativity,
-   format "'[ ' '∀ₛ..' tt ,  κ  =[ m ]=>  ι  ']'") : sem_sig_scope.
+   format "'[ ' '∀ₛ..'  tt ,  κ  =[ m ]=>  ι  ']'") : sem_sig_scope.
 
 Notation "'∀ₛ' x .. y , κ '=[' m ']=>' ι" := 
   (sem_sig_flip_mbang m (
@@ -152,6 +153,12 @@ Qed.
 Global Instance sem_sig_flip_mbang_proper {Σ} m : Proper ((≡) ==> (≡)) (@sem_sig_flip_mbang Σ m).
 Proof. apply ne_proper. apply _. Qed.
 
+Global Instance sem_sig_eff_mbang_ne2 {Σ} {TT : tele} m :
+  NonExpansive2 (λ A B, @sem_sig_flip_mbang Σ m (@sem_sig_eff Σ TT A B)).
+Proof.
+  iIntros (???????). by repeat f_equiv.
+Qed.
+
 End sig_properties.
 
 Section once_sig.
@@ -159,7 +166,7 @@ Section once_sig.
   (* Once Constraint *)
   
   Class OnceS {Σ} (σ : sem_sig Σ) := {
-    sig_le_mfbang_elim : (⊢ (¡[ OS ] σ) ≤ₛ σ)
+    sig_le_mfbang_elim : (⊢ (¡ σ) ≤ₛ σ)
   }.
 
 End once_sig.
@@ -241,7 +248,7 @@ Section sig_sub_typing.
     by iApply "H1".
   Qed.
 
-  Global Instance sig_fbang_once_sig {Σ} (σ : sem_sig Σ) : OnceS (¡[ OS ] σ)%S.
+  Global Instance sig_fbang_once_sig {Σ} (σ : sem_sig Σ) : OnceS (¡ σ)%S.
   Proof. constructor. iIntros. iApply sig_le_mfbang_idemp. Qed.
 
   Global Instance sig_eff_os_once {TT : tele} {Σ} (A B : tele_arg TT → sem_ty Σ) :
