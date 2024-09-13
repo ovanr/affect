@@ -69,6 +69,22 @@ Definition list_iter :=
          ))
     )%V.
 
+Definition iter2seq : val := (λ: "i",
+  fold: (λ: <>,
+    handle: "i" yield by
+          "yield" => λ: "x" "k", InjR ("x", fold: "k")
+        | ret     => λ: "x", InjL #()
+    end
+))%V.
+
+Definition seq2gen : val := (λ: "s",
+    let: "r" := ref "s" in
+    λ: <>, match: (unfold: "r" <!- fold: (λ: <>, InjL #())) #() with  
+            InjL "x" => NONE
+          | InjR "x" => "r" <!- (Snd "x") ;; SOME (Fst "x")
+           end
+)%V.
+    
 Section typing.
   Context `{!heapGS Σ}.
 
@@ -79,7 +95,11 @@ Section typing.
   Definition iter_ty_gen m τ := (∀ᵣ θ, (![m] τ -{ ¡[m] θ }-> 𝟙) -{ ¡[m] θ }-[m]-> 𝟙)%T.
   Definition list_iter_ty := (∀ₘ ν, ∀ₜ α, List (![ν] α) → iter_ty_gen ν α).
   Definition generator_ty τ := (𝟙 → Option τ)%T.
+  Definition seq_ty τ := (μₜ α, 𝟙 ⊸ (𝟙 + (τ × α)))%T.
   
+  Local Instance non_expansive_seq_ty τ : NonExpansive (λ α : sem_ty Σ, 𝟙 ⊸ 𝟙 + (τ × α)).
+  Proof. intros ????. by repeat f_equiv. Qed.
+
   Lemma sem_typed_generate :
     ⊢ ⊨ᵥ generate : (∀ₜ α, iter_ty α → generator_ty α).
   Proof.
@@ -249,5 +269,58 @@ Section typing.
           iApply sem_typed_sub_env_final; last iApply sem_typed_var'. 
           iApply env_le_cons; last iApply ty_le_u2aarr. iApply env_le_refl.
   Qed.
+
+  Lemma sem_typed_iter2seq :
+    ⊢ ⊨ᵥ iter2seq : (∀ₜ α, iter_ty α → seq_ty α).
+  Proof.
+    iIntros. iApply sem_typed_Tclosure. iIntros (α).
+    iApply sem_typed_closure; first done. simpl.
+    iApply sem_typed_fold. rewrite -/(seq_ty α).
+    rewrite -(app_nil_r [("i", _)]).
+    smart_apply sem_typed_afun. simpl.
+    smart_apply (sem_typed_handler (TT:=[tele]) OS "yield" (tele_app α) (tele_app 𝟙) 𝟙 _ ⊥ _ [("i", iter_ty α)] [] [] []).
+    - iApply row_le_nil.
+    - iApply (sem_typed_app_os (yield_ty α) _ _ _ [("i", iter_ty α)]).
+      + iApply sem_typed_sub_nil. iApply sem_typed_sub_ty.
+        { iApply ty_le_arr; first iApply (@row_le_mfbang_elim _ _); iApply ty_le_refl. }
+        iApply (sem_typed_RApp (λ ρ, ( α -{ ¡ ρ }-> 𝟙) -{ ¡ ρ }-∘ 𝟙)).
+        iApply sem_typed_var.
+      + iApply sem_typed_sub_nil.
+         iApply sem_typed_frame.
+         iApply sem_typed_val. rewrite /yield /yield_ty. iApply sem_typed_closure; first done.
+         simpl. iApply sem_typed_sub_row; first iApply (row_le_mfbang_intro OS).
+         iApply (sem_typed_perform_os (TT:=[tele]) [tele_arg] with "[]"). 
+         iApply sem_typed_var'.
+    - iApply sem_typed_right_inj.
+      iApply sem_typed_pair; first iApply sem_typed_var.
+      iApply sem_typed_swap_second. iApply sem_typed_fold. iApply sem_typed_var.
+    - simpl. iApply sem_typed_left_inj. iApply sem_typed_weaken. iApply sem_typed_unit.
+  Qed.
+
+  Lemma sem_typed_seq2gen :
+    ⊢ ⊨ᵥ seq2gen : (∀ₜ α, seq_ty α → generator_ty α).
+  Proof.
+    iIntros. iApply sem_typed_Tclosure. iIntros (α).
+    iApply sem_typed_closure; first done. simpl.
+    smart_apply (sem_typed_let (Refᶜ (seq_ty α)) _ _ _ []); simpl.
+    - iApply sem_typed_alloc_cpy. iApply sem_typed_var.
+    - rewrite -(app_nil_r [("r", _)]).
+      smart_apply sem_typed_ufun. simpl.
+      smart_apply (sem_typed_match 𝟙 _ (α × seq_ty α) _ [("r", Refᶜ seq_ty α)] [("r", Refᶜ seq_ty α)]).
+      + iApply sem_typed_contraction. iApply sem_typed_frame.
+        iApply sem_typed_app_nil; last iApply sem_typed_unit'.
+        set C := (λ r, 𝟙 ⊸ 𝟙 + (α × r)). rewrite -/(C (seq_ty α)).
+        iApply sem_typed_unfold.
+        iApply sem_typed_replace_cpy_os; first iApply sem_typed_var.
+        iApply sem_typed_fold. rewrite -/(seq_ty α) -(app_nil_l [("r", Refᶜ seq_ty α)]).
+        smart_apply sem_typed_afun. simpl.
+        iApply sem_typed_left_inj. iApply sem_typed_unit.
+      + simpl. do 2 iApply sem_typed_weaken. iApply sem_typed_none.
+      + simpl. iApply (sem_typed_seq _ _ _ _ [("x", α × ⊤)]).
+        * iApply sem_typed_replace_cpy_os; first (iApply sem_typed_swap_second; iApply sem_typed_var).
+          iApply sem_typed_snd.
+        * iApply sem_typed_some. iApply sem_typed_sub_env_final; first iApply env_le_weaken.
+          iApply sem_typed_fst.
+    Qed.
 
 End typing.
