@@ -602,4 +602,108 @@ Proof.
          iNext. iApply "IH". iSplit; last iSplit; by iFrame "#∗".
 Qed.
 
+(** Deep handler spec as in Hazel with the addition of effect rows. *)
+
+Notation deep_handler_spec_type Σ :=
+  (coPset -d> sem_sig Σ -d> sem_row Σ -d> mode -d> mode -d> (val -d> iPropO Σ) 
+          -d> expr -d> expr
+          -d> sem_row Σ -d> (val -d> iPropO Σ) -d> iPropO Σ) (only parsing).
+
+Definition deep_handler_spec_pre `{irisGS eff_lang Σ} : 
+  deep_handler_spec_type Σ → deep_handler_spec_type Σ := (
+  λ deep_handler_spec E σ ρ mh mρ Φ h r ρ' Φ',
+  (* Subsumption on row *)
+  (ρ ≤ᵣ ρ') ∗
+
+  (* One-Shot Row *)
+  (⌜ mρ = OS → OnceR ρ ⌝) ∗
+
+  □?mρ (
+  (* Correctness of the return branch. *)
+    (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }})
+  ) ∧
+
+  (* Correctness of the effect branch. *)
+  □ (
+  (∀ (v k : val),
+     iEff_car (upcl mh σ) v (λ w, 
+        ∀ ρ'' Φ'', 
+          ▷ deep_handler_spec E σ ρ mh mρ Φ h r ρ'' Φ'' -∗
+          EWPW k w @ E <| ρ'' |> {{ Φ'' }}
+     ) -∗
+       EWPW h v k @ E <| ρ' |> {{ Φ' }}))
+  )%I.
+
+Local Instance deep_handler_spec_pre_contractive `{irisGS eff_lang Σ} : Contractive deep_handler_spec_pre.
+Proof.
+  rewrite /deep_handler_spec_pre => n deep deep' Hne E σ ρ mh mρ Φ h r ρ' Φ'.
+  repeat (f_contractive || f_equiv). intros ?; simpl.
+  repeat (f_contractive || f_equiv); apply Hne.
+Qed.
+Definition deep_handler_spec `{irisGS eff_lang Σ} := fixpoint deep_handler_spec_pre.
+Arguments deep_handler_spec _ _%S _%R _ _ _%E _%E _%R _%I.
+
+Lemma deep_handler_spec_unfold `{irisGS eff_lang Σ} E σ ρ mh mρ Φ h r ρ' Φ' :
+  deep_handler_spec E σ ρ mh mρ Φ h r ρ' Φ' ⊣⊢
+    deep_handler_spec_pre deep_handler_spec E σ ρ mh mρ Φ h r ρ' Φ'.
+Proof. by apply (fixpoint_unfold deep_handler_spec_pre). Qed.
+
+Lemma ewpw_deep_handler E (op : operation) mh mρ σ ρ ρ' e (h r : val) Φ Φ' :
+  EWPW e @ E <| (op, σ) · ρ |> {{ Φ }} -∗
+  deep_handler_spec E σ ρ mh mρ Φ h r ρ' Φ' -∗
+  EWPW (HandlerV mh e op h r) @E <| ρ' |> {{ Φ' }}.
+Proof.
+  iIntros "He H". rewrite /HandlerV /handler /ewpw. 
+  ewp_pure_steps.
+  iApply (ewp_deep_try_with with "[He]"). 
+  { ewp_pure_steps. iApply "He". }
+  iLöb as "IH" forall (ρ' Φ'). rewrite deep_handler_spec_unfold.
+  iDestruct "H" as "(#Hle & %HOS & Hbr)". 
+  rewrite deep_handler_unfold /deep_handler_pre.
+  iSplit; last iSplit.
+  - rewrite !bi.intuitionistically_if_elim. iDestruct "Hbr" as "[$ _]".
+  - iIntros (??) "(% & [] & _)".
+  - iIntros (v k) "Hρ". ewp_pure_steps. 
+    iDestruct "Hρ" as "(%Φ'' & (%op' & %v' & %Heq' & Hσ') & #HPost)".
+    inv Heq'. destruct (decide (op = op')) as [->|Hneg].
+    + ewp_pure_steps'. 
+      rewrite !bi.intuitionistically_if_elim. 
+      destruct mh; simpl.
+      ++ iApply (ewp_bind [AppRCtx _; AppRCtx _]); first done. 
+         iApply ewp_alloc. iIntros "!> %l Hl !> /=". ewp_pure_steps.
+         iApply "Hbr". iExists Φ''. iFrame.
+         iIntros (w) "HΦ'' %% Hspec". rewrite /ewpw. ewp_pure_steps. 
+         iApply (ewp_bind [AppRCtx _; AppRCtx _]); first done.
+         iApply (ewp_load with "Hl"). iIntros "!> Hl !> /=".
+         iApply (ewp_bind [AppRCtx _]); first done.
+         iApply ewp_ms_prot_mono; first iApply iEff_le_bottom.
+         iApply ewp_assert. iIntros "!> /=". ewp_pure_steps.
+         iApply (ewp_bind [AppRCtx _]); first done.
+         iApply (ewp_store with "Hl"). iIntros "!> _ !> /=".
+         do 3 ewp_value_or_step. iApply ("HPost" with "HΦ''").
+         iNext. iApply ("IH" with "Hspec"). 
+      ++ iApply "Hbr". iExists Φ''. iFrame.
+         iIntros "!# %w HΦ''". rewrite /ewpw. 
+         iIntros (ρ'' Φ''') "Hdeep". ewp_pure_steps.
+         iApply ("HPost" with "HΦ''").
+         iNext. iApply ("IH" with "Hdeep"). 
+    + do 11 ewp_value_or_step; first done.
+      rewrite bool_decide_false; last (intros ?; simplify_eq).
+      ewp_pure_steps. iApply (ewpw_sub with "Hle").
+      iApply ewp_do_ms. destruct mρ. simpl.
+      * specialize (HOS eq_refl).
+         iAssert (deep_handler_spec E σ ρ mh OS Φ h r ρ' Φ') with "[Hbr]" as "H".
+         { rewrite deep_handler_spec_unfold /deep_handler_spec_pre. simpl. by iFrame "#∗". }
+         iExists (λ v, Φ'' v ∗ deep_handler_spec E σ ρ _ OS Φ h r ρ' Φ')%I.
+         iSplitL; [|iIntros "!# %w [HΦ'' Hdeep]"; iApply ("HPost" with "HΦ''"); iNext; by iApply "IH"].
+         iApply (monotonic_prot _ _ with "[H] Hσ'").
+         iIntros "% $ //". 
+      * simpl.
+        iDestruct "Hbr" as "#Hbr". iDestruct "HPost" as "#HPost".
+        iExists Φ''. iSplitL "Hσ'"; first iApply "Hσ'".
+        iIntros (w) "!# HΦ''". iApply ("HPost" with "HΦ''").
+        iNext. iApply "IH".
+        rewrite deep_handler_spec_unfold /deep_handler_spec_pre. simpl. by iFrame "#∗". 
+Qed.
+
 End reasoning.
