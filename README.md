@@ -4,7 +4,7 @@ This artifact provides the Coq formalisation of the paper "Affect: An Affine Typ
 
 # Building on local machine
 
-Make sure that opam (tested using version 2.2.1) is installed on your system.
+Make sure that opam (tested using version 2.2.1) is installed and initialised (`opam init`) on your system.
 Create a new opam switch:
 ```bash
 opam switch create affect \
@@ -33,6 +33,10 @@ cd ..; make -j 4.
 ```
 
 ## Using the VirtualBox image
+
+Download the virtualbox image (`ubuntu20.04lts-affect.ova`) from [zenodo][1] and import as appliance in VirtualBox. 
+The username and password is `affect` in both cases and the formalisation can be found at `/home/affect/affect`. 
+The CoqIDE is also installed which you can use to explore the Coq code.
 
 # Supporting the claims of the paper
 
@@ -70,3 +74,5 @@ Thus in the formalisation, types and friends are not defined using inductive dat
 
 We build and rely on the Hazel program logic that is dependent on the Hazel language that supports effect handlers.
 As a result, the semantics of Affect are encoded on the Hazel language which follows similar semantics.
+
+[1]: https://zenodo.org/uploads/13907548

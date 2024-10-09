@@ -57,7 +57,7 @@ opam install .
 cd ..
 opam install . --deps-only
 
-echo -e "\n> Compiling Affect... This can take up to 5 minutes\n".
+echo -e "\n> Compiling Affect... This can take up to 5 minutes\n"
 make
 
 (( $? != 0 )) && exit 1
