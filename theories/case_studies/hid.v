@@ -15,6 +15,7 @@ From affect.lib Require Import base.
 From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.
 From affect.logic Require Import sem_env.
+From affect.logic Require Import mode.
 From affect.logic Require Import sem_sig.
 From affect.logic Require Import sem_row.
 From affect.logic Require Import sem_types.
@@ -36,23 +37,26 @@ Section typing.
   Context `{!heapGS Σ}.
 
   Definition hid_ty : sem_ty Σ := 
-    (∀ₘ ν, ∀ᵣ θ, ∀ₜ α, (𝟙 -{ ¡[ν] θ }-∘ 𝟙) → ![ν] α -{ ¡[ν] θ }-∘ α)%T.
+    (∀ₘ ν, ∀ₘ ν', ∀ᵣ θ, ∀ₜ α, (𝟙 -{ ¡[ν] θ }-[ν']-> 𝟙) → ![ν] α -{ ¡[ν] θ }-[ν']-> α)%T.
 
   Lemma hid_typed : ⊢ ⊨ᵥ hid : hid_ty.
   Proof.
     iIntros. rewrite /hid /hid_ty.
     iApply sem_typed_Mclosure; solve_sidecond. iIntros (ν).
+    iApply sem_typed_Mclosure; solve_sidecond. iIntros (ν').
     iApply sem_typed_Rclosure; solve_sidecond. iIntros (θ).
     iApply sem_typed_Tclosure; solve_sidecond. iIntros (α).
     iApply sem_typed_closure; solve_sidecond. simpl.
     rewrite - (app_nil_r [("f", _)]).
-    iApply sem_typed_afun; solve_sidecond. simpl.
+    iApply sem_typed_oval.
+    iApply sem_typed_fun; solve_sidecond. simpl.
     iApply sem_typed_swap_second.
     iApply (sem_typed_seq 𝟙 (¡[ν] θ)%R _ _ [("x", (![ν] α)%T)]).
     - iApply (sem_typed_app_gen 𝟙 (¡ ⟨⟩)%R (¡[ν] θ)%R (¡[ν] θ)%R).
       + iApply row_le_trans; [iApply (row_le_mfbang_elim_nil)|iApply row_le_nil].
       + iApply row_le_refl. 
-      + iApply sem_typed_var'.
+      + iApply sem_typed_sub_ty; first iApply ty_le_mbang_elim.
+        iApply sem_typed_var'.
       + iApply sem_typed_unit'.
     - iApply sem_typed_sub_ty; first iApply (ty_le_mbang_elim ν).
       iApply sem_typed_var'.

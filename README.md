@@ -41,6 +41,16 @@ The CoqIDE is also installed which you can use to explore the Coq code.
 # Supporting the claims of the paper
 
 
+## Overview
+
+| Lemmas and expressions from paper                  | Coq Formalisation 
+| -------------------------------------------------- | ------------------------------------------------------
+| Theorem 2.1                                        | `sem_typed_adequacy` in `theories/logic/adequacy.v`
+| `Iter`, `Gen`, `iter2gen`                          | `theories/case_studies/generator_iterator.v`
+| `async`, `await`, `Coop`, `Promise`, `handle_coop` | `theories/case_studies/cooperative_concurrency_gen.v`
+| `g` from 2.5                                       | `hid_typed` in `theories/case_studies/hid.v`
+| 
+
 
 # File Structure
 
