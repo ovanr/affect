@@ -1,10 +1,8 @@
 
 (* compatibility.v *)
 
-(* 
-  The compatibility lemmas are what one gets when the syntactic typing judgment
-  is replaced with a semantic typing judgment.
-*)
+(* The compatibility lemmas are what one gets when the syntactic typing judgment
+   is replaced with a semantic typing judgment. *)
 
 From iris.proofmode Require Import base tactics.
 From iris.base_logic.lib Require Import iprop invariants.
@@ -1179,7 +1177,7 @@ Section compatibility.
     iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [Hι HΓ₂] //= !>". rewrite /rec_perform.
     iApply (ewpw_bind [AppRCtx _]); first done.
-    ewpw_pure_steps. iApply ewpw_do_ms.
+    ewpw_pure_steps. iApply ewpw_do.
     iExists op, v. iSplit; first done.
     rewrite decide_True //. iNext. 
     simpl (op, σ).2. rewrite /σ.

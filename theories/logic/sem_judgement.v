@@ -1,8 +1,7 @@
 
 (* sem_judgements.v *)
 
-(* This file contains the definition of semantic typing judgments.
-*)
+(* This file contains the definition of semantic typing judgments. *)
 
 From iris.proofmode Require Import base tactics classes.
 From iris.algebra Require Import list.
@@ -24,8 +23,7 @@ From affect.logic Require Import ewpw.
 
 (* The semantic typing judgment is defined to be persistent
  * because we want the persistent resources it uses to only be 
- * from the environment Γ.
- *)
+ * from the environment Γ. *)
 Definition sem_typed `{!heapGS Σ}
   (Γ₁ : env Σ)
   (e : expr)
@@ -36,6 +34,9 @@ Definition sem_typed `{!heapGS Σ}
                     env_sem_typed Γ₁ vs -∗ 
                     (EWPW (subst_map vs e) <| ρ |> {{ v, τ v ∗ env_sem_typed Γ₂ vs }})))%I.
 
+(* Semantic value typing judgment. *)
+
+(* The semantic value typing judgment only holds for pure expressions that do not perform any effects or reference operations *)
 Definition sem_oval_typed `{!heapGS Σ}
   (Γ₁ : env Σ)
   (e : expr)

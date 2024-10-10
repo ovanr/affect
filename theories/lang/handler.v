@@ -1,4 +1,4 @@
-(* This file defines the Haffel handlers. *)
+(* This file defines the Affect handlers. *)
 
 From iris.algebra Require Import ofe.
 From iris.base_logic Require Export lib.iprop .
@@ -22,6 +22,16 @@ Definition effect (op : string) := (LitV (LitStr op)).
 
 Definition rec_perform : val := (λ: "x", "x")%V.
 
+(* Affect's handler encodings into Hazel.
+   In hazel, the effect `do` construct is parametrised with a mode m (OS or MS) which describes whether the effect is one- or multi-shot. 
+   A Hazel handler produces a Cont l N (that is only safe to call once) or a Kont N (that can be called arbitrarily) according to this mode m.
+   In contrast, Affect postpones the choice of one- or multi-shot effect to the handler which means that the handler takes a mode m and not the effect `do` construct.
+   To encode Affect's handlers to Hazel, we firstly define the effect performing construct as calling a multi-shot effect in Hazel.
+   So Affect programs do not produce Cont l N values but only Kont N ones.
+   To recover the one-shot guarantees of Cont l N, we encode them in the handler's effect branch (see shandler and handler below).
+
+   In addition, since Hazel does not support named effects we encode them by passing the operation name (effect op) in the effect call value.
+*)
 Notation "'perform:' op e" := (rec_perform (Do MS (Pair (effect op)  e%E)))
   (at level 200, op at level 1, e at level 200,
    format "'[' 'perform:'  op  e ']'") : expr_scope.
@@ -30,6 +40,14 @@ Definition assert : val := (λ: "x", if: "x" then #() else #() #())%V.
 Notation "'assert:' e" := (assert e)%E
   (at level 75, format "'[' 'assert:'  e ']'") : expr_scope.
 
+
+(* Encoding of Affect's shallow handler in Hazel.
+   The encoding first distinguishes between the effect argument `x` and the operation `op` that was encoded in the effect value.
+   In addition, to ensure that operationally a one-shot continuation cannot be called more than once we create the closure
+   k' := (λ: "x", assert: (Load "l") ;; "l" <- #false ;; "k" "x")
+   that captures location `l`.
+   This trick ensures that k' can only be called once due to `assert`.
+*)
 Definition shandler (m : mode) : val := (
   rec: "H" "e" "op'" "h" "r" :=
     shallow-try: "e" #() with
@@ -69,6 +87,8 @@ Notation "'shandleₘ:' e 'by' op '=>' h | 'ret' '=>' r 'end'" :=
   (SHandler MS e%E op h%E r%E)
   (e, op, h, r at level 200) : expr_scope.
 
+(* Encoding of Affect's deep handler in Hazel.
+   Deep handlers are encoded using Hazel's deep handlers using the same concepts as with shandler. *)
 Definition handler (m : mode) : val := (
   λ: "e" "op'" "h" "r",
     deep-try: "e" #() with
@@ -108,6 +128,7 @@ Notation "'handleₘ:' e 'by' op '=>' h | 'ret' '=>' r 'end'" :=
   (Handler MS e%E op h%E r%E)
   (e, op, h, r at level 200) : expr_scope.
 
+(* Encoding of Affect's deep handler in Hazel that takes can handle two effects simultaneously. *)
 Definition handler2 (m : mode) : val := (
   λ: "e" "op1" "h1" "op2" "h2" "r",
     deep-try: "e" #() with

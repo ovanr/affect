@@ -1,8 +1,7 @@
 
 (* sem_def.v *)
 
-(* This file contains the definition of types, signatures, rows and environments.
-*)
+(* This file contains the definition of types, signatures, rows, environments and relations. *)
 
 From iris.proofmode Require Import base tactics classes.
 From iris.algebra Require Import list ofe gmap.
@@ -116,6 +115,11 @@ Delimit Scope sem_sig_scope with S.
 Definition sem_row_val_prop {Σ} (Ψ : pmono_prot Σ) : iProp Σ := 
   ∀ v Φ, iEff_car Ψ v Φ -∗ ∃ (op : operation) (v' : val), ⌜ v = (effect op, v')%V ⌝.
 
+(* Semantic effect rows are also defined as persistently monotonic protocols 
+   with the additional requirement that it can only be called with effect values of the form (effect op, v'). 
+   Thus effect rows can be seen as morphisms from operations to sem_sig.
+*)
+
 Record sem_row Σ := SemRow {
   sem_row_car :> pmono_prot Σ;
   sem_row_prop : ⊢ sem_row_val_prop sem_row_car
@@ -179,12 +183,11 @@ the same variable occurs twice in Γ we get that:
   which would be impossible.
 
 ∙ If they have the same type which is a persistent type (e.g. nat):
-  Then it is fine, in fact it must be allowed to allow for Copy types
+  Then it is fine, in fact it must be allowed to allow for Multi types
 
 ∙ If they don't have the same type:
   Then `γ` would still have only 1 value for the variable `l` so
-  it would be impossible to provide env_typed proof.
-
+  it would be impossible to provide env_sem_typed proof.
 *)
 
 Definition env Σ := (list (string * sem_ty Σ)).
@@ -198,7 +201,7 @@ Global Opaque env_dom.
 
 Fixpoint env_sem_typed {Σ} (Γ : env Σ) (γ : gmap string val) : iProp Σ :=
   match Γ with
-    | [] => emp
+   | [] => emp
     | (x,A) :: Γ' => (∃ v, ⌜ γ !! x = Some v ⌝ ∗ A v) ∗ 
                      env_sem_typed Γ' γ
   end.

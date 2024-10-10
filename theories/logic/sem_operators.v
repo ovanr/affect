@@ -1,4 +1,6 @@
 
+(* sem_operators.v *)
+
 From affect.lang Require Import affect.
 From affect.logic Require Import sem_def.
 From affect.logic Require Import sem_types.

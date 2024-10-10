@@ -3,14 +3,6 @@ From stdpp Require Import base list.
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import excl_auth.
 
-
-(* Hazel Reasoning *)
-From hazel.program_logic Require Import weakest_precondition 
-                                        tactics 
-                                        shallow_handler_reasoning 
-                                        deep_handler_reasoning 
-                                        state_reasoning.
-
 From hazel.program_logic Require Import protocols.
 
 (* Local imports *)
@@ -102,7 +94,7 @@ Section verification.
     I n ⊢ EWPW (put #m) <| st I |> {{ v, ⌜ v = #() ⌝ ∗ I m }}.
   Proof.
     iIntros "HI". rewrite /put. ewpw_pure_steps.
-    iApply ewpw_do_ms. simpl. iExists "put", #m.
+    iApply ewpw_do. simpl. iExists "put", #m.
     iSplit; first done. simpl.
     iNext. rewrite put_sig_eq. iExists m, n.
     iSplit; first done. iFrame.
@@ -114,7 +106,7 @@ Section verification.
   Proof.
     iIntros "HI". rewrite /get. ewpw_pure_steps.
     iApply ewpw_sub; first by iApply row_le_swap_second.
-    iApply ewpw_do_ms. simpl. iExists "get", #().
+    iApply ewpw_do. simpl. iExists "get", #().
     iSplit; first done. simpl.
     iNext. rewrite get_sig_eq. iExists n.
     iSplit; first done. iFrame.

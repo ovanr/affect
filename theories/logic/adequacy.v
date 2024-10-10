@@ -1,7 +1,13 @@
 
+(* adequacy.v *)
+
+(* This file contains the proofs of adequacy. *)
+(* This file is based from the adequacy proof in TES:
+   https://gitlab.inria.fr/cambium/tes/-/blob/main/theories/logic/adequacy.v *)
+
 From iris.proofmode     Require Import base tactics classes.
 From iris.program_logic Require Import weakestpre adequacy.
-From stdpp Require Export gmap. (* Representation of the heap. *)
+From stdpp Require Export gmap.
 
 (* Local imports *)
 From affect.lang Require Import affect.
@@ -10,10 +16,6 @@ From affect.logic Require Import sem_types.
 From affect.logic Require Import sem_row.
 From affect.logic Require Import sem_judgement.
 From affect.logic Require Import ewpw.
-
-(* This file is largely based from the adequacy proof in TES:
-   https://gitlab.inria.fr/cambium/tes/-/blob/main/theories/logic/adequacy.v
- *)
 
 Context `{!heapGS Σ}.
 

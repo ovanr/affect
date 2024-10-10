@@ -1,4 +1,7 @@
+
 (* ewpw.v *)
+
+(* This file contains the definition of Affect's weakest precondition and its proof rules. *)
 
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe gmap.
@@ -15,7 +18,7 @@ From affect.logic Require Import mode.
 From affect.logic Require Import sem_sig.
 From affect.logic Require Import sem_row.
 
-(* EWP wrapper *)
+(* Affect's weakest precondition: a simple wrapper around Hazel's weakest precondition *)
 Definition ewpw `{!heapGS Σ} (E : coPset) (e : expr) (ρ : sem_row Σ) (Φ : val -d> iPropO Σ) : iPropO Σ := 
     (EWP e @ E <| ⊥ |> {| ρ%R |} {{ Φ }})%R%I.
 
@@ -245,42 +248,31 @@ Proof.
     do 2 iModIntro. iNext. iApply "IH".
 Qed.
 
-Corollary ewp_row_type_sub E (ρ ρ' : sem_row Σ) τ e Φ w `{ ρ' ᵣ⪯ₜ τ } :
-  EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v }} -∗ τ w -∗
-  EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v ∗ τ w }}.
+Lemma ewpw_frame E e R (ρ : sem_row Σ) Φ :
+  mono_prot_on_prop ρ R -∗ R -∗
+  EWPW e @ E <| ρ |> {{ v, Φ v }} -∗
+  EWPW e @ E <| ρ |> {{ v, Φ v ∗ R }}.
 Proof.
-  iIntros "Hewp Hτ". 
-  iApply (ewp_mono_on_prop with "[] Hτ Hewp").
-  inv H. iApply row_type_sub.
+  iIntros "Hmono HR He". rewrite /ewpw.
+  iApply (ewp_mono_on_prop with "Hmono HR He").
 Qed.
 
-Corollary ewp_row_env_sub E (ρ ρ' : sem_row Σ) Γ e Φ γ `{ ρ' ᵣ⪯ₑ Γ } :
-  EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v }} -∗ Γ ⊨ₑ γ -∗
-  EWP e @ E <| ρ |> {| ρ' |} {{ v, Φ v ∗ Γ ⊨ₑ γ }}.
-Proof.
-  iIntros "Hewp HΓ". 
-  iApply (ewp_mono_on_prop with "[] HΓ Hewp").
-  inv H. iApply row_env_sub.
-Qed.
-
-Lemma ewpw_row_type_sub E ρ τ e Φ w `{ ρ ᵣ⪯ₜ τ } :
+Corollary ewpw_row_type_sub E ρ τ e Φ w `{ ρ ᵣ⪯ₜ τ } :
   EWPW e @ E <| ρ |> {{ Φ }} -∗ τ w -∗
   EWPW e @E <| ρ |> {{ v, Φ v ∗ τ w }}. 
 Proof.
-  iIntros "Hewp Hτ". rewrite /ewpw.
-  iPoseProof (@ewp_row_type_sub E ⊥ ρ τ e Φ w with "[Hewp] Hτ") as "H".
-  { iApply ewp_os_prot_mono; first iApply iEff_le_bottom. iApply "Hewp". }
-  iApply "H".
+  iIntros "Hewp Hτ". 
+  iApply (ewpw_frame with "[] Hτ Hewp").
+  inv H. iApply row_type_sub.
 Qed.
 
-Lemma ewpw_row_env_sub E ρ Γ e Φ γ `{ ρ ᵣ⪯ₑ Γ } :
+Corollary ewpw_row_env_sub E ρ Γ e Φ γ `{ ρ ᵣ⪯ₑ Γ } :
   EWPW e @ E <| ρ |> {{ Φ }} -∗ Γ ⊨ₑ γ -∗
   EWPW e @E <| ρ |> {{ v, Φ v ∗ Γ ⊨ₑ γ }}. 
 Proof.
-  iIntros "Hewp HΓ". rewrite /ewpw.
-  iPoseProof (@ewp_row_env_sub E ⊥ ρ Γ e Φ γ with "[Hewp] HΓ") as "H".
-  { iApply ewp_os_prot_mono; first iApply iEff_le_bottom. iApply "Hewp". }
-  iApply "H".
+  iIntros "Hewp HΓ". 
+  iApply (ewpw_frame with "[] HΓ Hewp").
+  inv H. iApply row_env_sub.
 Qed.
 
 Lemma ewpw_pure_step' E e e' ρ Φ :
@@ -348,12 +340,11 @@ Proof.
   iIntros (?) "H". rewrite /ewpw. by iApply ewp_atomic. 
 Qed.
 
-Lemma ewpw_do_ms E op v (ρ : sem_row Σ) Φ :
+Lemma ewpw_do E op v (ρ : sem_row Σ) Φ :
   iEff_car ρ (effect op, v)%V Φ -∗ 
   EWPW (doₘ: (effect op, v)%V) @ E <| ρ |> {{ Φ }}.
 Proof.
-  iIntros "Hρ".
-  rewrite /ewpw /=. 
+  iIntros "Hρ". rewrite /ewpw /=. 
   iApply ewp_do_ms;
   simpl; iExists Φ; iFrame; iIntros "!# % $".
 Qed.
@@ -602,8 +593,10 @@ Proof.
          iNext. iApply "IH". iSplit; last iSplit; by iFrame "#∗".
 Qed.
 
-(** Deep handler spec as in Hazel with the addition of effect rows. *)
-
+(* This Deep handler spec resembles more the one found in Hazel (`deep_handler` in `hazel/theories/program_logic/deep_handler_reasoning.v`)
+   with the addition of named effects and consider Affect's handlers that take a mode.
+   It is strictly more expressive than `handler_spec` above but for the purpose of proving `sem_typed_handler` 
+   this additional expressivity is not needed *)
 Notation deep_handler_spec_type Σ :=
   (coPset -d> sem_sig Σ -d> sem_row Σ -d> mode -d> mode -d> (val -d> iPropO Σ) 
           -d> expr -d> expr

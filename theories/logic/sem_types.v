@@ -1,9 +1,7 @@
 
 (* sem_types.v *)
 
-(* This file contains the definition of semantic types,
-   together with the definition of base types and type formers.  
-*)
+(* This file contains the definition of semantic types *)
 
 From iris.proofmode Require Import base tactics.
 From iris.algebra Require Import ofe list.
