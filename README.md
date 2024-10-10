@@ -2,12 +2,12 @@
 
 This artifact provides the Coq formalisation of the paper "Affect: An Affine Type and Effect System".
 
-# Installation Options
+# Installation
 
 ## Building on local machine
 
 Run the `install.sh` to automatically install Affect.
-Alternatively you can follow these instructions.
+Alternatively follow these instructions.
 
 Make sure that opam (tested using version 2.2.1) is installed and initialised (`opam init`) on your system.
 Create a new opam switch:
@@ -51,13 +51,26 @@ CoqIDE is also installed which you can use to explore the Coq code.
 To support the claims of the paper, in this section we explain how definitions/theorems in the paper correspond to the ones in the Coq formalisation. 
 We note that all Coq proofs have been proven without using any `admit`/`Admitted`.
 
-We rely on Hazel [1] an untyped language with effect handlers and a program logic for it formalised in Coq.
+In addition to [Iris](https://gitlab.mpi-sws.org/iris/iris) we rely on [Hazel](https://gitlab.inria.fr/cambium/hazel) [1]: an untyped language with effect handlers and a program logic for it formalised in Coq.
 The Affect language is encoded into the Hazel language and follows similar semantics as Hazel.
 We expand and adjust the Hazel program logic to reason about Affect programs. 
 Note that during installation the `hazel` directory will be created that stores a local (patched) copy of the `coq-hazel` library.
 
 [1]: de Vilhena, P. E., & Pottier, F. (2021). A separation logic for effect handlers. Proceedings of the ACM on Programming Languages, 5(POPL), 1-28.
 
+## Overall Project Structure
+
+|  Definition/Theorem                                                         | File
+| --------------------------------------------------------------------------- | -----------------------------------------------------
+|  Semantic definitions of types, signatures, rows and relations              | `theories/logic/sem_def.v`
+|  Type instances and their relations                                         | `theories/logic/sem_types.v`
+|  Signatures instances and their relations                                   | `theories/logic/sem_sig.v`
+|  Rows instances and their relations                                         | `theories/logic/sem_row.v`
+|  Environments instances and their relations                                 | `theories/logic/sem_env.v`
+|  Typing Judgements                                                          | `theories/logic/sem_judgement.v`
+|  Typing Rules                                                               | `theories/logic/compatibility.v`
+|  Soundness Theorem of typing judgment                                       | `sem_typed_adequacy` in `theories/logic/adequacy.v`
+|  Case studies (state, generator to iterators, cooperative concurrency, ...) | `theories/case_studies/*`
 ## Differences between paper and Coq Formalisation
 
 ### Syntax and Semantics
@@ -90,19 +103,6 @@ This approach is explained in Section 5.1 of the paper.
 | `∀ α⃑, τ =>ₘ κ` | `∀ₛ αs, τ =[ m ]=> κ`
 | `μ θ, ρ`       | `μᵣ θ, ρ`
 
-## Overall Project Structure
-
-|  Definition/Theorem                                                         | File
-| --------------------------------------------------------------------------- | -----------------------------------------------------
-|  Semantic definitions of types, signatures, rows and relations              | `theories/logic/sem_def.v`
-|  Type instances and their relations                                         | `theories/logic/sem_types.v`
-|  Signatures instances and their relations                                   | `theories/logic/sem_sig.v`
-|  Rows instances and their relations                                         | `theories/logic/sem_row.v`
-|  Environments instances and their relations                                 | `theories/logic/sem_env.v`
-|  Typing Judgements                                                          | `theories/logic/sem_judgement.v`
-|  Typing Rules                                                               | `theories/logic/compatibility.v`
-|  Soundness Theorem of typing judgment                                       | `sem_typed_adequacy` in `theories/logic/adequacy.v`
-|  Case studies (state, generator to iterators, cooperative concurrency, ...) | `theories/case_studies/*`
 
 ## Detailed paper to Coq formalisation correspondence
 
