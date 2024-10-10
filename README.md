@@ -2,9 +2,12 @@
 
 This artifact provides the Coq formalisation of the paper "Affect: An Affine Type and Effect System".
 
-# Installation
+# Installation Options
 
 ## Building on local machine
+
+Run the `install.sh` to automatically install Affect.
+Alternatively you can follow these instructions.
 
 Make sure that opam (tested using version 2.2.1) is installed and initialised (`opam init`) on your system.
 Create a new opam switch:
