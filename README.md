@@ -49,9 +49,9 @@ CoqIDE is also installed which you can use to explore the Coq code.
 # Supporting the claims of the paper
 
 To support the claims of the paper, in this section we explain how definitions/theorems in the paper correspond to the ones in the Coq formalisation. 
-We note that all Coq proofs have been proven without using any `admit/Admitted`.
+We note that all Coq proofs have been proven without using any `admit`/`Admitted`.
 
-We rely on [Hazel][1], an untyped language with effect handlers and a program logic for it formalised in Coq.
+We rely on Hazel [1] an untyped language with effect handlers and a program logic for it formalised in Coq.
 The Affect language is encoded into the Hazel language and follows similar semantics as Hazel.
 We expand and adjust the Hazel program logic to reason about Affect programs. 
 Note that during installation the `hazel` directory will be created that stores a local (patched) copy of the `coq-hazel` library.
@@ -92,6 +92,8 @@ This approach is explained in Section 5.1 of the paper.
 
 ## Overall Project Structure
 
+|  Definition/Theorem                                                         | File
+| --------------------------------------------------------------------------- | -----------------------------------------------------
 |  Semantic definitions of types, signatures, rows and relations              | `theories/logic/sem_def.v`
 |  Type instances and their relations                                         | `theories/logic/sem_types.v`
 |  Signatures instances and their relations                                   | `theories/logic/sem_sig.v`
