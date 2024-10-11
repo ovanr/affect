@@ -3,7 +3,7 @@ synopsis: "A Substructural Type And Effect System"
 opam-version: "2.0"
 maintainer: "Orpheas van Rooij"
 bug-reports: "orpheas.vanrooij@outlook.com"
-authors: [ "Orpheas van Rooij", "Robbert Krebbers" ]
+authors: [ "Orpheas van Rooij" "Robbert Krebbers" ]
 homepage: "https://github.com/ovanr/affect"
 version: "1.0.0"
 license: "GPL"
