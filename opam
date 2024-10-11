@@ -1,11 +1,11 @@
 name: "coq-affect"
 synopsis: "A Substructural Type And Effect System"
 opam-version: "2.0"
-maintainer: "Anonymous"
-bug-reports: "Anonymous"
-authors: [ "Anonymous" ]
-homepage: "none"
-version: "5.0.0"
+maintainer: "Orpheas van Rooij"
+bug-reports: "orpheas.vanrooij@outlook.com"
+authors: [ "Orpheas van Rooij", "Robbert Krebbers" ]
+homepage: "https://github.com/ovanr/affect"
+version: "1.0.0"
 license: "GPL"
 build: [make "-j%{jobs}%"]
 install: [make "install"]
