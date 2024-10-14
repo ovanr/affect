@@ -434,7 +434,7 @@ index 633478a..919a072 100644
    (* ------------------------------------------------------------------------ *)
    (** Correctness of [shallow_try_with]. *)
  
-+  (* The shallow handler spec has been adapted for Haffel which allows different
++  (* The shallow handler spec has been adapted for Affect which allows different
 +     treatment of one- versus multi-shot effect branches.
 +     But the lemma ewp_shallow_try_with needs the original spec in order to be proven *)
 +  Definition shallow_handler_orig `{!heapGS Σ}
