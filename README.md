@@ -33,7 +33,6 @@ cd ..
 ```
 
 Compile `Affect` (this can take up to 10 minutes).
-Ignore the warnings about canonical projections.
 By default all case studies are compiled. 
 You can omit them from the compilation by commenting their corresponding line in `_CoqProject`.
 ```bash
