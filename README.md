@@ -24,6 +24,8 @@ To install `coq-hazel` we need to manually fetch it and apply the patch `hazel.p
 Ignore the Licence warning.
 ```bash
 git clone https://gitlab.inria.fr/cambium/hazel
+## If gitlab.inria.fr is down use local hazel copy: 
+# tar xzf hazel-local-copy.tar.gz
 cd hazel
 git checkout a0f7f67df7423fc84f39198ff46abacd84261e78
 git apply --whitespace=nowarn ../hazel.patch
