@@ -81,6 +81,11 @@ fi
 
 if (( hazel_install == 1 )); then
     git clone https://gitlab.inria.fr/cambium/hazel
+    if (( $? != 0)); then
+        echo "Unable to fetch coq-hazel from https://gitlab.inria.fr/cambium/hazel"
+        echo "Using local copy instead."
+        tar xzf hazel-local-copy.tar.gz
+    fi
     cd hazel
     
     echo -e "\n> Applying Hazel patch for Affect\n"
