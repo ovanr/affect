@@ -45,8 +45,6 @@ Fixpoint subst_map (vs : gmap string val) (e : expr) : expr :=
       Store (subst_map vs e1) (subst_map vs e2)
   | Replace e1 e2 =>
       Replace (subst_map vs e1) (subst_map vs e2)
-  | Free e =>
-      Free (subst_map vs e)
   end
 .
 

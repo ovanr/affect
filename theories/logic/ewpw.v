@@ -110,7 +110,7 @@ Proof.
     destruct Hstep as [[|[]?] ???? Hstep]; simplify_eq/=; by inversion Hstep.
   - iIntros (σ1 _ κs _ _) "Hs". iDestruct ("IH" $! σ1) as "[% IH]".
     iModIntro. iSplit; [by auto using reducible_no_obs_reducible|].
-    iIntros (e2 σ2 Hstep) "_ !> !> !> !>".
+    iIntros (e2 σ2 Hstep) "!> !> !> !>".
     iDestruct ("IH" with "[//]") as (???) "[$ _] /="; by simplify_eq/=.
 Qed.
 
@@ -178,8 +178,8 @@ Proof.
     iSpecialize ("Hewp" $! σ₁ ns κ' κs nt with "Hstate"). 
     iMod "Hewp" as "Hewp". iModIntro.
     iDestruct "Hewp" as "(Hred & Hpost)".
-    iFrame. iIntros (e₂ σ₂) "Hprim Hcred".
-    iSpecialize ("Hpost" $! e₂ σ₂ with "Hprim Hcred").
+    iFrame. iIntros (e₂ σ₂) "Hprim".
+    iSpecialize ("Hpost" $! e₂ σ₂ with "Hprim").
     iInduction (num_laters_per_step) as [|] "IH'"; simpl.
     { iMod "Hpost" as "Hpost". iModIntro. iNext.
       do 2 (iMod "Hpost" as "Hpost"; iModIntro).
@@ -235,8 +235,8 @@ Proof.
     iSpecialize ("Hewp" $! σ₁ ns κ' κs nt with "Hstate"). 
     iMod "Hewp" as "Hewp". iModIntro.
     iDestruct "Hewp" as "(Hred & Hpost)".
-    iFrame. iIntros (e₂ σ₂) "Hprim Hcred".
-    iSpecialize ("Hpost" $! e₂ σ₂ with "Hprim Hcred").
+    iFrame. iIntros (e₂ σ₂) "Hprim".
+    iSpecialize ("Hpost" $! e₂ σ₂ with "Hprim").
     iInduction (num_laters_per_step) as [|] "IH'"; simpl.
     { iMod "Hpost" as "Hpost". iModIntro. iNext.
       do 2 (iMod "Hpost" as "Hpost"; iModIntro).
@@ -324,14 +324,6 @@ Proof.
   iIntros "H". rewrite /ewpw. by iApply ewp_replace. 
 Qed.
 
-Lemma ewpw_free E ρ Φ l v :
-  ▷ l ↦ v -∗
-    ▷ (|={E}=> Φ v) -∗
-      EWPW (Free #l)%E @E <| ρ |> {{ Φ }}.
-Proof.
-  iIntros "H". rewrite /ewpw. by iApply ewp_free. 
-Qed.
-
 Lemma ewpw_atomic E1 E2 e ρ Φ `{!Atomic StronglyAtomic e} :
   TCEq (to_eff e) None →
     (|={E1,E2}=> EWPW e @E2 <| ρ |> {{ v, |={E2,E1}=> Φ v }}) -∗
@@ -397,12 +389,12 @@ Lemma ewpw_shandler E (op : operation) mh σ ρ ρ' e (h r : val) Φ Φ' :
 Proof.
   iIntros "He [#Hle (%P & #Hmono & HP & #Hbr)]". rewrite /SHandlerV /ewpw. 
   iLöb as "IH" forall (e). rewrite {2} /shandler. ewp_pure_steps.
-  iApply (ewp_try_with with "[He]").
+  iApply (ewp_try_with_spl with "[He]").
   { ewp_pure_steps. iApply "He". }
   iSplit; last iSplit.
   - iDestruct ("Hbr" with "HP") as "[$ _]".
-  - iIntros (??) "_ (% & [] & _)".
-  - iIntros (v k) "(% & ->) Hρ".
+  - iIntros (???) "(% & [] & _)".
+  - iIntros (v k) "Hρ".
     ewp_pure_steps. 
     iDestruct "Hρ" as "(%Φ'' & (%op' & %v' & -> & H) & #HPost)".
     destruct (decide (op = op')) as [<-|].
@@ -634,7 +626,7 @@ Proof.
   repeat (f_contractive || f_equiv); apply Hne.
 Qed.
 Definition deep_handler_spec `{irisGS eff_lang Σ} := fixpoint deep_handler_spec_pre.
-Arguments deep_handler_spec _ _%S _%R _ _ _%E _%E _%R _%I.
+Arguments deep_handler_spec _ _%_S _%_R _ _ _%_E _%_E _%_R _%_I.
 
 Lemma deep_handler_spec_unfold `{irisGS eff_lang Σ} E σ ρ mh mρ Φ h r ρ' Φ' :
   deep_handler_spec E σ ρ mh mρ Φ h r ρ' Φ' ⊣⊢

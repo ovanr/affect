@@ -24,7 +24,6 @@ Global Instance sem_ty_bot_instance {Σ} : Bottom (sem_ty Σ) := sem_ty_bot.
 Definition sem_ty_unit {Σ} : sem_ty Σ := (λ v, ⌜ v = #() ⌝)%I.
 Definition sem_ty_bool {Σ} : sem_ty Σ := (λ v, ∃ b : bool, ⌜ v = #b ⌝)%I.
 Definition sem_ty_int {Σ} : sem_ty Σ := (λ v, ∃ n : Z, ⌜ v = #n ⌝)%I.
-Definition sem_ty_string {Σ} : sem_ty Σ := (λ v, ∃ s : string, ⌜ v = #(LitStr s)⌝)%I.
 Definition sem_ty_top {Σ} : sem_ty Σ := (λ v, True)%I.
 
 Global Instance sem_ty_top_instance {Σ} : Top (sem_ty Σ) := sem_ty_top. 
@@ -103,7 +102,6 @@ Qed.
 Notation "'𝟙'" := sem_ty_unit : sem_ty_scope.
 Notation "'𝔹'" := (sem_ty_bool) : sem_ty_scope.
 Notation "'ℤ'" := (sem_ty_int) : sem_ty_scope.
-Notation "'Str'" := (sem_ty_string) : sem_ty_scope.
 Notation "![ m ] τ" := (sem_ty_mbang m τ) (at level 10) : sem_ty_scope.
 Notation "! τ" := (sem_ty_mbang MS τ) (at level 9, τ at level 9) : sem_ty_scope.
 
@@ -328,10 +326,10 @@ Section multi_types.
   Implicit Types τ κ : sem_ty Σ.
   
   Class MultiT {Σ} (τ : sem_ty Σ) := {
-    multi_ty : ⊢ (τ%T ≤ₜ ! τ%T)
+    multi_ty : ⊢ (τ%T ≤ₜ ![MS] τ%T)
   }.
 
-  Global Arguments MultiT _ _%T.
+  Global Arguments MultiT _ _%_T.
 
   Global Instance multi_ty_persistent (τ : sem_ty Σ) `{! MultiT τ} :
     ∀ v, Persistent (τ v).
@@ -515,10 +513,10 @@ Section sub_typing.
     iApply "H".
   Qed.
 
-  Global Instance multi_ty_mbang τ : MultiT (! τ).
+  Global Instance multi_ty_mbang τ : MultiT (![MS] τ).
   Proof. constructor. iApply ty_le_mbang_idemp. Qed.
 
-  Corollary ty_le_mbang_intro_uarr τ ρ κ : ⊢ (τ -{ ρ }-> κ) ≤ₜ (! (τ -{ ρ }-> κ)).
+  Corollary ty_le_mbang_intro_uarr τ ρ κ : ⊢ (τ -{ ρ }-> κ) ≤ₜ (![MS] (τ -{ ρ }-> κ)).
   Proof. iApply ty_le_mbang_idemp. Qed.
 
   Corollary multi_ty_uarr τ ρ κ : MultiT (τ -{ ρ }-> κ).
@@ -651,7 +649,7 @@ Section sub_typing.
      As a result, to prove MultiT for rec types we have to manually prove the instance 
      using the ty_le_mbang_intro_* instances *)
   Global Instance multi_ty_rec (C : sem_ty Σ → sem_ty Σ) `{NonExpansive C} : 
-    (∀ α, (α ≤ₜ ! α) -∗ C α ≤ₜ ! (C α)) →
+    (∀ α, (α ≤ₜ ![MS] α) -∗ C α ≤ₜ ![MS] (C α)) →
     MultiT (μₜ α, C α).
   Proof. 
     constructor. iApply ty_le_mbang_intro_rec. 

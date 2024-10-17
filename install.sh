@@ -63,7 +63,7 @@ eval "$(opam env --switch=affect)"
 echo -e "\n> Updating local opam package database..."
 opam update
 
-opam pin add -n coq 8.18.0
+opam pin add -n coq 8.20.0
 
 echo -e "\n> Installing coq-hazel library\n"
 hazel_install=0
@@ -89,9 +89,10 @@ if (( hazel_install == 1 )); then
     cd hazel
     
     echo -e "\n> Applying Hazel patch for Affect\n"
-    git checkout a0f7f67df7423fc84f39198ff46abacd84261e78
-    git apply --whitespace=nowarn ../hazel.patch
-    git add .; git commit -m "Hazel patch for Affect"
+    git checkout 0936b5dc00b5d0b5802e7ca8e3dbd5afeafd970e
+    git am --whitespace=nowarn ../hazel-patches/0001-Bumps-Iris-version-to-dev.2024-10-07.0.6dece417.patch
+    git am --whitespace=nowarn ../hazel-patches/0001-Adds-a-Replace-e1-e2-construct.patch
+    git am --whitespace=nowarn ../hazel-patches/0001-Add-IsContOS-unary-operation-and-specialised-shallow.patch
     
     echo -e "\n> Installing coq-hazel and local dependencies. This can take 5-10 minutes.\n"
     opam install . 

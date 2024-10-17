@@ -17,6 +17,9 @@ From affect.logic Require Import sem_row.
 From affect.logic Require Import sem_judgement.
 From affect.logic Require Import ewpw.
 
+
+Section adequacy.
+
 Context `{!heapGS Σ}.
 
 Lemma ewp_imp_wp `{!irisGS eff_lang Σ} e Φ :
@@ -38,7 +41,7 @@ Proof.
     case k   as [|??]; [|done].
     case efs as [|??]; [|done].
     simpl in Hstep.
-    iMod ("H" with "[//] Hcred") as "H". iIntros "!> !>".
+    iMod ("H" with "[//]") as "H". iIntros "!> !>".
     simpl. iMod "H". iModIntro.
     iApply (step_fupdN_wand with "[H]"); first by iApply "H".
     iIntros "H". iMod "H" as "[$ Hewp]". iModIntro.
@@ -52,7 +55,7 @@ Proof.
   intros Hwp; eapply (@wp_adequacy Σ _ _). 
   intros ??. simpl.
   iMod (gen_heap_init σ.(heap)) as (?) "[Hh _]".
-  iMod (inv_heap_init loc (option val)) as (?) ">Hi".
+  iMod (inv_heap_init loc val) as (?) ">Hi".
   iExists
       (λ σ κs, gen_heap_interp σ.(heap)),
       (λ _, True%I).
@@ -93,8 +96,8 @@ Proof.
   iAssert (emp)%I as "Hemp"; first done.
   iAssert (∀ v, τ v ∗ emp -∗ τ v)%I as "Himp".
   { iIntros (?) "[H _] {$H}". }
-  pose (@empty (@gmap string string_eq_dec string_countable val)
-          (@gmap_empty string string_eq_dec string_countable val)) as Hempty. 
+  pose (@empty (@gmap string String.eq_dec String.countable val)
+          (@gmap_empty string String.eq_dec String.countable val)) as Hempty. 
   iSpecialize ("He" $! ∅ with "[]"); first done. 
   rewrite (subst_map_empty e). 
   iApply (ewpw_mono with "[He]"); [iApply "He"|iIntros "!# % [$ _] //="].
@@ -107,8 +110,8 @@ Proof.
   iAssert (emp)%I as "Hemp"; first done.
   iAssert (∀ v, τ v ∗ emp -∗ τ v)%I as "Himp".
   { iIntros (?) "[H _] {$H}". }
-  pose (@empty (@gmap string string_eq_dec string_countable val)
-          (@gmap_empty string string_eq_dec string_countable val)) as Hempty. 
+  pose (@empty (@gmap string String.eq_dec String.countable val)
+          (@gmap_empty string String.eq_dec String.countable val)) as Hempty. 
   iSpecialize ("He" $! ∅ with "[]"); first done. 
   rewrite (subst_map_empty e). iApply (ewpw_bot_inv with "[He]").
   iApply (ewpw_mono with "[He]"); [iApply "He"|iIntros "!# % [$ _] //="].
@@ -124,3 +127,5 @@ Proof.
   iIntros (?). 
   iApply (sem_typed_ewp_nil). iApply He.
 Qed.
+
+End adequacy.

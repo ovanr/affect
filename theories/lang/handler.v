@@ -1,5 +1,6 @@
 (* This file defines the Affect handlers. *)
 
+From stdpp Require Import base.
 From iris.algebra Require Import ofe.
 From iris.base_logic Require Export lib.iprop .
 From iris.program_logic Require Export language.
@@ -17,8 +18,8 @@ From hazel.program_logic Require Import weakest_precondition
 
 From affect.lib Require Export base logic.
 
-Notation operation := (string).
-Definition effect (op : string) := (LitV (LitStr op)).
+Definition operation := string.
+Definition effect (op : operation) := (LitV (LitInt (Pos.to_nat (encode op)))).
 
 Definition rec_perform : val := (λ: "x", "x")%V.
 
@@ -32,7 +33,7 @@ Definition rec_perform : val := (λ: "x", "x")%V.
 
    In addition, since Hazel does not support named effects we encode them by passing the operation name (effect op) in the effect call value.
 *)
-Notation "'perform:' op e" := (rec_perform (Do MS (Pair (effect op)  e%E)))
+Notation "'perform:' op e" := (rec_perform (Do MS (Pair (effect op) e%E)))
   (at level 200, op at level 1, e at level 200,
    format "'[' 'perform:'  op  e ']'") : expr_scope.
 

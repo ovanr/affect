@@ -19,7 +19,7 @@ From affect.logic Require Import tactics.
 
 (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-Opaque sem_ty_bot sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_mbang env_mbang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_type_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option.
+Opaque sem_ty_bot sem_ty_unit sem_ty_bool sem_ty_int sem_ty_top sem_ty_mbang env_mbang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_type_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option.
 Opaque sem_sig_eff sem_sig_flip_mbang.
 Opaque sem_row_nil sem_row_flip_mbang sem_row_cons sem_row_rec.
 
@@ -102,24 +102,24 @@ Section typing.
 
   Definition Promise τ := Refᶜ (Status τ).
 
-  Definition await_sig : sem_sig Σ := (∀ₛ α, (Promise (! α)) =[ OS ]=> (! α))%S.
+  Definition await_sig : sem_sig Σ := (∀ₛ α, (Promise (![MS] α)) =[ OS ]=> (![MS] α))%S.
 
   Definition async_sig (θ : sem_row Σ) : sem_sig Σ := 
-    (∀ₛ α, ( 𝟙 -{ θ }-∘ ! α ) =[ OS ]=> Promise (! α))%S. 
+    (∀ₛ α, ( 𝟙 -{ θ }-∘ ![MS] α ) =[ OS ]=> Promise (![MS] α))%S. 
 
   Definition coop_pre (θ : sem_row Σ) : sem_row Σ := 
     (("async", async_sig θ) · ("await", await_sig) · ⟨⟩)%R.
 
 
   Local Instance await_sig_ne :
-    NonExpansive (λ (α : sem_ty Σ), Promise (! α)).
+    NonExpansive (λ (α : sem_ty Σ), Promise (![MS] α)).
   Proof.
     rewrite /Promise /Status. 
     intros ????. by repeat f_equiv.
   Qed.
 
   Local Instance async_sig_ne θ :
-    NonExpansive (λ (α : sem_ty Σ), 𝟙 -{ θ }-∘ ! α).
+    NonExpansive (λ (α : sem_ty Σ), 𝟙 -{ θ }-∘ ![MS] α).
   Proof.
     intros ????. by repeat f_equiv.
   Qed.
@@ -143,7 +143,7 @@ Section typing.
   Definition coop : sem_row Σ := (μᵣ θ, coop_pre θ)%R.
 
   Local Instance await_res_sig_ne :
-    NonExpansive (λ (α : sem_ty Σ), ! α).
+    NonExpansive (λ (α : sem_ty Σ), ![MS] α).
   Proof. intros ????. by repeat f_equiv. Qed.
 
   Local Instance coop_os_row : OnceR coop.
@@ -155,9 +155,9 @@ Section typing.
 
   Definition add_ty := ((𝟙 ⊸ 𝟙) → 𝟙)%T.
 
-  Definition resume_task_ty := (∀ₜ α, ! α → (! α ⊸ 𝟙) → 𝟙)%T.
+  Definition resume_task_ty := (∀ₜ α, ![MS] α → (![MS] α ⊸ 𝟙) → 𝟙)%T.
   
-  Definition runner_ty := (∀ₜ α, (𝟙 -{ coop }-∘ ! α) → ! α)%T.
+  Definition runner_ty := (∀ₜ α, (𝟙 -{ coop }-∘ ![MS] α) → ![MS] α)%T.
 
   Lemma impossible_typed τ :
     ⊢ ⊨ impossible : ⟨⟩ : τ.
@@ -173,7 +173,7 @@ Section typing.
   Qed.
 
   Lemma async_typed :
-    ⊢ ⊨ᵥ async : (∀ₜ α, (𝟙 -{ coop }-∘ ! α) -{ coop }-> Promise (! α)).
+    ⊢ ⊨ᵥ async : (∀ₜ α, (𝟙 -{ coop }-∘ ![MS] α) -{ coop }-> Promise (![MS] α)).
   Proof.
     rewrite /async. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
@@ -181,12 +181,12 @@ Section typing.
     iApply sem_typed_sub_row; first iApply row_le_rec_fold.
     rewrite /coop_pre -/coop.
     iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg (α : sem_ty Σ)] _ "async"
-                                 (tele_app (λ α, 𝟙 -{ coop }-∘ ! α)) (tele_app (λ α, Promise (! α)))).
+                                 (tele_app (λ α, 𝟙 -{ coop }-∘ ![MS] α)) (tele_app (λ α, Promise (![MS] α)))).
     iApply sem_typed_var'.
   Qed.
 
   Lemma await_typed :
-    ⊢ ⊨ᵥ await : (∀ₜ α, Promise (! α) -{ coop }-> ! α).
+    ⊢ ⊨ᵥ await : (∀ₜ α, Promise (![MS] α) -{ coop }-> ![MS] α).
   Proof.
     rewrite /await. iIntros.
     iApply sem_typed_Tclosure. iIntros (α).
@@ -195,7 +195,7 @@ Section typing.
     rewrite /coop_pre -/coop. 
     iApply sem_typed_sub_row; first iApply row_le_swap_second; first done.
     iApply (sem_typed_perform_os (TT:=[tele _]) [tele_arg (α : sem_ty Σ)] _ "await" 
-                                 (tele_app (λ α, Promise (! α))) (tele_app (λ α, ! α))).
+                                 (tele_app (λ α, Promise (![MS] α))) (tele_app (λ α, ![MS] α))).
     iApply sem_typed_var'.
   Qed.
 
@@ -203,17 +203,17 @@ Section typing.
     ⊢ ⊨ᵥ yield : ( 𝟙 -{ coop }-> 𝟙 ).
   Proof.
     iIntros. iApply sem_typed_closure; first done. simpl.
-    iApply (sem_typed_app_os (Promise (! 𝟙))).
+    iApply (sem_typed_app_os (Promise (![MS] 𝟙))).
     - iApply sem_typed_sub_u2aarr.
       iApply sem_typed_sub_ty; [iApply ty_le_uarr|]; 
         [iApply row_le_refl|iApply ty_le_refl|iApply (ty_le_mbang_elim MS)|].
       iApply sem_typed_sub_nil. simpl. rewrite -/coop.
-      set C := (λ α, (Promise (! α)) -{ coop }-> (! α)).
+      set C := (λ α, (Promise (![MS] α)) -{ coop }-> (![MS] α)).
       rewrite -/(C 𝟙). iApply sem_typed_TApp.
       iApply sem_typed_val. iApply await_typed.
-    - iApply (sem_typed_app_os (𝟙 -{ coop }-∘ ! 𝟙)).
+    - iApply (sem_typed_app_os (𝟙 -{ coop }-∘ ![MS] 𝟙)).
       + iApply sem_typed_sub_nil. iApply sem_typed_sub_u2aarr.
-        set C := (λ α, (𝟙 -{ coop }-∘ ! α) -{ coop }-> Promise (! α)).
+        set C := (λ α, (𝟙 -{ coop }-∘ ![MS] α) -{ coop }-> Promise (![MS] α)).
         rewrite -/(C 𝟙). iApply sem_typed_TApp.
         iApply sem_typed_val. iApply async_typed.
       + iApply sem_typed_sub_nil.
@@ -302,10 +302,10 @@ Section typing.
     iIntros (α).
     rewrite -(app_nil_r [add]).
     smart_apply sem_oval_typed_ufun. simpl.
-    rewrite -(app_nil_r [("v", ! α); add]).
-    set v := ("v", ! α).
+    rewrite -(app_nil_r [("v", ![MS] α); add]).
+    set v := ("v", ![MS] α).
     smart_apply sem_typed_ufun. simpl.
-    set k := ("k", ! α ⊸ 𝟙).
+    set k := ("k", ![MS] α ⊸ 𝟙).
     iApply sem_typed_app_os.
     { iApply sem_typed_sub_u2aarr. iApply sem_typed_var. }
     replace ([k; v; add]) with ([k;v] ++ [add]) by done.
@@ -319,7 +319,7 @@ Section typing.
   Proof.
     iIntros. iApply sem_typed_Tclosure. iIntros (α).
     iApply sem_typed_closure; first done. simpl.
-    set main := ("main", 𝟙 -{ coop }-∘ ! α).
+    set main := ("main", 𝟙 -{ coop }-∘ ![MS] α).
     smart_apply (sem_typed_let _ _ _ _  [main]).
     { iApply (sem_typed_alloc_cpy (List (𝟙 ⊸ 𝟙))). iApply sem_typed_nil. }
     iApply sem_typed_contraction.
@@ -346,22 +346,22 @@ Section typing.
     smart_apply (sem_typed_let _ _ _ _ [main]).
     - assert (Hrw : [resume_task;add;next;main] = [resume_task;add;next] ++ [main]) by done.
       rewrite Hrw. clear Hrw. iApply sem_typed_oval.
-      smart_apply (sem_typed_ufun_poly_rec (λ β, Promise (! β)) (λ _, ⊥) (λ β, (𝟙 -{ coop }-∘ ! β) ⊸ 𝟙)).
+      smart_apply (sem_typed_ufun_poly_rec (λ β, Promise (![MS] β)) (λ _, ⊥) (λ β, (𝟙 -{ coop }-∘ ![MS] β) ⊸ 𝟙)).
      simpl. iIntros (β) "/=". 
-     set promise := ("promise", Promise (! β)).
-     set fulfill := ("fulfill", ∀ₜ β', Promise (! β') → (𝟙 -{ coop }-∘ ! β') ⊸ 𝟙).
+     set promise := ("promise", Promise (![MS] β)).
+     set fulfill := ("fulfill", ∀ₜ β', Promise (![MS] β') → (𝟙 -{ coop }-∘ ![MS] β') ⊸ 𝟙).
      rewrite -(app_nil_r [promise;fulfill;resume_task;add;next]).
      smart_apply sem_typed_afun. simpl.
-     set comp := ("comp", 𝟙 -{ coop }-∘ ! β)%T.
+     set comp := ("comp", 𝟙 -{ coop }-∘ ![MS] β)%T.
      replace ([comp; promise; fulfill; resume_task; add;next]) with
              ([comp] ++ [promise; fulfill; resume_task; add;next]) by done.
      smart_apply (sem_typed_handler2 (TT:=[tele _]) OS "async" "await" 
-                    (tele_app (λ α, 𝟙 -{ coop }-∘ ! α)) 
-                    (tele_app (λ α, Promise (! α))) 
-                    (tele_app (λ α, Promise (! α))) 
-                    (tele_app (λ α, ! α))  _ _ _ _ [comp] []).
+                    (tele_app (λ α, 𝟙 -{ coop }-∘ ![MS] α)) 
+                    (tele_app (λ α, Promise (![MS] α))) 
+                    (tele_app (λ α, Promise (![MS] α))) 
+                    (tele_app (λ α, ![MS] α))  _ _ _ _ [comp] []).
      + iApply row_le_refl.
-     + iApply (sem_typed_app_os 𝟙 _ (! β)); [iApply sem_typed_var'|]. 
+     + iApply (sem_typed_app_os 𝟙 _ (![MS] β)); [iApply sem_typed_var'|]. 
        rewrite -/await_sig -/(async_sig coop) -/coop. 
        iApply sem_typed_sub_env_final; first iApply env_le_cons; first iApply env_le_refl; 
        [iApply ty_le_arr; try iApply ty_le_refl; iApply (row_le_rec_unfold coop_pre)|].
@@ -369,12 +369,12 @@ Section typing.
      + iIntros (β').
        iApply sem_typed_swap_third. iApply sem_typed_weaken.
        iApply sem_typed_swap_fourth. iApply sem_typed_weaken.
-       set x := ("x", 𝟙 -{ coop }-∘ ! β').
-       set k := ("k", Promise (!β') ⊸ 𝟙).
+       set x := ("x", 𝟙 -{ coop }-∘ ![MS] β').
+       set k := ("k", Promise (![MS] β') ⊸ 𝟙).
        rewrite -/x -/k -/fulfill -/add -/next.
-       smart_apply (sem_typed_let (Promise (! β')) _ _ _ [x;k;fulfill;add;next]).
+       smart_apply (sem_typed_let (Promise (![MS] β')) _ _ _ [x;k;fulfill;add;next]).
        { iApply sem_typed_alloc_cpy. iApply sem_typed_right_inj. iApply sem_typed_nil. }
-       set new_prom := ("new_prom", Promise (! β')). 
+       set new_prom := ("new_prom", Promise (![MS] β')). 
        iApply (sem_typed_seq _ _ _ _ [new_prom; k; next]).
        * iApply (sem_typed_app_os (𝟙 ⊸ 𝟙)%T _ 𝟙 _ [new_prom; k; add; next]).
          { iApply sem_typed_swap_third. iApply sem_typed_sub_u2aarr. iApply sem_typed_var'. }
@@ -386,21 +386,21 @@ Section typing.
          rewrite Hrw. clear Hrw.
          smart_apply sem_typed_afun. simpl.
          do 2 (iApply sem_typed_swap_second; iApply sem_typed_app_os; [|iApply sem_typed_var]).
-         set C := (λ β, Promise (! β) → (𝟙 -{ coop }-∘ ! β) ⊸ 𝟙)%T.
+         set C := (λ β, Promise (![MS] β) → (𝟙 -{ coop }-∘ ![MS] β) ⊸ 𝟙)%T.
          iApply sem_typed_sub_u2aarr. rewrite -/(C β').
          iApply sem_typed_TApp. iApply sem_typed_var.
       * simpl.
         iApply sem_typed_swap_third. iApply sem_typed_weaken.
         iApply sem_typed_app_os; iApply sem_typed_var'.
      + iIntros (β').
-       set x := ("x", Promise (! β')).
-       set k := ("k", ! β' ⊸ 𝟙).
+       set x := ("x", Promise (![MS] β')).
+       set k := ("k", ![MS] β' ⊸ 𝟙).
        do 4 (iApply sem_typed_swap_third; iApply sem_typed_weaken).
-       smart_apply (sem_typed_match (! β') _ _  _ _ [x;k;next]).
+       smart_apply (sem_typed_match (![MS] β') _ _  _ _ [x;k;next]).
        * iApply sem_typed_replace_cpy_os; first iApply sem_typed_var.
          iApply sem_typed_contraction.
          iApply sem_typed_right_inj. iApply sem_typed_nil.
-       * simpl. set v := ("v", ! β').
+       * simpl. set v := ("v", ![MS] β').
          iApply sem_typed_swap_fourth. iApply sem_typed_weaken.
          iApply sem_typed_contraction.
          iApply sem_typed_swap_third. iApply sem_typed_swap_second.
@@ -409,8 +409,8 @@ Section typing.
            iApply sem_typed_left_inj. iApply sem_typed_var. }
          iApply sem_typed_app_os; [iApply sem_typed_var|].
          iApply sem_typed_var.
-       * simpl. set ks := ("ks", List (! β' ⊸ 𝟙)).
-         iApply (sem_typed_seq (Status (! β'))).
+       * simpl. set ks := ("ks", List (![MS] β' ⊸ 𝟙)).
+         iApply (sem_typed_seq (Status (![MS] β'))).
          ** iApply sem_typed_swap_third. 
             iApply sem_typed_replace_cpy_os; first iApply sem_typed_var.
             iApply sem_typed_right_inj. 
@@ -425,19 +425,19 @@ Section typing.
       iApply sem_typed_swap_third. iApply sem_typed_weaken.
       iApply sem_typed_swap_fourth; iApply sem_typed_weaken.
       iApply sem_typed_swap_second.
-      set x := ("x", !β). rewrite -/resume_task -/promise.
+      set x := ("x", ![MS] β). rewrite -/resume_task -/promise.
       smart_apply (sem_typed_let _ _ _ _ [promise; x; resume_task; next]).
       * iApply sem_typed_replace_cpy_os; [|iApply sem_typed_right_inj; iApply sem_typed_nil].
         iApply sem_typed_contraction.
         iApply sem_typed_var.
-      * set v := ("v", ! β + (List (! β ⊸ 𝟙))).
+      * set v := ("v", ![MS] β + (List (![MS] β ⊸ 𝟙))).
         smart_apply (sem_typed_match  _ _ _ _ _ [promise; x; resume_task; next]);
           [iApply sem_typed_var| |].
         { simpl. do 4 (iApply sem_typed_weaken). iApply impossible_typed. }
         simpl. iApply sem_typed_swap_second. 
         iApply sem_typed_swap_third. iApply sem_typed_contraction.
         iApply sem_typed_swap_third. iApply sem_typed_swap_second.
-        set ks := ("ks", List (! β ⊸ 𝟙)).
+        set ks := ("ks", List (![MS] β ⊸ 𝟙)).
         iApply (sem_typed_seq _ _ _ _ [x; ks; resume_task; next]).
         ** iApply sem_typed_replace_cpy_os; [iApply sem_typed_var|].
            iApply sem_typed_left_inj. iApply sem_typed_var.
@@ -446,10 +446,10 @@ Section typing.
                 iApply sem_typed_sub_u2aarr; iApply sem_typed_var. }
            iApply sem_typed_swap_second.
            iApply sem_typed_app_os; [|iApply sem_typed_var].
-           iApply (sem_typed_app_os ((! β ⊸ 𝟙) → 𝟙)%T).
+           iApply (sem_typed_app_os ((![MS] β ⊸ 𝟙) → 𝟙)%T).
            2: { iApply sem_typed_app_os; [|iApply sem_typed_var]. 
                 iApply sem_typed_sub_u2aarr.
-                set C := λ β, (! β → (! β ⊸ 𝟙) → 𝟙)%T. rewrite -/(C β). simpl.
+                set C := λ β, (![MS] β → (![MS] β ⊸ 𝟙) → 𝟙)%T. rewrite -/(C β). simpl.
                 iApply sem_typed_TApp. iApply sem_typed_var. }
            iApply sem_typed_sub_u2aarr.
            iApply sem_typed_sub_ty; first iApply ty_le_uarr; 
@@ -458,21 +458,21 @@ Section typing.
            iApply sem_typed_sub_ty; first iApply ty_le_uarr; 
             [iApply row_le_refl|iApply ty_le_refl|iApply ty_le_arr|];
             [iApply (@row_le_mfbang_elim _ _ )|iApply ty_le_refl|iApply ty_le_refl|].
-           set C := (λ (θ : sem_row Σ), ((! β ⊸ 𝟙) -{ ¡ θ }-> 𝟙) → List (! β ⊸ 𝟙) -{ ¡ θ }-∘ 𝟙)%T.
+           set C := (λ (θ : sem_row Σ), ((![MS] β ⊸ 𝟙) -{ ¡ θ }-> 𝟙) → List (![MS] β ⊸ 𝟙) -{ ¡ θ }-∘ 𝟙)%T.
            rewrite -/(C ⊥).
            iApply sem_typed_RApp.
            iApply sem_typed_val. iApply iter_typed.
-  - set fulfill := ("fulfill", ∀ₜ α, Promise (! α) → (𝟙 -{ coop }-∘ ! α) ⊸ 𝟙).
+  - set fulfill := ("fulfill", ∀ₜ α, Promise (![MS] α) → (𝟙 -{ coop }-∘ ![MS] α) ⊸ 𝟙).
     smart_apply (sem_typed_let _ _ _ _ [fulfill; main]).
-    { iApply (sem_typed_alloc_cpy (Status (! α))). 
+    { iApply (sem_typed_alloc_cpy (Status (![MS] α))). 
       iApply sem_typed_right_inj. iApply sem_typed_nil. }
-    set pmain := ("pmain", Refᶜ Status (! α)).
+    set pmain := ("pmain", Refᶜ Status (![MS] α)).
     iApply sem_typed_contraction.
     iApply sem_typed_swap_third. iApply sem_typed_swap_second. iApply sem_typed_swap_fourth.
     iApply (sem_typed_seq 𝟙).
     + do 2 (iApply sem_typed_app_os; [|iApply sem_typed_var]). 
       iApply sem_typed_sub_u2aarr. 
-      set C := (λ α, Promise (! α) → (𝟙 -{ coop }-∘ ! α) ⊸ 𝟙)%T.
+      set C := (λ α, Promise (![MS] α) → (𝟙 -{ coop }-∘ ![MS] α) ⊸ 𝟙)%T.
       rewrite -/(C α).
       iApply sem_typed_TApp. rewrite /C /Promise.
       iApply sem_typed_var.

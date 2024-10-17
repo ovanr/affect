@@ -42,7 +42,7 @@ Record pmono_prot Σ := PMonoProt {
   pmono_prot_car :> iEff Σ;
   pmono_prot_prop : ⊢ pers_mono pmono_prot_car
 }.
-Arguments PMonoProt {_} _%I {_}.
+Arguments PMonoProt {_} _%_I {_}.
 Arguments pmono_prot_car {_} _ : simpl never.
 
 (** * The COFE structure on pmono protocols *)
@@ -124,7 +124,7 @@ Record sem_row Σ := SemRow {
   sem_row_car :> pmono_prot Σ;
   sem_row_prop : ⊢ sem_row_val_prop sem_row_car
 }.
-Arguments SemRow {_} _%I {_}.
+Arguments SemRow {_} _%_I {_}.
 Arguments sem_row_car {_} _ : simpl never.
 
 (** * The COFE structure on semantic rows *)
@@ -219,7 +219,7 @@ Global Instance env_sem_typed_from_exist {Σ} x τ (Γ : env Σ) γ:
   FromExist ((x, τ) :: Γ ⊨ₑ γ) (λ v, ⌜ γ !! x = Some v ⌝ ∗ τ v ∗ Γ ⊨ₑ γ)%I .
 Proof.
   rewrite /FromExist /=. iIntros "[%v (Hrw & Hτ & HΓ)]". 
-  iFrame. iExists v. iFrame.
+  iFrame.
 Qed.
 
 Global Opaque env_sem_typed.
@@ -311,3 +311,4 @@ Qed.
 Global Instance row_le_proper {Σ} :
   Proper ((≡) ==> (≡) ==> (≡)) (@row_le Σ).
 Proof. apply ne_proper_2. apply _. Qed.
+

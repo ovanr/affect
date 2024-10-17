@@ -95,15 +95,6 @@ Section compatibility.
     iSplitR; first (iExists i); done.
   Qed.
   
-  Lemma sem_typed_string Γ (s : string) : 
-    ⊢ Γ ⊨ #(LitStr s) : ⟨⟩ : Str ⫤ Γ.
-  Proof.
-    iIntros (γ) "!# HΓ₁ //=". 
-    iApply ewpw_bot.
-    iApply ewp_value. 
-    iSplitR; first (iExists s); done.
-  Qed.
-
   Lemma sem_typed_void_in_env τ Γ₁ Γ₂ e x : 
     ⊢ (x, ⊥) :: Γ₁ ⊨ e : ⟨⟩ : τ ⫤ Γ₂.
   Proof.
@@ -160,7 +151,7 @@ Section compatibility.
   (* mode abstraction and application *)
   Lemma sem_val_typed_bang v τ :
     ⊨ᵥ v : τ -∗
-    ⊨ᵥ v : ! τ.
+    ⊨ᵥ v : ![MS] τ.
   Proof. iIntros "#He !# //". Qed.
 
   (* Subsumption rule *)
@@ -351,12 +342,6 @@ Section compatibility.
     iApply sem_typed_sub_nil. iApply sem_typed_int.
   Qed.
   
-  Corollary sem_typed_string' Γ ρ (s : string) : 
-    ⊢ Γ ⊨ #(LitStr s) : ρ : Str ⫤ Γ.
-  Proof.
-    iApply sem_typed_sub_nil. iApply sem_typed_string.
-  Qed.
-
   Corollary sem_typed_var' τ Γ ρ x : 
     ⊢ (x, τ) :: Γ ⊨ x : ρ : τ ⫤ Γ.
   Proof.
@@ -379,7 +364,7 @@ Section compatibility.
 
   Corollary sem_typed_bang Γ₁ Γ₂ e τ `{! MultiE Γ₁ } :
     (Γ₁ ⊨ₚ e : τ ⫤ []) -∗
-    Γ₁ ++ Γ₂ ⊨ₚ e : ! τ ⫤ Γ₂.
+    Γ₁ ++ Γ₂ ⊨ₚ e : ![MS] τ ⫤ Γ₂.
   Proof. iIntros "He". iApply (sem_typed_mbang with "He"). Qed.
 
   (* λ-calculus rules *)
@@ -865,7 +850,6 @@ Section compatibility.
     iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
     iIntros "!# %v [Hτv HΓ₂] //= !>".
     unfold exist_pack. ewpw_pure_steps. iFrame.
-    by iExists τ. 
   Qed.
 
   Lemma sem_typed_unpack C κ ρ Γ₁ Γ₂ Γ₃ x e₁ e₂ :
@@ -1010,7 +994,7 @@ Section compatibility.
   Qed.
   
   Lemma sem_typed_load τ Γ x : 
-    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⫤ (x, Ref ⊤) :: Γ).
+    ⊢ ((x, Ref τ) :: Γ ⊨ Load x : ⟨⟩ : τ ⫤ (x, Ref ⊤) :: Γ).
   Proof.
     iIntros "%γ !# //= [%v (%Hrw & (%w & -> & (%l & Hl & Hτ)) & HΓ)]".
     rewrite Hrw. iApply (ewpw_load with "Hl").
@@ -1018,22 +1002,11 @@ Section compatibility.
   Qed.
   
   Lemma sem_typed_load_copy τ Γ x `{! MultiT τ }:
-    ⊢ ((x, Ref τ) :: Γ ⊨ !x : ⟨⟩ : τ ⫤ (x, Ref τ) :: Γ).
+    ⊢ ((x, Ref τ) :: Γ ⊨ Load x : ⟨⟩ : τ ⫤ (x, Ref τ) :: Γ).
   Proof.
     iIntros "%γ !# //= [%v (%Hrw & (%w & -> & (%l & Hl & Hτ)) & HΓ)]".
     rewrite Hrw. iApply (ewpw_load with "Hl").
     iIntros "!> Hl !>". solve_env.
-  Qed.
-
-  Lemma sem_typed_free τ ρ Γ₁ Γ₂ e :
-    Γ₁ ⊨ e : ρ : Ref τ ⫤ Γ₂ -∗
-    Γ₁ ⊨ Free e : ρ : τ ⫤ Γ₂.
-  Proof.
-    iIntros "#He !# %γ HΓ₁ //=".
-    iApply (ewpw_bind [FreeCtx]); first done. simpl.
-    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
-    iIntros "!# %v [(%l & -> & (%w & Hl & Hτ)) HΓ₂]".
-    iApply (ewpw_free with "Hl"). iIntros "!> {$Hτ} {$HΓ₂} //=". 
   Qed.
 
   Lemma sem_typed_store τ κ ι ρ Γ₁ Γ₂ x e :
@@ -1065,7 +1038,7 @@ Section compatibility.
 
   Lemma sem_typed_load_cpy τ ρ Γ₁ Γ₂ e `{! MultiT τ } :
     Γ₁ ⊨ e : ρ : Refᶜ τ ⫤ Γ₂ -∗
-    Γ₁ ⊨ !e : ρ : τ ⫤ Γ₂.
+    Γ₁ ⊨ Load e : ρ : τ ⫤ Γ₂.
   Proof.
     iIntros "#He %γ !# //= HΓ₁".
     iApply (ewpw_bind [LoadCtx]); first done.
@@ -1124,7 +1097,7 @@ Section compatibility.
   Lemma sem_typed_replace_cpy_gen τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ `{ ρ ᵣ⪯ₜ τ }:
     Γ₂ ⊨ e₁ : ρ : Refᶜ τ ⫤ Γ₃ -∗
     Γ₁ ⊨ e₂ : ρ : τ ⫤ Γ₂ -∗
-    Γ₁ ⊨ (e₁ <!- e₂) : ρ : τ ⫤ Γ₃.
+    Γ₁ ⊨ (Replace e₁ e₂) : ρ : τ ⫤ Γ₃.
   Proof.
     iIntros "#He₁ #He₂ %γ !# /= HΓ₁ /=".
     iApply (ewpw_bind [ReplaceRCtx _]); first done. simpl.

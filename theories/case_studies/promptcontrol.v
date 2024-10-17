@@ -152,7 +152,7 @@ Section typing.
 
   (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
   Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-  Opaque sem_ty_bot sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_mbang env_mbang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_type_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option.
+  Opaque sem_ty_bot sem_ty_unit sem_ty_bool sem_ty_int sem_ty_top sem_ty_mbang env_mbang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_type_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option.
   Opaque sem_sig_eff sem_sig_flip_mbang.
   Opaque sem_row_nil sem_row_flip_mbang sem_row_cons sem_row_rec.
 

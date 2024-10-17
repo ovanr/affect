@@ -1,0 +1,216 @@
+From 447ae3a1b65cfd28e2226f78784ec3896848d8d9 Mon Sep 17 00:00:00 2001
+From: Orpheas van Rooij <orpheas.vanrooij@outlook.com>
+Date: Thu, 17 Oct 2024 14:58:18 +0100
+Subject: [PATCH] Add IsContOS unary operation and specialised shallow handler
+ spec - IsContOS (Cont N l) ~> True and IsContOS (Kont N) ~> False   It is
+ used in conjunction with shallow_handler_spl spec that allows us   to derive
+ 'mode-aware' handlers that have different effect branches   according to
+ whether the effect called is one- or multi-shot.
+
+---
+ theories/language/semantics.v                 |   4 +
+ theories/language/syntax.v                    |   7 +-
+ .../program_logic/shallow_handler_reasoning.v | 120 +++++++++++++++++-
+ 3 files changed, 125 insertions(+), 6 deletions(-)
+
+diff --git a/theories/language/semantics.v b/theories/language/semantics.v
+index 9af8430..ecad847 100644
+--- a/theories/language/semantics.v
++++ b/theories/language/semantics.v
+@@ -211,6 +211,10 @@ Definition un_op_eval (op : un_op) (v : val) : option val :=
+       Some $ LitV $ LitInt (Z.lnot n)
+   | MinusUnOp, LitV (LitInt n) =>
+       Some $ LitV $ LitInt (- n)
++  | IsContOS, (ContV _ _) =>
++      Some $ LitV $ LitBool true
++  | IsContOS, (KontV _) =>
++      Some $ LitV $ LitBool false
+   | _, _ =>
+       None
+   end.
+diff --git a/theories/language/syntax.v b/theories/language/syntax.v
+index 9a9d411..0b5057b 100644
+--- a/theories/language/syntax.v
++++ b/theories/language/syntax.v
+@@ -56,7 +56,8 @@ Section eff_lang.
+   (* Unary operations. *)
+   Inductive un_op : Set :=
+     | NegOp
+-    | MinusUnOp.
++    | MinusUnOp
++    | IsContOS.
+ 
+   (* Binary operations. *)
+   Inductive bin_op : Set :=
+@@ -1072,9 +1073,9 @@ Instance un_op_finite : Countable un_op.
+ Proof.
+   refine (inj_countable'
+     ((* Encoding. *) λ op,
+-       match op with NegOp => 0 | MinusUnOp => 1 end)
++       match op with NegOp => 0 | MinusUnOp => 1 | IsContOS => 2 end)
+     ((* Decoding. *) λ n,
+-       match n with 0 => NegOp | _ => MinusUnOp end) _);
++       match n with 0 => NegOp | 1 => MinusUnOp | _ => IsContOS end) _);
+   by intros [].
+ Qed.
+ Instance bin_op_countable : Countable bin_op.
+diff --git a/theories/program_logic/shallow_handler_reasoning.v b/theories/program_logic/shallow_handler_reasoning.v
+index 7287cd7..5204fc7 100644
+--- a/theories/program_logic/shallow_handler_reasoning.v
++++ b/theories/program_logic/shallow_handler_reasoning.v
+@@ -59,6 +59,69 @@ Proof.
+   apply equiv_dist=>n. by apply shallow_handler_ne; apply equiv_dist.
+ Qed.
+ 
++(** * Specialized Shallow-Handler Judgment. *)
++
++(* shallow_handler_spl spec is almost identical to shallow_handler above with the
++   only difference that we do not quantify over arbitrary values `k` but instead use `Cont N l` and `Kont N` values.
++   This sort of spec is useful in conjunction with the `IsContOS` operation
++   in order to derive 'mode-aware' handlers that have different effect branches according to whether the effect called is one- or multi-shot. 
++
++  Note that shallow_handler_spl cannot be used for the case_study/shallow_as_deep so we keep both specs.
++*)
++
++(* -------------------------------------------------------------------------- *)
++(** Definition. *)
++
++Definition shallow_handler_spl `{!heapGS Σ}
++  (E : coPset)
++  (Ψ1 Ψ2 : iEffO (Σ:=Σ))
++  (Φ : val -d> iPropO Σ)
++  (h r : expr)
++  (Ψ1' Ψ2' : iEffO (Σ:=Σ))
++  (Φ' : val -d> iPropO Σ) : iProp Σ :=
++
++  (* Correctness of the return branch. *)
++  (∀ (y : val), Φ y -∗ EWP r y @ E <| Ψ1' |> {| Ψ2' |} {{ Φ' }}) ∧
++
++  (* Correctness of the effect branch -- one-shot case. *)
++  (∀ (v : val) (N : list frame) (l : loc),
++     iEff_car (upcl OS Ψ1) v (λ w, EWP (ContV N l) w @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }}) -∗
++       EWP h v (ContV N l) @ E <| Ψ1' |> {| Ψ2' |} {{ Φ' }}) ∧
++
++  (* Correctness of the effect branch -- multi-shot case. *)
++  (∀ (v : val) (N : list frame),
++     iEff_car (upcl MS Ψ2) v (λ w, EWP (KontV N) w @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }}) -∗
++       EWP h v (KontV N) @ E <| Ψ1' |> {| Ψ2' |} {{ Φ' }}).
++
++(* -------------------------------------------------------------------------- *)
++(** Non-expansiveness. *)
++
++Global Instance shallow_handler_spl_ne `{!heapGS Σ} E n :
++  Proper
++    ((dist n) ==> (dist n) ==> (dist n) ==> (dist n) ==>
++       (dist n) ==> (dist n) ==> (dist n) ==> (dist n) ==> (dist n))
++  (shallow_handler_spl (Σ:=Σ) E).
++Proof.
++  intros ??? ??? ??? ??-> ??-> ??? ??? ???. rewrite /shallow_handler_spl.
++  by repeat (apply iEff_car_ne || solve_proper || f_equiv).
++Qed.
++Global Instance shallow_handler_spl_proper `{!heapGS Σ} E :
++  Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (≡) ==> (≡) ==> (≡) ==> (≡) ==> (≡))
++  (shallow_handler_spl (Σ:=Σ) E).
++Proof.
++  intros ??? ??? ??? ??? ??? ??? ??? ???.
++  apply equiv_dist=>n. by apply shallow_handler_spl_ne; apply equiv_dist.
++Qed.
++
++Lemma shallow_handler_shallow_handler_spl `{!heapGS Σ} E Ψ1 Ψ2 Φ h r (Ψ1' Ψ2' : iEff Σ) Φ' :
++  shallow_handler E Ψ1 Ψ2 Φ h r Ψ1' Ψ2' Φ' -∗
++  shallow_handler_spl E Ψ1 Ψ2 Φ h r Ψ1' Ψ2' Φ'.
++Proof.
++  iIntros "H". iSplit; last iSplit; first iDestruct "H" as "[$ _]".
++  - iIntros (???) "Hk". iDestruct "H" as "[_ [H _]]". by iApply "H".
++  - iIntros (??) "Hk". iDestruct "H" as "[_ [_ H]]". by iApply "H".
++Qed.
++
+ 
+ (* -------------------------------------------------------------------------- *)
+ (** Monotonicity. *)
+@@ -105,6 +168,47 @@ Proof.
+     by iApply (ewp_pers_smono with "Hh"); auto.
+ Qed.
+ 
++(* The shallow-handler-spl judgment is contravariant
++   on the handlee protocols, Ψ1 and Ψ2. *)
++Lemma shallow_handler_spl_mono `{!heapGS Σ}
++  E Ψ1 Ψ1'' Ψ2 Ψ2'' Φ h r Ψ1' Ψ2' Φ' :
++  shallow_handler_spl E Ψ1 Ψ2 Φ h r Ψ1' Ψ2' Φ' -∗
++    (Ψ1'' ⊑ Ψ1)%ieff -∗ (Ψ2'' ⊑ Ψ2)%ieff -∗
++      shallow_handler_spl E Ψ1'' Ψ2'' Φ h r Ψ1' Ψ2' Φ'.
++Proof.
++  iIntros "Hhandler #HΨ1 #HΨ2". iSplit; [|iSplit].
++  - iIntros (y) "Hy". by iApply "Hhandler".
++  - iIntros (v N l) "HΨ1''". iDestruct "Hhandler" as "(_&Hh&_)".
++    iApply "Hh". iApply (iEff_le_upcl with "HΨ1").
++    iApply (monotonic_prot with "[] HΨ1''").
++    iIntros (w) "Hkw".
++    by iApply (ewp_pers_smono with "Hkw"); auto.
++  - iIntros (v N) "HΨ2''". iDestruct "Hhandler" as "(_&_&Hh)".
++    iApply "Hh". iApply (iEff_le_upcl with "HΨ2").
++    iApply (pers_monotonic_prot with "[] HΨ2''").
++    iIntros "!#" (w) "Hkw".
++    by iApply (ewp_pers_smono with "Hkw"); auto.
++Qed.
++
++(* The shallow-handler-spl judgment is covariant
++   on the handler protocols, Ψ1' and Ψ2'. *)
++Lemma shallow_handler_alt_mono' `{!heapGS Σ}
++  E Ψ1 Ψ1'' Ψ2 Ψ2'' Φ h r Ψ1' Ψ2' Φ' :
++  shallow_handler_spl E Ψ1 Ψ2 Φ h r Ψ1' Ψ2' Φ' -∗
++    (Ψ1' ⊑ Ψ1'')%ieff -∗ (Ψ2' ⊑ Ψ2'')%ieff -∗
++      shallow_handler_spl E Ψ1 Ψ2 Φ h r Ψ1'' Ψ2'' Φ'.
++Proof.
++  iIntros "Hhandler #HΨ1' #HΨ2'". iSplit; [|iSplit].
++  - iIntros (y) "Hy". iDestruct "Hhandler" as "[Hr _]".
++    iSpecialize ("Hr" with "Hy").
++    by iApply (ewp_pers_smono with "Hr"); auto.
++  - iIntros (v N l) "HΨ1". iDestruct "Hhandler" as "(_&Hh&_)".
++    iSpecialize ("Hh" with "HΨ1").
++    by iApply (ewp_pers_smono with "Hh"); auto.
++  - iIntros (v N) "HΨ2". iDestruct "Hhandler" as "(_&_&Hh)".
++    iSpecialize ("Hh" with "HΨ2").
++    by iApply (ewp_pers_smono with "Hh"); auto.
++Qed.
+ 
+ (* ========================================================================== *)
+ (** * Reasoning Rules. *)
+@@ -141,9 +245,9 @@ Qed.
+ (* -------------------------------------------------------------------------- *)
+ (** Reasoning about Shallow Handlers. *)
+ 
+-Lemma ewp_try_with `{!heapGS Σ} E Ψ1 Ψ2 Φ Ψ1' Ψ2' Φ' e h r :
++Lemma ewp_try_with_spl `{!heapGS Σ} E Ψ1 Ψ2 Φ Ψ1' Ψ2' Φ' e h r :
+   EWP e @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }} -∗
+-    shallow_handler E Ψ1 Ψ2 Φ h r Ψ1' Ψ2' Φ' -∗
++    shallow_handler_spl E Ψ1 Ψ2 Φ h r Ψ1' Ψ2' Φ' -∗
+       EWP (TryWith e h r) @ E <| Ψ1' |> {| Ψ2' |} {{ Φ' }}.
+ Proof.
+   iLöb as "IH" forall (e Ψ1 Ψ2).
+@@ -174,7 +278,7 @@ Proof.
+         specialize (prim_step_inv_TryWithOSEff _ _ _ _ _ _ _ Hstep)
+           as [l [Hlkp [-> ->]]].
+         iMod (gen_heap_alloc _ l #false with "Hσ") as "($ & Hl & Hm)". { done. }
+-        iSpecialize ("Hh" $! v (ContV k l) with "[Heff Hl]").
++        iSpecialize ("Hh" $! v k l with "[Heff Hl]").
+         { iDestruct "Heff" as "[%Q [HΨ1 Hk]]". iExists Q. iFrame.
+           iIntros (w) "HQ". iApply (ewp_cont with "[HQ Hk] Hl").
+           by iApply "Hk".
+@@ -217,3 +321,13 @@ Proof.
+       iMod "He" as "[$ He]". iModIntro.
+       by iApply ("IH" with "He Hhandler").
+ Qed.
++
++Lemma ewp_try_with `{!heapGS Σ} E Ψ1 Ψ2 Φ Ψ1' Ψ2' Φ' e h r :
++  EWP e @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }} -∗
++    shallow_handler E Ψ1 Ψ2 Φ h r Ψ1' Ψ2' Φ' -∗
++      EWP (TryWith e h r) @ E <| Ψ1' |> {| Ψ2' |} {{ Φ' }}.
++Proof.
++  iIntros "He Hspec".
++  iApply (ewp_try_with_spl with "He").
++  iApply (shallow_handler_shallow_handler_spl with "Hspec").
++Qed.
+-- 
+2.47.0
+

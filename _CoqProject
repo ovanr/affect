@@ -1,6 +1,6 @@
 -Q theories                affect
 
--arg -w -arg -redundant-canonical-projection
+-arg "-w -redundant-canonical-projection -w -notation-incompatible-prefix -w -notation-both-format-and-spaces"
 
 theories/lib/base.v
 theories/lib/logic.v
@@ -28,7 +28,6 @@ theories/case_studies/app.v
 theories/case_studies/tossCoin.v
 theories/case_studies/c.v
 theories/case_studies/hid.v
-theories/case_studies/verboseClose.v
 theories/case_studies/state.v
 theories/case_studies/state_veri.v
 theories/case_studies/promotion.v

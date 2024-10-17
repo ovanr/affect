@@ -18,7 +18,7 @@ From affect.logic Require Import tactics.
 
 (* Make all the definitions opaque so that we do not rely on their definition in the model to show that the programs are well-typed terms. *)
 Opaque sem_typed sem_typed_val ty_le row_le sig_le row_type_sub row_env_sub.
-Opaque sem_ty_bot sem_ty_unit sem_ty_bool sem_ty_int sem_ty_string sem_ty_top sem_ty_mbang env_mbang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_type_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
+Opaque sem_ty_bot sem_ty_unit sem_ty_bool sem_ty_int sem_ty_top sem_ty_mbang env_mbang sem_ty_ref_cpy sem_ty_ref sem_ty_prod sem_ty_sum sem_ty_arr sem_ty_type_forall sem_ty_row_forall sem_ty_exists sem_ty_rec sem_ty_option sem_ty_list.
 Opaque sem_sig_eff sem_sig_flip_mbang.
 Opaque sem_row_nil sem_row_flip_mbang sem_row_cons sem_row_rec.
 
@@ -32,7 +32,7 @@ Section typing.
     (∀ᵣ θ, ∀ₜ α, ∀ₜ β, ∀ₜ γ,  (β -{ ¡ θ }-∘ (α -{ ¡ θ }-∘ γ)) → α ⊸ β -{ ¡ θ }-∘ γ)%T.
 
   Definition C_ms_ty : sem_ty Σ := 
-    (∀ᵣ θ, ∀ₜ α, ∀ₜ β, ∀ₜ γ,  (β -{ θ }-∘ (! α -{ θ }-∘ γ)) → (! α) ⊸ β -{ θ }-∘ γ)%T.
+    (∀ᵣ θ, ∀ₜ α, ∀ₜ β, ∀ₜ γ,  (β -{ θ }-∘ (![MS] α -{ θ }-∘ γ)) → (![MS] α) ⊸ β -{ θ }-∘ γ)%T.
 
   Definition C_gen_ty : sem_ty Σ := 
     (∀ₘ ν, ∀ᵣ θ, ∀ₜ α, ∀ₜ β, ∀ₜ γ, (β -{ ¡[ν] θ }-∘ (![ν] α -{ ¡[ν] θ }-∘ γ)) → (![ν] α) ⊸ β -{ ¡[ν] θ }-∘ γ)%T.
@@ -68,7 +68,7 @@ Section typing.
     rewrite - (app_nil_r [("y", _); ("x", _)]).
     smart_apply sem_typed_afun. simpl.
     iApply sem_typed_swap_second.
-    iApply (sem_typed_app_ms (! α)).
+    iApply (sem_typed_app_ms (![MS] α)).
     { iApply sem_typed_app_nil; iApply sem_typed_var'. }
     iApply sem_typed_var'.
   Qed.

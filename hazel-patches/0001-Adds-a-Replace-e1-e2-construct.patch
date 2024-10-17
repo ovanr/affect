@@ -1,0 +1,443 @@
+From 7f8d15ce5fb0acdc70ffa7c2161eba9991c2812a Mon Sep 17 00:00:00 2001
+From: Orpheas van Rooij <orpheas.vanrooij@outlook.com>
+Date: Thu, 17 Oct 2024 17:02:47 +0100
+Subject: [PATCH] Adds a Replace e1 e2 construct. Replace l v acts like Store l
+ v with the only difference that the old value in location l is returned
+ instead of the unit value.
+
+---
+ theories/language/iris_language.v        |  6 +-
+ theories/language/neutral_contexts.v     |  4 ++
+ theories/language/notation.v             |  1 +
+ theories/language/semantics.v            | 19 +++++++
+ theories/language/syntax.v               | 72 +++++++++++++++++++++++-
+ theories/program_logic/state_reasoning.v | 34 +++++++++++
+ theories/program_logic/tactics.v         |  2 +
+ 7 files changed, 135 insertions(+), 3 deletions(-)
+
+diff --git a/theories/language/iris_language.v b/theories/language/iris_language.v
+index 9c06cc5..27fe2c1 100644
+--- a/theories/language/iris_language.v
++++ b/theories/language/iris_language.v
+@@ -157,8 +157,10 @@ Proof.
+     rewrite lookup_insert in H4. done.
+   - split; [|done]. destruct σ1 as [σ1].
+     by rewrite /heap_upd /= insert_insert.
+-  - unfold heap_upd in H10. simpl in H10.
+-    rewrite lookup_insert in H10. done.
++  - rewrite !H7. rewrite lookup_insert in H8.
++     simplify_eq. rewrite - H7 in H0.
++     rewrite lookup_insert in H0. by simplify_eq.
++   - rewrite lookup_insert in H10. discriminate.
+ Qed.
+ 
+ Lemma val_not_pure v e : ¬ pure_prim_step (Val v) e.
+diff --git a/theories/language/neutral_contexts.v b/theories/language/neutral_contexts.v
+index 8c15e8d..5e70f46 100644
+--- a/theories/language/neutral_contexts.v
++++ b/theories/language/neutral_contexts.v
+@@ -68,6 +68,10 @@ Instance StoreLCtx_neutral v2 : NeutralFrame (StoreLCtx v2).
+ Proof. constructor => v k σ. by apply StoreLEffS. Qed.
+ Instance StoreRCtx_neutral e1 : NeutralFrame (StoreRCtx e1).
+ Proof. constructor => v k σ. by apply StoreREffS. Qed.
++Instance ReplaceLCtx_neutral v2 : NeutralFrame (ReplaceLCtx v2).
++Proof. constructor => v k σ. by apply ReplaceLEffS. Qed.
++Instance ReplaceRCtx_neutral e1 : NeutralFrame (ReplaceRCtx e1).
++Proof. constructor => v k σ. by apply ReplaceREffS. Qed.
+ 
+ Lemma TryWithCtx_not_neutral e2 e3 : ¬ NeutralFrame (TryWithCtx e2 e3).
+ Proof.
+diff --git a/theories/language/notation.v b/theories/language/notation.v
+index 3840707..b037101 100644
+--- a/theories/language/notation.v
++++ b/theories/language/notation.v
+@@ -102,6 +102,7 @@ Notation "e1 ≠ e2" := (UnOp NegOp (BinOp EqOp e1%E e2%E)) : expr_scope.
+ Notation "~ e" := (UnOp NegOp e%E) (at level 75, right associativity) : expr_scope.
+ (* The unicode ← is already part of the notation "_ ← _; _" for bind. *)
+ Notation "e1 <- e2" := (Store e1%E e2%E) (at level 80) : expr_scope.
++Notation "e1 <!- e2" := (Replace e1%E e2%E) (at level 80) : expr_scope.
+ 
+ (* The breaking point '/  ' makes sure that the body of the rec is indented
+ by two spaces in case the whole rec does not fit on a single line. *)
+diff --git a/theories/language/semantics.v b/theories/language/semantics.v
+index 97a296d..9af8430 100644
+--- a/theories/language/semantics.v
++++ b/theories/language/semantics.v
+@@ -79,6 +79,10 @@ Definition fill_frame (f : frame) (e : expr) : expr :=
+       Store e (Val v2)
+   | StoreRCtx e1 =>
+       Store e1 e
++  | ReplaceLCtx v2 =>
++      Replace e (Val v2)
++  | ReplaceRCtx e1 =>
++      Replace e1 e
+   end.
+ 
+ 
+@@ -187,6 +191,8 @@ Fixpoint subst (x : string) (v : val) (e : expr) : expr :=
+       Load (subst x v e)
+   | Store e1 e2 =>
+       Store (subst x v e1) (subst x v e2)
++  | Replace e1 e2 =>
++      Replace (subst x v e1) (subst x v e2)
+   end.
+ 
+ Definition subst' (mx : binder) (v : val) : expr → expr :=
+@@ -346,6 +352,11 @@ Inductive head_step : expr → state → expr → state → Prop :=
+      is_Some (σ.(heap) !! l) →
+        head_step (Store (Val $ LitV $ LitLoc l) (Val v)) σ
+                  (Val $ LitV LitUnit) (heap_upd <[l:=v]> σ)
++  (* Replace. *)
++  | ReplaceS l v w σ :
++     (σ.(heap) !! l = Some w) →
++       head_step (Replace (Val $ LitV $ LitLoc l) (Val v)) σ
++                 (Val w) (heap_upd <[l:=v]> σ)
+   (* Do. *)
+   | DoS m v σ :
+      head_step (Do m (Val v)) σ (Eff m v []) σ
+@@ -430,6 +441,14 @@ Inductive head_step : expr → state → expr → state → Prop :=
+   | StoreREffS m e1 v2 k σ :
+      head_step (Store e1 (Eff m v2 k))          σ
+                (Eff m v2 ((StoreRCtx e1) :: k)) σ
++  (* ReplaceLCtx. *)
++  | ReplaceLEffS m v1 k v2 σ :
++     head_step (Replace (Eff m v1 k) (Val v2))    σ
++               (Eff m v1 ((ReplaceLCtx v2) :: k)) σ
++  (* ReplaceRCtx. *)
++  | ReplaceREffS m e1 v2 k σ :
++     head_step (Replace e1 (Eff m v2 k))        σ
++               (Eff m v2 ((ReplaceRCtx e1) :: k)) σ
+   (* EffCtx. *)
+   | DoEffS m m' v k σ :
+      head_step (Do m (Eff m' v k))         σ
+diff --git a/theories/language/syntax.v b/theories/language/syntax.v
+index 241cd78..9a9d411 100644
+--- a/theories/language/syntax.v
++++ b/theories/language/syntax.v
+@@ -105,6 +105,7 @@ Section eff_lang.
+     | Alloc (e : expr)
+     | Load (e : expr)
+     | Store (e1 e2 : expr)
++    | Replace (e1 e2 : expr)
+ 
+   (* Values. *)
+   with val :=
+@@ -155,7 +156,9 @@ Section eff_lang.
+     | AllocCtx
+     | LoadCtx
+     | StoreLCtx (v2 : val)
+-    | StoreRCtx (e1 : expr).
++    | StoreRCtx (e1 : expr)
++    | ReplaceLCtx (v2 : val)
++    | ReplaceRCtx (e1 : expr).
+ 
+   (* Evaluation contexts. *)
+   Definition ectx := list frame.
+@@ -231,6 +234,7 @@ Section induction_principle.
+     (Alloc_case : ∀ e, P e → P (Alloc e))
+     (Load_case : ∀ e, P e → P (Load e))
+     (Store_case : ∀ e1 e2, P e1 → P e2 → P (Store e1 e2))
++    (Replace_case : ∀ e1 e2, P e1 → P e2 → P (Replace e1 e2))
+ 
+   (* Values. *)
+     (* Base values. *)
+@@ -275,6 +279,8 @@ Section induction_principle.
+     (LoadCtx_case : R LoadCtx)
+     (StoreLCtx_case : ∀ v2, Q v2 → R (StoreLCtx v2))
+     (StoreRCtx_case : ∀ e1, P e1 → R (StoreRCtx e1))
++    (ReplaceLCtx_case : ∀ v2, Q v2 → R (ReplaceLCtx v2))
++    (ReplaceRCtx_case : ∀ e1, P e1 → R (ReplaceRCtx e1))
+ 
+   (* Evaluation contexts. *)
+     (EmptyCtx_case : S [])
+@@ -328,6 +334,8 @@ Section induction_principle.
+         Load_case e (expr_ind e)
+     | Store e1 e2 =>
+         Store_case e1 e2 (expr_ind e1) (expr_ind e2)
++    | Replace e1 e2 =>
++        Replace_case e1 e2 (expr_ind e1) (expr_ind e2)
+     end.
+ 
+   Definition val_ind_pre
+@@ -403,6 +411,10 @@ Section induction_principle.
+         StoreLCtx_case v2 (val_ind v2)
+     | StoreRCtx e1 =>
+         StoreRCtx_case e1 (expr_ind e1)
++    | ReplaceLCtx v2 =>
++        ReplaceLCtx_case v2 (val_ind v2)
++    | ReplaceRCtx e1 =>
++        ReplaceRCtx_case e1 (expr_ind e1)
+     end.
+ 
+   Definition ectx_ind_pre
+@@ -604,6 +616,14 @@ Section eq_decidable.
+       | _ => right _
+       end); congruence.
+   Qed.
++  Definition eq_dec_Replace_case e1 e2
++    (He1 : P e1) (He2 : P e2) : P (Replace e1 e2).
++    refine (λ e',
++      match e' with
++      | Replace e1' e2' => cast_if_and (He1 e1') (He2 e2')
++      | _ => right _
++      end); congruence.
++  Qed.
+ 
+   (* Values. *)
+   Definition eq_dec_LitV_case l : Q (LitV l).
+@@ -761,6 +781,20 @@ Section eq_decidable.
+       | _ => right _
+       end); congruence.
+   Qed.
++  Definition eq_dec_ReplaceLCtx_case v2 (Hv2 : Q v2) : R (ReplaceLCtx v2).
++    refine (λ f',
++      match f' with
++      | ReplaceLCtx v2' => cast_if (Hv2 v2')
++      | _ => right _
++      end); congruence.
++  Qed.
++  Definition eq_dec_ReplaceRCtx_case e1 (He1 : P e1) : R (ReplaceRCtx e1).
++    refine (λ f',
++      match f' with
++      | ReplaceRCtx e1' => cast_if (He1 e1')
++      | _ => right _
++      end); congruence.
++  Qed.
+ 
+   (* Evaluation contexts. *)
+   Definition eq_dec_EmptyCtx_case : S [].
+@@ -794,6 +828,7 @@ Section eq_decidable.
+       eq_dec_Alloc_case
+       eq_dec_Load_case
+       eq_dec_Store_case
++      eq_dec_Replace_case
+       eq_dec_LitV_case
+       eq_dec_RecV_case
+       eq_dec_PairV_case
+@@ -820,6 +855,8 @@ Section eq_decidable.
+       eq_dec_LoadCtx_case
+       eq_dec_StoreLCtx_case
+       eq_dec_StoreRCtx_case
++      eq_dec_ReplaceLCtx_case
++      eq_dec_ReplaceRCtx_case
+       eq_dec_EmptyCtx_case
+       eq_dec_ConsCtx_case.
+ 
+@@ -844,6 +881,7 @@ Section eq_decidable.
+       eq_dec_Alloc_case
+       eq_dec_Load_case
+       eq_dec_Store_case
++      eq_dec_Replace_case
+       eq_dec_LitV_case
+       eq_dec_RecV_case
+       eq_dec_PairV_case
+@@ -870,6 +908,8 @@ Section eq_decidable.
+       eq_dec_LoadCtx_case
+       eq_dec_StoreLCtx_case
+       eq_dec_StoreRCtx_case
++      eq_dec_ReplaceLCtx_case
++      eq_dec_ReplaceRCtx_case
+       eq_dec_EmptyCtx_case
+       eq_dec_ConsCtx_case.
+ 
+@@ -894,6 +934,7 @@ Section eq_decidable.
+       eq_dec_Alloc_case
+       eq_dec_Load_case
+       eq_dec_Store_case
++      eq_dec_Replace_case
+       eq_dec_LitV_case
+       eq_dec_RecV_case
+       eq_dec_PairV_case
+@@ -920,6 +961,8 @@ Section eq_decidable.
+       eq_dec_LoadCtx_case
+       eq_dec_StoreLCtx_case
+       eq_dec_StoreRCtx_case
++      eq_dec_ReplaceLCtx_case
++      eq_dec_ReplaceRCtx_case
+       eq_dec_EmptyCtx_case
+       eq_dec_ConsCtx_case.
+ 
+@@ -944,6 +987,7 @@ Section eq_decidable.
+       eq_dec_Alloc_case
+       eq_dec_Load_case
+       eq_dec_Store_case
++      eq_dec_Replace_case
+       eq_dec_LitV_case
+       eq_dec_RecV_case
+       eq_dec_PairV_case
+@@ -970,6 +1014,8 @@ Section eq_decidable.
+       eq_dec_LoadCtx_case
+       eq_dec_StoreLCtx_case
+       eq_dec_StoreRCtx_case
++      eq_dec_ReplaceLCtx_case
++      eq_dec_ReplaceRCtx_case
+       eq_dec_EmptyCtx_case
+       eq_dec_ConsCtx_case.
+ 
+@@ -1132,6 +1178,8 @@ Section countable.
+     GenNode 17 [ge].
+   Definition encode_Store (e1 e2 : expr) (ge1 ge2 : gtree) : gtree :=
+     GenNode 18 [ge1; ge2].
++  Definition encode_Replace (e1 e2 : expr) (ge1 ge2 : gtree) : gtree :=
++    GenNode 19 [ge1; ge2].
+ 
+   (* Values. *)
+   Definition encode_LitV l : gtree :=
+@@ -1188,6 +1236,10 @@ Section countable.
+     GenNode 17 [gv2].
+   Definition encode_StoreRCtx (e1 : expr) (ge1 : gtree) : gtree :=
+     GenNode 18 [ge1].
++  Definition encode_ReplaceLCtx (v2 : val) (gv2 : gtree) : gtree :=
++    GenNode 19 [gv2].
++  Definition encode_ReplaceRCtx (e1 : expr) (ge1 : gtree) : gtree :=
++    GenNode 20 [ge1].
+ 
+   (* Evaluation contexts. *)
+   Definition encode_EmptyCtx : gtree :=
+@@ -1216,6 +1268,7 @@ Section countable.
+       encode_Alloc
+       encode_Load
+       encode_Store
++      encode_Replace
+       encode_LitV
+       encode_RecV
+       encode_PairV
+@@ -1242,6 +1295,8 @@ Section countable.
+       encode_LoadCtx
+       encode_StoreLCtx
+       encode_StoreRCtx
++      encode_ReplaceLCtx
++      encode_ReplaceRCtx
+       encode_EmptyCtx
+       encode_ConsCtx.
+ 
+@@ -1266,6 +1321,7 @@ Section countable.
+       encode_Alloc
+       encode_Load
+       encode_Store
++      encode_Replace
+       encode_LitV
+       encode_RecV
+       encode_PairV
+@@ -1292,6 +1348,8 @@ Section countable.
+       encode_LoadCtx
+       encode_StoreLCtx
+       encode_StoreRCtx
++      encode_ReplaceLCtx
++      encode_ReplaceRCtx
+       encode_EmptyCtx
+       encode_ConsCtx.
+ 
+@@ -1316,6 +1374,7 @@ Section countable.
+       encode_Alloc
+       encode_Load
+       encode_Store
++      encode_Replace
+       encode_LitV
+       encode_RecV
+       encode_PairV
+@@ -1342,6 +1401,8 @@ Section countable.
+       encode_LoadCtx
+       encode_StoreLCtx
+       encode_StoreRCtx
++      encode_ReplaceLCtx
++      encode_ReplaceRCtx
+       encode_EmptyCtx
+       encode_ConsCtx.
+ 
+@@ -1366,6 +1427,7 @@ Section countable.
+       encode_Alloc
+       encode_Load
+       encode_Store
++      encode_Replace
+       encode_LitV
+       encode_RecV
+       encode_PairV
+@@ -1392,6 +1454,8 @@ Section countable.
+       encode_LoadCtx
+       encode_StoreLCtx
+       encode_StoreRCtx
++      encode_ReplaceLCtx
++      encode_ReplaceRCtx
+       encode_EmptyCtx
+       encode_ConsCtx.
+ 
+@@ -1441,6 +1505,8 @@ Section countable.
+         Load (decode_expr ge)
+     | GenNode 18 [ge1; ge2] =>
+         Store (decode_expr ge1) (decode_expr ge2)
++    | GenNode 19 [ge1; ge2] =>
++        Replace (decode_expr ge1) (decode_expr ge2)
+     | _ =>
+         Val $ LitV $ LitUnit
+     end.
+@@ -1510,6 +1576,10 @@ Section countable.
+         StoreLCtx (decode_val gv2)
+     | GenNode 18 [ge1] =>
+         StoreRCtx (decode_expr ge1)
++    | GenNode 19 [gv2] =>
++        ReplaceLCtx (decode_val gv2)
++    | GenNode 20 [ge1] =>
++        ReplaceRCtx (decode_expr ge1)
+     | _ =>
+         FstCtx
+     end.
+diff --git a/theories/program_logic/state_reasoning.v b/theories/program_logic/state_reasoning.v
+index 45e8334..afef370 100644
+--- a/theories/program_logic/state_reasoning.v
++++ b/theories/program_logic/state_reasoning.v
+@@ -197,4 +197,38 @@ Section reasoning_rules.
+       + destruct (fill_val' k e1' w)  as [-> ->]. naive_solver. by inversion H1.
+   Qed.
+ 
++  (* ------------------------------------------------------------------------ *)
++  (** Replace. *)
++
++  Lemma ewp_replace E Ψ1 Ψ2 Φ l v w :
++    ▷ l ↦ v -∗
++      ▷ (l ↦ w ={E}=∗ Φ v) -∗
++        EWP (Replace #l w)%E @ E <| Ψ1 |> {| Ψ2 |} {{ Φ }}.
++  Proof.
++    iIntros "Hl HΦ".
++    rewrite ewp_unfold /ewp_pre //=.
++    iIntros (σ ????) "Hσ".
++    iAssert (▷ (l ↦ v ∗ gen_heap_interp (heap σ) ∗ ⌜ heap σ !! l = Some v ⌝))%I
++      with "[Hl Hσ]" as "(Hl & Hσ & >%Hvalid)".
++    { iNext. iDestruct (gen_heap_valid with "Hσ Hl") as %H. by iFrame. }
++    iApply fupd_mask_intro. by apply empty_subseteq. iIntros "Hclose".
++    iSplitR.
++    - iPureIntro. rewrite /reducible //=.
++      exists [], v, (heap_upd <[ l := w ]> σ), []. simpl.
++      apply (Ectx_prim_step _ _ _ _ [] (Replace #l w)%E v); try done.
++      apply ReplaceS. by eauto.
++    - iIntros (e₂ σ₂ Hstep) "!>!>".
++      iMod (gen_heap_update  _ _ _ w with "Hσ Hl") as "[Hσ Hl]".
++      destruct κ; [|done]. simpl in Hstep.
++      destruct Hstep; destruct k  as [|f k]; [| destruct f; try naive_solver ].
++      + simpl in H, H0. simplify_eq. inversion H1. simplify_eq. iFrame.
++        iMod "Hclose". iMod ("HΦ" with "Hl").
++        iApply fupd_mask_intro. by apply empty_subseteq. iIntros "Hclose'".
++        iMod "Hclose'". iModIntro.
++        by iApply ewp_value.
++      + destruct (fill_val' k e1' #l) as [-> ->]. naive_solver. by inversion H1.
++      + destruct (fill_val' k e1' w)  as [-> ->]. naive_solver. by inversion H1.
++  Qed.
++
++
+ End reasoning_rules.
+diff --git a/theories/program_logic/tactics.v b/theories/program_logic/tactics.v
+index 22c9b52..4832fc4 100644
+--- a/theories/program_logic/tactics.v
++++ b/theories/program_logic/tactics.v
+@@ -43,6 +43,8 @@ Ltac reshape_expr e tac :=
+     | Load ?e               => add_item LoadCtx k e
+     | Store ?e (Val ?v)     => add_item (StoreLCtx v) k e
+     | Store ?e1 ?e2         => add_item (StoreRCtx e1) k e2
++    | Replace ?e (Val ?v)   => add_item (ReplaceLCtx v) k e
++    | Replace ?e1 ?e2       => add_item (ReplaceRCtx e1) k e2
+ 
+     | Val _                 => tac k e
+     | Eff _ _ _             => tac k e
+-- 
+2.47.0
+

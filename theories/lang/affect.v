@@ -82,7 +82,7 @@ Definition ListMatch e1 e2 x e3 :=
   (Case (unfold: e1)%E (Lam BAnon e2) (Lam (BNamed x) (App (App e3 (Fst (Var x))) (Snd (Var x))))).
 Notation "'list-match:' e1 'with' 'CONS' x => xs => e3 | 'NIL' => e2 'end'" :=
   (ListMatch e1 e2%E x%binder (Lam x%binder (Lam xs%binder e3%E)))
-  (e1, x, xs, e2, e1 at level 200,
+  (x, xs, e2, e1 at level 200,
    format "'[hv' 'list-match:'  e1  'with'  '/  ' '[' 'CONS'  x  =>  xs  =>  '/  ' e3 ']'  '/' '[' |  'NIL'  =>  '/  ' e2 ']'  '/' 'end' ']'") : expr_scope.
 
 Definition from_binder (b : binder) (e : expr) : expr :=
@@ -149,7 +149,7 @@ Proof.
   intros Hval Heff n Φ₁ Φ₂ HΦ. rewrite !ewp_unfold /ewp_pre /=.
   destruct (to_val e) eqn:?; [inversion Hval|].
   destruct (to_eff e) eqn:?; [inversion Heff|].
-  do 25 (f_contractive || f_equiv).
+  do 24 (f_contractive || f_equiv).
   apply HΦ.
 Qed.
 
@@ -161,7 +161,7 @@ Proof.
   intros Hval Heff Φ₁ Φ₂ HΦ. rewrite !ewp_unfold /ewp_pre /=.
   destruct (to_val e) eqn:?; [inversion Hval|].
   destruct (to_eff e) eqn:?; [inversion Heff|].
-  do 25 (f_contractive || f_equiv).
+  do 24 (f_contractive || f_equiv).
   apply HΦ.
 Qed.
 
@@ -182,8 +182,8 @@ Proof.
   - rewrite ewp_unfold {1}/ewp_pre Heqo Heqo0.
     iIntros (σ₁ ns κ κs nt) "Hσ₁". 
     iMod ("Hewp" $! σ₁ ns κ κs nt with "Hσ₁") as "[Hred Hewp]".
-    iIntros "!> {$Hred} %e₂ %σ₂ Hprim Hcred /=".
-    iSpecialize ("Hewp" $! e₂ σ₂ with "Hprim Hcred").
+    iIntros "!> {$Hred} %e₂ %σ₂ Hprim /=".
+    iSpecialize ("Hewp" $! e₂ σ₂ with "Hprim").
     iMod "Hewp" as "Hewp". iIntros "!> !>".
     iMod "Hewp" as "Hewp". iIntros "!>".
     iInduction (num_laters_per_step) as [|] "IH";
