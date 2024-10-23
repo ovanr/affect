@@ -380,7 +380,7 @@ Section compatibility.
     destruct x; solve_env. 
   Qed.
 
-  Lemma sem_typed_afun τ ρ Γ₁ Γ₂ x e κ: 
+  Corollary sem_typed_afun τ ρ Γ₁ Γ₂ x e κ: 
     x ∉ (env_dom Γ₁) → x ∉ (env_dom Γ₂) →
     (x,τ) ::? Γ₁ ⊨ e : ρ : κ ⫤ [] -∗
     Γ₁ ++ Γ₂ ⊨ (λ: x, e) : ⟨⟩ : (τ -{ ρ }-∘ κ) ⫤ Γ₂.
