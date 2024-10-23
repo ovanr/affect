@@ -236,7 +236,7 @@ Section row_sub_typing.
       by iApply iEff_le_upcl.
   Qed.
   
-  Lemma row_le_mfbang_elim_cons {Σ} op m σ (ρ : sem_row Σ) :
+  Lemma row_le_mfbang_dist_cons {Σ} op m σ (ρ : sem_row Σ) :
     ⊢ ¡[ m ] ((op, σ) · ρ) ≤ᵣ (op, ¡[ m ] σ)%S · (¡[ m ] ρ).
   Proof. 
     rewrite /sem_row_flip_mbang. 
@@ -249,7 +249,7 @@ Section row_sub_typing.
     OnceR ((op, σ) · ρ)%R.
   Proof.
     constructor. inv OnceS0. inv OnceR0.
-    iApply row_le_trans; first iApply row_le_mfbang_elim_cons.
+    iApply row_le_trans; first iApply row_le_mfbang_dist_cons.
     iApply row_le_cons_comp; [iApply sig_le_mfbang_elim|iApply row_le_mfbang_elim0].
   Qed.
   

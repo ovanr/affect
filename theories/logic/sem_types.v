@@ -549,51 +549,6 @@ Section sub_typing.
   Global Instance multi_ty_sum τ κ `{!MultiT τ} `{!MultiT κ} : MultiT (τ + κ).
   Proof. constructor. inv MultiT0. inv MultiT1. by iApply ty_le_mbang_intro_sum. Qed.
 
-  Lemma ty_le_mbang_intro_type_forall (C : sem_ty Σ → sem_ty Σ) m :
-    (∀ α, (C α) ≤ₜ ![m] (C α)) -∗ (∀ₜ α, C α) ≤ₜ ![m] (∀ₜ α, C α).
-  Proof. 
-    iIntros "#Hle % !# H". rewrite /sem_ty_mbang /sem_ty_type_forall.
-    iApply forall_intuitionistically_if. iIntros (τ).
-    iApply ("Hle" with "H").
-  Qed.
-
-  Global Instance multi_ty_type_forall (C : sem_ty Σ → sem_ty Σ) `{! ∀ α, MultiT (C α) } : 
-    MultiT (∀ₜ α, C α).
-  Proof. 
-    constructor. iApply ty_le_mbang_intro_type_forall. 
-    iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
-  Qed.
-
-  Lemma ty_le_mbang_intro_row_forall (C : sem_row Σ → sem_ty Σ) m :
-    (∀ θ, (C θ) ≤ₜ ![m] (C θ)) -∗ (∀ᵣ θ, C θ) ≤ₜ ![m] (∀ᵣ θ, C θ).
-  Proof. 
-    iIntros "#Hle % !# H". rewrite /sem_ty_mbang /sem_ty_row_forall.
-    iApply forall_intuitionistically_if. iIntros (ρ).
-    iApply ("Hle" with "H").
-  Qed.
-  
-  Global Instance multi_ty_row_forall (C : sem_row Σ → sem_ty Σ) `{! ∀ θ, MultiT (C θ) } : 
-    MultiT (∀ᵣ θ, C θ).
-  Proof. 
-    constructor. iApply ty_le_mbang_intro_row_forall. 
-    iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
-  Qed.
-
-  Lemma ty_le_mbang_intro_mode_forall (C : mode → sem_ty Σ) m :
-    (∀ ν, (C ν) ≤ₜ ![m] (C ν)) -∗ (∀ₘ ν, C ν) ≤ₜ ![m] (∀ₘ ν, C ν).
-  Proof. 
-    iIntros "#Hle % !# H". rewrite /sem_ty_mbang /sem_ty_mode_forall.
-    iApply forall_intuitionistically_if. iIntros (m').
-    iApply ("Hle" with "H").
-  Qed.
-
-  Global Instance multi_ty_mode_forall (C : mode → sem_ty Σ) `{ ∀ ν, MultiT (C ν) } : 
-    MultiT (∀ₘ ν, C ν).
-  Proof. 
-    constructor. iApply ty_le_mbang_intro_mode_forall. 
-    iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
-  Qed.
-
   Lemma ty_le_mbang_intro_ref_cpy τ m : ⊢ (Refᶜ τ) ≤ₜ ![m] (Refᶜ τ).
   Proof. 
     iIntros "!# % #H". 
@@ -747,6 +702,51 @@ Section sub_typing.
     iIntros "!# %v Hτ".  
     iDestruct (intuitionistically_if_forall with "Hτ") as "Hτ". 
     iApply "Hτ".
+  Qed.
+
+  Corollary ty_le_mbang_intro_type_forall (C : sem_ty Σ → sem_ty Σ) m :
+    (∀ α, (C α) ≤ₜ ![m] (C α)) -∗ (∀ₜ α, C α) ≤ₜ ![m] (∀ₜ α, C α).
+  Proof. 
+    iIntros "#Hle". iApply ty_le_trans.
+    { iApply ty_le_type_forall. iIntros (α). iApply "Hle". }
+    simpl. iApply ty_le_mbang_type_forall.
+  Qed.
+
+  Global Instance multi_ty_type_forall (C : sem_ty Σ → sem_ty Σ) `{! ∀ α, MultiT (C α) } : 
+    MultiT (∀ₜ α, C α).
+  Proof. 
+    constructor. iApply ty_le_mbang_intro_type_forall. 
+    iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
+  Qed.
+
+  Corollary ty_le_mbang_intro_row_forall (C : sem_row Σ → sem_ty Σ) m :
+    (∀ θ, (C θ) ≤ₜ ![m] (C θ)) -∗ (∀ᵣ θ, C θ) ≤ₜ ![m] (∀ᵣ θ, C θ).
+  Proof. 
+    iIntros "#Hle". iApply ty_le_trans.
+    { iApply ty_le_row_forall. iIntros (α). iApply "Hle". }
+    simpl. iApply ty_le_mbang_row_forall.
+  Qed.
+  
+  Global Instance multi_ty_row_forall (C : sem_row Σ → sem_ty Σ) `{! ∀ θ, MultiT (C θ) } : 
+    MultiT (∀ᵣ θ, C θ).
+  Proof. 
+    constructor. iApply ty_le_mbang_intro_row_forall. 
+    iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
+  Qed.
+
+  Lemma ty_le_mbang_intro_mode_forall (C : mode → sem_ty Σ) m :
+    (∀ ν, (C ν) ≤ₜ ![m] (C ν)) -∗ (∀ₘ ν, C ν) ≤ₜ ![m] (∀ₘ ν, C ν).
+  Proof. 
+    iIntros "#Hle". iApply ty_le_trans.
+    { iApply ty_le_mode_forall. iIntros (α). iApply "Hle". }
+    simpl. iApply ty_le_mbang_mode_forall.
+  Qed.
+
+  Global Instance multi_ty_mode_forall (C : mode → sem_ty Σ) `{ ∀ ν, MultiT (C ν) } : 
+    MultiT (∀ₘ ν, C ν).
+  Proof. 
+    constructor. iApply ty_le_mbang_intro_mode_forall. 
+    iIntros (τ). specialize (H τ). inv H. iApply multi_ty0.
   Qed.
 
   Corollary ty_le_uarr (τ₁ κ₁ τ₂ κ₂ : sem_ty Σ) (ρ ρ' : sem_row Σ) :

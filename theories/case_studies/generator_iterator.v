@@ -27,14 +27,14 @@ Definition yield := (λ: "x", perform: "yield" "x")%V.
 Definition generate :=
   (λ: "i", let: "cont" := ref (λ: <>, "i" yield) in
       λ: <>, shandle: ("cont" <!- (λ: <>, #())) #() by
-                "yield" => λ: "x" "k", "cont" <!- "k" ;; SOME "x"
+                "yield" => λ: "x" "k", "cont" <- "k" ;; SOME "x"
                | ret    => λ: "x", NONE
              end
   )%V.
 
 Definition generate_deep :=
   (λ: "i", let: "cont" := ref (λ: <>, NONE) in
-              "cont" <!- (λ: <>, handle: "i" yield by
+              "cont" <- (λ: <>, handle: "i" yield by
                                    "yield" => λ: "x" "k", "cont" <!- "k" ;; SOME "x"
                                   | ret    =>  λ: "x", NONE
                                 end) ;;
@@ -131,7 +131,7 @@ Section typing.
         { iApply ty_le_trans; first iApply ty_le_mbang_elim.
           iApply ty_le_arr; first iApply (row_le_mfbang_intro OS); iApply ty_le_refl. }
         iApply sem_typed_seq.
-        { iApply sem_typed_replace_cpy_os; iApply sem_typed_var. }
+        { iApply sem_typed_store_cpy; iApply sem_typed_var. }
         iApply sem_typed_some. iApply sem_typed_var.
       * simpl. do 2 iApply sem_typed_weaken.
         iApply sem_typed_none.
@@ -150,7 +150,7 @@ Section typing.
       iApply sem_typed_sub_nil. iApply sem_typed_none.
     - iApply (sem_typed_seq _ _ _ _ [("cont", Refᶜ cont_ty)]).
       + iApply sem_typed_contraction. iApply sem_typed_frame.
-        iApply sem_typed_replace_cpy_os; first iApply sem_typed_var.
+        iApply sem_typed_store_cpy; first iApply sem_typed_var.
         iApply sem_typed_contraction. iApply sem_typed_frame.
         rewrite -(app_nil_r [("cont", _); ("i", _)]).
         smart_apply sem_typed_afun. simpl (_ ::? _).
