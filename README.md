@@ -38,7 +38,7 @@ Compile `Affect` (this can take up to 10 minutes).
 By default all case studies are compiled. 
 You can omit them from the compilation by commenting their corresponding line in `_CoqProject`.
 ```bash
-make -j 4.
+make -j 4
 ```
 
 ## Using the VirtualBox image
@@ -119,7 +119,7 @@ This approach is explained in Section 5.1 of the paper.
 ### 3. One-Shot & 4. Multi-Shot Affect Language
 
 In the Coq formalisation we do not distinguish between the one-shot language and the full one with multi-shot effects.
-Instead we only support the full language as the one-shot language is a strict subset of it.
+Instead we only support the full language as the one-shot language is a subset of it.
 
 | Lemmas and expressions from paper                  | Coq Formalisation 
 | -------------------------------------------------- | ------------------------------------------------------------
