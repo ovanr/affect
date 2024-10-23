@@ -76,8 +76,8 @@ Note that during installation the `hazel` directory will be created that stores 
 
 ### Syntax and Semantics
 
-As noted above, we do not define inductive datatypes for the syntax and semantics of Affect explicitly but instead encode our semantics on top of Hazel.  
-Hazel's language syntax and operational semantics can be found at `hazel/theories/language/sytnax.v` and `hazel/theories/language/semantics.v` and the encoding of Affect is found at `theories/lang/affect.v` and `theories/lang/handler.v`.
+As noted above, we do not define inductive datatypes for the syntax and semantics of Affect explicitly but instead encode our semantics on top of Hazel.
+Hazel's language syntax and operational semantics can be found at `hazel/theories/language/syntax.v` and `hazel/theories/language/semantics.v` and the encoding of Affect is found at `theories/lang/affect.v` and `theories/lang/handler.v`.
 
 ### Purely Semantic Typing
 
