@@ -40,11 +40,10 @@ Definition sem_typed `{!heapGS Σ}
 Definition sem_oval_typed `{!heapGS Σ}
   (Γ₁ : env Σ)
   (e : expr)
-  (τ : sem_ty Σ) 
-  (Γ₂ : env Σ) : iProp Σ :=
+  (τ : sem_ty Σ) : iProp Σ :=
     tc_opaque (□ (∀ (vs : gmap string val),
                     env_sem_typed Γ₁ vs -∗ 
-                    (PWP (subst_map vs e) [{ v, τ v ∗ env_sem_typed Γ₂ vs }])))%I.
+                    (PWP (subst_map vs e) [{ v, τ v }])))%I.
 
 Global Instance sem_typed_persistent `{!heapGS Σ} (Γ Γ' : env Σ) e ρ τ :
   Persistent (sem_typed Γ e ρ τ Γ').
@@ -52,8 +51,8 @@ Proof.
   unfold sem_typed, tc_opaque. apply _.
 Qed.
 
-Global Instance sem_oval_typed_persistent `{!heapGS Σ} (Γ Γ' : env Σ) e τ :
-  Persistent (sem_oval_typed Γ e τ Γ').
+Global Instance sem_oval_typed_persistent `{!heapGS Σ} (Γ : env Σ) e τ :
+  Persistent (sem_oval_typed Γ e τ).
 Proof.
   unfold sem_oval_typed, tc_opaque. apply _.
 Qed.
@@ -64,7 +63,7 @@ Notation "Γ₁ ⊨ e : ρ : τ ⫤ Γ₂" := (sem_typed Γ₁%EN e%E ρ%R τ%T 
 Notation "⊨ e : ρ : τ" := (sem_typed [] e%E ρ%R τ%T [])
   (at level 74, e, ρ, τ at next level) : bi_scope.
 
-Notation "Γ₁ ⊨ₚ e : α ⫤ Γ₂" := (sem_oval_typed Γ₁%EN e%E α%T Γ₂%EN)
+Notation "Γ₁ ⊨ₚ e : α" := (sem_oval_typed Γ₁%EN e%E α%T)
   (at level 74, e, α at next level) : bi_scope.
 
 Notation "⊨ₚ e : α" := (sem_oval_typed [] e%E α%T [])
