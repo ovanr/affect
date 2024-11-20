@@ -135,7 +135,6 @@ Instead we only support the full language as the one-shot language is a subset o
 | `ModeSub-M`                                        | `mode_type_sub_multi_ty` in `theories/logic/sem_types.v`
 | `ModeSub-Nil`                                      | `mode_env_sub_nil` in `theories/logic/sem_env.v`
 | `ModeSub-Cons`                                     | `mode_env_sub_cons` in `theories/logic/sem_env.v`
-| `ModeSub-Cons`                                     | `mode_env_sub_cons` in `theories/logic/sem_env.v`
 | `RowSub-Once`                                      | `row_type_sub_once` in `theories/logic/sem_row.v`
 | `RowSub-Multi`                                     | `row_type_sub_multi_ty` in `theories/logic/sem_types.v`
 | `RowSub-Nil`                                       | `row_env_sub_nil` in `theories/logic/sem_env.v`
