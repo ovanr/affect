@@ -40,8 +40,7 @@ make -j 4
 ```
 
 ## Using the VirtualBox image
-
-Download the virtualbox image (`ubuntu20.04lts-affect.ova`) from [zenodo](https://zenodo.org/uploads/13907548) and import as appliance in VirtualBox 7.1. 
+Download the virtualbox image (`ubuntu20.04lts-affect.ova`) from [zenodo](https://doi.org/10.5281/zenodo.14198790) and import as appliance in VirtualBox 7.1. 
 The username and password is `affect` in both cases and the formalisation can be found at `/home/affect/affect`. 
 CoqIDE is also installed which you can use to explore the Coq code.
 
