@@ -376,6 +376,7 @@ Definition shandler_spec
   □  (P -∗
   (* Correctness of the return branch. *)
   (∀ (v : val), Φ v -∗ EWPW r v @ E <| ρ' |> {{ Φ' }}) ∧
+
   (* Correctness of the effect branch. *)
   (∀ (v k : val),
      iEff_car (upcl mh σ) v (λ w, EWPW k w @ E <| (op, σ) · ρ |> {{ Φ }}) -∗
@@ -389,11 +390,11 @@ Lemma ewpw_shandler E (op : operation) mh σ ρ ρ' e (h r : val) Φ Φ' :
 Proof.
   iIntros "He [#Hle (%P & #Hmono & HP & #Hbr)]". rewrite /SHandlerV /ewpw. 
   iLöb as "IH" forall (e). rewrite {2} /shandler. ewp_pure_steps.
-  iApply (ewp_try_with_spl with "[He]").
+  iApply (ewp_try_with with "[He]").
   { ewp_pure_steps. iApply "He". }
   iSplit; last iSplit.
   - iDestruct ("Hbr" with "HP") as "[$ _]".
-  - iIntros (???) "(% & [] & _)".
+  - iIntros (??) "(% & [] & _)".
   - iIntros (v k) "Hρ".
     ewp_pure_steps. 
     iDestruct "Hρ" as "(%Φ'' & (%op' & %v' & -> & H) & #HPost)".

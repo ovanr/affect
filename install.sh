@@ -83,16 +83,13 @@ if (( hazel_install == 1 )); then
     git clone https://gitlab.inria.fr/cambium/hazel
     if (( $? != 0)); then
         echo "Unable to fetch coq-hazel from https://gitlab.inria.fr/cambium/hazel"
-        echo "Using local copy instead."
-        tar xzf hazel-local-copy.tar.gz
+        exit 1
     fi
     cd hazel
     
     echo -e "\n> Applying Hazel patch for Affect\n"
-    git checkout 0936b5dc00b5d0b5802e7ca8e3dbd5afeafd970e
-    git am --whitespace=nowarn ../hazel-patches/0001-Bumps-Iris-version-to-dev.2024-10-07.0.6dece417.patch
+    git checkout 73e3a84eecf655e366d8791e1c94b7bbe01db597
     git am --whitespace=nowarn ../hazel-patches/0001-Adds-a-Replace-e1-e2-construct.patch
-    git am --whitespace=nowarn ../hazel-patches/0001-Add-IsContOS-unary-operation-and-specialised-shallow.patch
     
     echo -e "\n> Installing coq-hazel and local dependencies. This can take 5-10 minutes.\n"
     opam install . 

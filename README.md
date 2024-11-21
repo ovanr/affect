@@ -20,16 +20,14 @@ eval "$(opam env --switch=affect)"
 ```
 
 `Affect` relies on `coq-hazel` a separation logic library for effect handlers. 
-To install `coq-hazel` we need to manually fetch it and apply three patches (this can take 5-10 minutes).
+To install `coq-hazel` we need to manually fetch it and apply the patches (this can take 5-10 minutes).
 ```bash
 git clone https://gitlab.inria.fr/cambium/hazel
 ## If gitlab.inria.fr is down use local hazel copy: 
 # tar xzf hazel-local-copy.tar.gz
 cd hazel
-git checkout 0936b5dc00b5d0b5802e7ca8e3dbd5afeafd970e
-git am --whitespace=nowarn ../hazel-patches/0001-Bumps-Iris-version-to-dev.2024-10-07.0.6dece417.patch
+git checkout 73e3a84eecf655e366d8791e1c94b7bbe01db597
 git am --whitespace=nowarn ../hazel-patches/0001-Adds-a-Replace-e1-e2-construct.patch
-git am --whitespace=nowarn ../hazel-patches/0001-Add-IsContOS-unary-operation-and-specialised-shallow.patch
 opam install . 
 cd ..
 ```
