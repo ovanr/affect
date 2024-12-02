@@ -87,11 +87,8 @@ if (( hazel_install == 1 )); then
     fi
     cd hazel
     
-    echo -e "\n> Applying Hazel patch for Affect\n"
-    git checkout 73e3a84eecf655e366d8791e1c94b7bbe01db597
-    git am --whitespace=nowarn ../hazel-patches/0001-Adds-a-Replace-e1-e2-construct.patch
-    
     echo -e "\n> Installing coq-hazel and local dependencies. This can take 5-10 minutes.\n"
+    git checkout b31976cd8f20502ae8c674c22b165053cbaf8852
     opam install . 
 
     cd ..
