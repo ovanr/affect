@@ -277,50 +277,47 @@ Section compatibility.
     iApply sem_typed_sub_env; [iApply env_le_weaken|iApply "IH"].
   Qed.
 
-  Lemma sem_typed_frame Γ₁ e (ρ : sem_row Σ) x τ κ Γ₂ `{! OnceR ρ}:
+  Lemma sem_typed_frame_gen Γ₁ e ρ x τ κ Γ₂ `{! ρ ᵣ⪯ₜ τ }:
     Γ₁ ⊨ e : ρ : κ ⫤ Γ₂ -∗
     (x, τ) :: Γ₁ ⊨ e : ρ : κ ⫤ (x, τ) :: Γ₂.
   Proof.
     iIntros "#He %γ !# (%v & %Hrw & Hτ & HΓ₁)".
-    iApply (ewpw_mono_os with "[He HΓ₁]").
-    { by iApply "He". }
-    iIntros (w) "[Hκ HΓ₂]". solve_env.
+    iApply (ewpw_mono _ _ _ (λ w, (κ w ∗ Γ₂ ⊨ₑ γ) ∗ τ v)%I with "[Hτ HΓ₁]").
+    { iApply (ewpw_row_type_sub with "[HΓ₁] Hτ"). by iApply "He". }
+    iIntros "!# % ([Hκ HΓ₂] & Hτ) !>". iFrame. iExists v. iFrame. by iPureIntro.
   Qed.
 
-  Lemma sem_typed_frame_ms Γ₁ e ρ x τ κ Γ₂ `{! MultiT τ }:
+  Corollary sem_typed_frame Γ₁ e (ρ : sem_row Σ) x τ κ Γ₂ `{! OnceR ρ}:
     Γ₁ ⊨ e : ρ : κ ⫤ Γ₂ -∗
     (x, τ) :: Γ₁ ⊨ e : ρ : κ ⫤ (x, τ) :: Γ₂.
-  Proof.
-    iIntros "#He %γ !# (%v & %Hrw & #Hτ & HΓ₁)".
-    iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He"|].
-    iIntros "!# %w [Hκ HΓ₂]". solve_env.
-  Qed.
+  Proof. iApply sem_typed_frame_gen. Qed.
 
-  Lemma sem_typed_frame_env Γ₁ Γ' e (ρ : sem_row Σ) τ Γ₂ `{! OnceR ρ}:
+  Corollary sem_typed_frame_ms Γ₁ e ρ x τ κ Γ₂ `{! MultiT τ }:
+    Γ₁ ⊨ e : ρ : κ ⫤ Γ₂ -∗
+    (x, τ) :: Γ₁ ⊨ e : ρ : κ ⫤ (x, τ) :: Γ₂.
+  Proof. iApply sem_typed_frame_gen. Qed.
+
+  Lemma sem_typed_frame_env_gen Γ₁ Γ' e (ρ : sem_row Σ) τ Γ₂ `{! ρ ᵣ⪯ₑ Γ' }:
     Γ₁ ⊨ e : ρ : τ ⫤ Γ₂ -∗
     Γ' ++ Γ₁ ⊨ e : ρ : τ ⫤ Γ' ++ Γ₂.
   Proof.
     iIntros "#He %γ !# HΓ'Γ₁".
     iDestruct (env_sem_typed_app with "HΓ'Γ₁") as "[HΓ' HΓ₁]".
-    iInduction Γ' as [|[x κ]] "IH".
-    { simpl. by iApply "He". }
-    iDestruct "HΓ'" as "(%v & %Hrw & Hκ & HΓ'')".
-    iApply (ewpw_mono_os with "[HΓ'' HΓ₁]").
-    { iApply ("IH" with "HΓ'' HΓ₁"). }
-    iIntros (w) "[$ HΓ] !>". solve_env.
+    iApply (ewpw_mono _ _ _ (λ w, (τ w ∗ Γ₂ ⊨ₑ γ) ∗ Γ' ⊨ₑ γ)%I with "[HΓ' HΓ₁]").
+    { iApply (ewpw_frame with "[] HΓ' [HΓ₁] "); [inv H; iApply row_env_sub|by iApply "He"]. }
+    iIntros "!# % ([Hκ HΓ₂] & Hτ) !>". iFrame. 
+    iApply env_sem_typed_app. iFrame.
   Qed.
+
+  Corollary sem_typed_frame_env Γ₁ Γ' e (ρ : sem_row Σ) τ Γ₂ `{! OnceR ρ}:
+    Γ₁ ⊨ e : ρ : τ ⫤ Γ₂ -∗
+    Γ' ++ Γ₁ ⊨ e : ρ : τ ⫤ Γ' ++ Γ₂.
+  Proof. iApply sem_typed_frame_env_gen. Qed.
 
   Lemma sem_typed_frame_env_ms Γ₁ Γ' e ρ τ Γ₂ `{! MultiE Γ'} :
     Γ₁ ⊨ e : ρ : τ ⫤ Γ₂ -∗
     Γ' ++ Γ₁ ⊨ e : ρ : τ ⫤ Γ' ++ Γ₂.
-  Proof.
-    iIntros "#He %γ !# HΓ'Γ₁".
-    iDestruct (env_sem_typed_app with "HΓ'Γ₁") as "[#HΓ' HΓ₁]".
-    iApply (ewpw_mono _ _ _ (λ v, τ v ∗ Γ₂ ⊨ₑ γ) with "[HΓ₁]").
-    { by iApply "He". }
-    iIntros "!# % [Hτ HΓ₂] !> {$Hτ}".
-    rewrite env_sem_typed_app. iFrame "∗#".
-  Qed.
+  Proof. iApply sem_typed_frame_env_gen. Qed.
 
   Corollary sem_typed_unit' Γ ρ : 
     ⊢ Γ ⊨ #() : ρ : 𝟙 ⫤ Γ.
@@ -896,12 +893,12 @@ Section compatibility.
   Qed.
   
   (* Generic Cons Rule *)
-  Lemma sem_typed_cons_gen τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ `{ ρ ᵣ⪯ₜ (List τ)} :
+  Lemma sem_typed_cons_gen τ ρ Γ₁ Γ₂ Γ₃ e₁ e₂ `{ρ ᵣ⪯ₜ List τ} :
     Γ₂ ⊨ e₁ : ρ : τ ⫤ Γ₃-∗
     Γ₁ ⊨ e₂ : ρ : List τ ⫤ Γ₂-∗
     Γ₁ ⊨ CONS e₁ e₂ : ρ : List τ ⫤ Γ₃.
   Proof.
-    iIntros "#He₁ #He₂ !# %γ HΓ₁ //=". 
+    iIntros "#He₁ #He₂ !# %γ HΓ₁ //=".
     iApply (ewpw_bind [InjRCtx; PairRCtx _]); first done.
     iApply (ewpw_mono with "[HΓ₁]"); [by iApply "He₂"|].
     iIntros "!# %l [Hl HΓ₂] //= !>".

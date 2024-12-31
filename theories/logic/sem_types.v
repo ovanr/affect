@@ -623,6 +623,22 @@ Section sub_typing.
   Global Instance multi_ty_list τ `{! MultiT τ } : MultiT (List τ).
   Proof. constructor. inv MultiT0. by iApply ty_le_mbang_intro_list. Qed.
 
+  Lemma ty_le_list_mbang m τ :
+    ⊢ ![m] (List τ) ≤ₜ List (![m] τ).
+  Proof. 
+    destruct m; simpl; first iApply ty_le_refl.
+    iIntros "!# %v Hτα".
+    rewrite /sem_ty_mbang /= /sem_ty_list /ListF.
+    rewrite sem_ty_rec_unfold bi.later_intuitionistically_2.
+    iLöb as "IH" forall (v).
+    iApply sem_ty_rec_unfold. 
+    iNext. iDestruct "Hτα" as "#(% & [(-> & H)|(-> & % & % & -> & Hτ & Hrec)])".
+    { iExists v'. iLeft. iSplit; done. }
+    iExists (v₁, v₂)%V. iRight; iSplit; first done.
+    iExists v₁, v₂. iSplit; first done. iFrame "#".
+    iApply "IH". rewrite sem_ty_rec_unfold. iNext. iApply "Hrec".
+  Qed.
+
   Lemma ty_le_mbang_elim (m : mode) (τ : sem_ty Σ) :
     ⊢ (![m] τ) ≤ₜ τ.
   Proof. iIntros "!# % H". iDestruct (bi.intuitionistically_if_elim with "H") as "$". Qed.
@@ -783,7 +799,19 @@ Section row_type_sub.
     destruct m; first apply _. 
     apply row_type_sub_multi_ty. apply _.
   Qed.
-  
+ 
+  Global Instance row_type_sub_ty_equiv {Σ} (ρ : sem_row Σ) (τ τ' : sem_ty Σ) : 
+    (⊢ τ ≤ₜ τ') → (⊢ τ' ≤ₜ τ) → ρ ᵣ⪯ₜ τ → ρ ᵣ⪯ₜ τ'.
+  Proof.
+    constructor.
+    iIntros "%w %v %Φ !# Hρ Hτ'".
+    iDestruct (pmono_prot_prop _ (sem_row_car ρ)) as "H". 
+    iApply ("H" $! _ (λ u, Φ u ∗ τ w)%I with "[] [Hτ' Hρ]").
+    { iIntros "!# % [$ Hτ]". by iApply H. }
+    iDestruct (H0 with "Hτ'") as "Hτ".
+    iApply (row_type_sub with "Hρ Hτ").
+  Qed.
+
 End row_type_sub.
 
 Section mode_type_sub.
