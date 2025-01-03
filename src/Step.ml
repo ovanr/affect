@@ -35,13 +35,18 @@ module StepEff =
                     Choose () -> Some(fun (k : (a, 'b) continuation) -> 
                         let open Multicont.Deep in
                         let r = promote k in
-                        Seq.append (resume r true) (resume r false)
+                            fun () -> let rec go s = match s () with 
+                                                        Seq.Nil -> resume r true ()
+                                                      | Seq.Cons(x, s') -> Seq.Cons (x, fun () -> go s') 
+                                      in go (resume r false)
                     )
                 |   _        -> None
         }
+
     end
 
 open StepEff
+
 let rec step n = if n = 0 then () else
                  if n = 1 then perform (Yield 1) else
                  if perform (Choose ()) then 
@@ -49,4 +54,4 @@ let rec step n = if n = 0 then () else
                  else 
                     (perform (Yield 2); step (n - 2))
             
-let m = handle_choose_lazy (fun () -> handle_yield (fun () -> step 5))
+let m = handle_choose (fun () -> handle_yield (fun () -> step 4))
