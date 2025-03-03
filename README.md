@@ -1,8 +1,9 @@
 # Affect
 
-This artifact provides the Coq formalisation of the [paper](https://iris-project.org/pdfs/2025-popl-affect.pdf):
+This artifact provides the Coq formalisation of the [paper](resources/Rooij.and.Krebbers.Affect.An.Affine.Type.and.Effect.System.Extended.pdf).
 
 van Rooij Orpheas, Krebbers Robbert, “Affect: An Affine Type and Effect System”, Proc. ACM Program. Lang. 9(POPL), 2025.
+https://dl.acm.org/doi/10.1145/3704841
 
 # Installation
 
